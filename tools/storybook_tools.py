@@ -109,26 +109,18 @@ def parse_kotlin(path):
             header = lines[i]
             m = DECL_RE.match(header)
             name = m.group(1)
-            # The declaration ends at the first `}` in column 0 after an opening brace, or on the
-            # header line itself when it opens no block.
-            depth = 0
-            end = i
-            opened = False
-            j = i
+            # The sources are ktfmt-formatted, so a top-level declaration runs until the next line
+            # that starts in column 0 with anything but a closing bracket: the next declaration.
+            # (Counting braces ended an expression-bodied `fun f() = a { … }.b()` at the first `}`.)
+            j = i + 1
             while j < len(lines):
-                stripped = re.sub(r'"(?:\\.|[^"\\])*"', '""', lines[j])
-                depth += stripped.count("{") - stripped.count("}")
-                if "{" in stripped:
-                    opened = True
-                if opened and depth <= 0:
-                    end = j
-                    break
-                if not opened and j > i and lines[j].strip() == "":
-                    end = j - 1
+                nxt = lines[j]
+                if nxt and not nxt[0].isspace() and not nxt.startswith(("}", ")", "]")):
                     break
                 j += 1
-            else:
-                end = len(lines) - 1
+            end = j - 1
+            while end > i and lines[end].strip() == "":
+                end -= 1
             block = lines[start : end + 1]
             composable = any("@RemoteComposable" in line for line in lines[start : i + 1])
             decls.append(Decl(name, block, composable))
@@ -224,7 +216,11 @@ def cmd_sources(args):
                         helpers.append(h)
                         queue.append(h)
             body = "\n\n".join([h.text for h in helpers] + [d.text])
-            used_imports = sorted(rewrite(imp) for imp in imports if import_used(imp.rsplit(".", 1)[1], body))
+            # Imports from every file a declaration came from: a helper in another file brings its own.
+            pool = set(imports)
+            for h in helpers:
+                pool.update(parsed[all_decls[h.name][0]][0])
+            used_imports = sorted({rewrite(imp) for imp in pool if import_used(imp.rsplit(".", 1)[1], body)})
             code = "\n".join("import " + i for i in used_imports) + "\n\n" + rewrite(body)
             out[d.name] = {
                 "file": os.path.basename(path),
@@ -242,6 +238,15 @@ def cmd_sources(args):
             )
             with open(os.path.join(args.verify_out, os.path.basename(path)), "w", encoding="utf-8") as fh:
                 fh.write(text)
+    if args.snippets_out:
+        os.makedirs(args.snippets_out, exist_ok=True)
+        for f in os.listdir(args.snippets_out):
+            if f.endswith(".kt"):
+                os.remove(os.path.join(args.snippets_out, f))
+        # Each snippet in a package of its own: exactly what a user copies, compiled with nothing else.
+        for fn, entry in out.items():
+            with open(os.path.join(args.snippets_out, fn + ".kt"), "w", encoding="utf-8") as fh:
+                fh.write(f"package rcstorybook.snippets.{fn.lower()}\n\n" + entry["code"])
     if errors:
         print("\n".join(errors), file=sys.stderr)
         return 1
@@ -569,6 +574,10 @@ def main():
     s.add_argument("--out", required=True)
     s.add_argument("--api")
     s.add_argument("--verify-out", help="also write each story file, rewritten, into this directory")
+    s.add_argument(
+        "--snippets-out",
+        help="also write each story's Code tab snippet, alone in its own package, into this directory",
+    )
     a = sub.add_parser("api")
     a.add_argument("--api", required=True)
     a.add_argument("--out", required=True)

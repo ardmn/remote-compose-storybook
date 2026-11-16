@@ -48,8 +48,10 @@ import ee.schimke.composeai.rccreation.compose.shapes.RemoteRoundedCornerShape
 import ee.schimke.composeai.rccreation.compose.state.MutableRemoteBoolean
 import ee.schimke.composeai.rccreation.compose.state.MutableRemoteInt
 import ee.schimke.composeai.rccreation.compose.state.RemoteImageBitmap
+import ee.schimke.composeai.rccreation.compose.state.RemoteInt
 import ee.schimke.composeai.rccreation.compose.state.RemotePaint
 import ee.schimke.composeai.rccreation.compose.state.RemotePaintingStyle
+import ee.schimke.composeai.rccreation.compose.state.RemoteString
 import ee.schimke.composeai.rccreation.compose.state.RemoteStrokeCap
 import ee.schimke.composeai.rccreation.compose.state.RemoteTimeVariables
 import ee.schimke.composeai.rccreation.compose.state.rc
@@ -155,8 +157,7 @@ fun WeatherWidget(city: String, temperature: Int, condition: String) {
     val temp = rememberNamedRemoteInt("temperature", temperature)
     val sky = rememberNamedRemoteString("condition", condition)
     val time = RemoteTimeVariables
-    val clock =
-        time.hourOfDay.toRemoteString() + ":".rs + (time.minuteOfDay % 60.ri).toRemoteString()
+    val clock = twoDigits(time.hourOfDay) + ":".rs + twoDigits(time.minuteOfDay % 60.ri)
     val gradientTop = Color(0xFF42A5F5).rc
     RemoteBox(
         RemoteModifier.fillMaxSize().clip(RemoteRoundedCornerShape(24.rdp)).background(gradientTop),
@@ -472,3 +473,7 @@ fun pauseIcon(): RemoteImageVector =
             addRect(14f.rf, 5f.rf, 18f.rf, 19f.rf)
         }
         .build()
+
+/** An integer as two digits ("07"): a remote select, evaluated by the player. */
+fun twoDigits(value: RemoteInt): RemoteString =
+    value.isLessThan(10.ri).select("0".rs + value.toRemoteString(), value.toRemoteString())

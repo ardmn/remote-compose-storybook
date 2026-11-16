@@ -12,6 +12,8 @@
 
   const $ = (id) => document.getElementById(id);
   const H = window.RcHighlight;
+  const I18n = window.RcI18n;
+  const t = I18n.t;
   const esc = H.escape;
 
   const state = {
@@ -74,7 +76,11 @@
     const show = () => {
       const pct = total ? Math.round((100 * done) / total) : 0;
       $("loadingBar").style.width = pct + "%";
-      $("loadingDetail").textContent = `${(done / 1e6).toFixed(1)} of ${(total / 1e6).toFixed(1)} MB · ${pct}%`;
+      $("loadingDetail").textContent = t("loading.progress", {
+        done: (done / 1e6).toFixed(1),
+        total: (total / 1e6).toFixed(1),
+        pct,
+      });
     };
     show();
     await Promise.all(
@@ -96,11 +102,11 @@
         }
       }),
     );
-    $("loadingDetail").textContent = "Starting the player…";
+    $("loadingDetail").textContent = t("loading.starting");
     const script = document.createElement("script");
     script.src = "storybook.js";
     script.onerror = () => {
-      $("loadingDetail").textContent = "The player could not be loaded. Reload the page to try again.";
+      $("loadingDetail").textContent = t("loading.failed");
     };
     document.body.appendChild(script);
   }
@@ -134,8 +140,22 @@
     new MutationObserver(label).observe($("stage"), { childList: true, subtree: true });
   }
 
+  function initLanguage() {
+    I18n.apply(document);
+    $("langBtn").addEventListener("click", () => {
+      I18n.set(I18n.lang === "ru" ? "en" : "ru");
+      I18n.apply(document);
+      if (state.catalog) {
+        const current = state.current;
+        if (current) state.current = null; // re-render the story view in the new language
+        route();
+      }
+    });
+  }
+
   async function boot() {
     initTheme();
+    initLanguage();
     loadPlayer();
     const [sources, api, coverage, meta] = await Promise.all([
       fetchJson("data/sources.json", {}),
@@ -236,12 +256,12 @@
     let html = "";
     if (!q) {
       html += `<div class="nav-section">
-        <a class="nav-link nav-top" href="#/" ${location.hash === "" || location.hash === "#/" ? 'aria-current="page"' : ""}>Overview</a>
-        <a class="nav-link nav-top" href="#/coverage" ${location.hash === "#/coverage" ? 'aria-current="page"' : ""}>API coverage</a>
+        <a class="nav-link nav-top" href="#/" ${location.hash === "" || location.hash === "#/" ? 'aria-current="page"' : ""}>${t("nav.overview")}</a>
+        <a class="nav-link nav-top" href="#/coverage" ${location.hash === "#/coverage" ? 'aria-current="page"' : ""}>${t("nav.coverage")}</a>
       </div>`;
     }
     for (const cat of cats) {
-      html += `<div class="nav-section"><div class="nav-heading">${esc(cat)}</div>`;
+      html += `<div class="nav-section"><div class="nav-heading">${esc(I18n.category(cat))}</div>`;
       for (const c of byCategory.get(cat)) {
         const open = q || state.expanded.has(c.id) || (state.current && state.current.component.id === c.id);
         html += `<button class="nav-comp" data-comp="${c.id}" aria-expanded="${open ? "true" : "false"}">${esc(c.title)}</button>`;
@@ -262,7 +282,7 @@
       }
       html += `</div>`;
     }
-    if (!cats.length) html += `<div class="nav-empty">No component matches “${esc(q)}”.</div>`;
+    if (!cats.length) html += `<div class="nav-empty">${t("nav.empty", { q: esc(q) })}</div>`;
     nav.innerHTML = html;
   }
 
@@ -326,19 +346,19 @@
       $("changesDot").hidden = true;
       $("docStats").textContent = "";
       $("downloadRc").disabled = true;
-      overlay("Rendering…");
+      overlay(t("stage.rendering"));
     }
     $("page").hidden = true;
     $("storyView").hidden = false;
     $("stageWrap").classList.remove("offstage");
     $("panel").hidden = false;
-    $("crumbs").textContent = component.category + " / " + component.title;
+    $("crumbs").textContent = I18n.category(component.category) + " / " + component.title;
     $("storyTitle").textContent = story.name;
     $("storyDesc").textContent = story.description;
-    const plain = component.plain;
+    const plain = I18n.plain(component);
     $("storyPlain").innerHTML = plain
-      ? `<div><b>What it is</b>${esc(plain.what)}</div>
-      <div><b>Use it for</b><ul>${plain.useWhen.map((u) => `<li>${esc(u)}</li>`).join("")}</ul></div>`
+      ? `<div><b>${t("plain.what")}</b>${esc(plain.what)}</div>
+      <div><b>${t("plain.use")}</b><ul>${plain.useWhen.map((u) => `<li>${esc(u)}</li>`).join("")}</ul></div>`
       : "";
     document.title = component.title + " · " + story.name + " — Remote Compose Storybook";
     sizeStage();
@@ -441,13 +461,13 @@
     const { story, values } = state.current;
     const body = $("controls");
     if (!story.args.length) {
-      body.innerHTML = `<p class="empty">This story has no args. Interact with it on the stage.</p>`;
+      body.innerHTML = `<p class="empty">${t("controls.none")}</p>`;
       return;
     }
     let rows = "";
     for (const a of story.args)
       rows += `<tr><td class="name">${esc(a.name)}</td><td>${controlHtml(a, values[a.name])}</td><td class="doc">${esc(a.doc || "")}</td></tr>`;
-    body.innerHTML = `<table class="controls"><thead><tr><th>Name</th><th>Control</th><th>Description</th></tr></thead><tbody>${rows}</tbody></table>`;
+    body.innerHTML = `<table class="controls"><thead><tr><th>${t("controls.name")}</th><th>${t("controls.control")}</th><th>${t("controls.description")}</th></tr></thead><tbody>${rows}</tbody></table>`;
     body.querySelectorAll("[data-arg]").forEach((el) => {
       const name = el.dataset.arg;
       const arg = story.args.find((a) => a.name === name);
@@ -543,7 +563,7 @@
 
   function codeBlock(title, code, lang) {
     const html = lang === "diff" ? H.diff(code) : lang === "plain" ? esc(code) : H.kotlin(code);
-    return `${title ? `<div class="code-title">${esc(title)}</div>` : ""}<div class="code-block"><button class="btn copy" data-copy>Copy</button><pre><code>${html}</code></pre></div>`;
+    return `${title ? `<div class="code-title">${esc(title)}</div>` : ""}<div class="code-block"><button class="btn copy" data-copy>${t("code.copy")}</button><pre><code>${html}</code></pre></div>`;
   }
 
   function renderCode() {
@@ -551,10 +571,10 @@
     const { story } = state.current;
     const src = state.sources[story.function];
     const body = $("code");
-    let html = codeBlock("Usage with the current args", usageCode());
+    let html = codeBlock(t("code.usage"), usageCode());
     html += src
-      ? codeBlock("Story source · " + src.file, src.code)
-      : `<p class="empty">Source for ${esc(story.function)} is missing from data/sources.json.</p>`;
+      ? codeBlock(t("code.source", { file: src.file }), src.code)
+      : `<p class="empty">${t("code.missing", { fn: esc(story.function) })}</p>`;
     body.innerHTML = html;
   }
 
@@ -568,12 +588,12 @@
       const short = sym.replace(/^androidx\.compose\.remote\./, "");
       html += `<h3><code>${esc(short)}</code></h3>`;
       if (sigs && sigs.length) html += codeBlock("", sigs.join("\n"), "plain");
-      else html += `<p class="empty">No signature found in AndroidX's api/current.txt.</p>`;
+      else html += `<p class="empty">${t("docs.noSignature")}</p>`;
     }
     const otherStories = component.stories.map((s) => `<a href="#/story/${s.id}">${esc(s.name)}</a>`).join(" · ");
-    html += `<h3>Stories</h3><p>${otherStories}</p>`;
+    html += `<h3>${t("docs.stories")}</h3><p>${otherStories}</p>`;
     const pkgs = [...new Set(component.symbols.map((s) => s.replace(/\.[^.]+$/, "")))];
-    html += `<h3>Reference</h3><p>${pkgs.map((p) => `<a href="https://developer.android.com/reference/kotlin/${p.replace(/\./g, "/")}/package-summary" target="_blank" rel="noopener"><code>${esc(p)}</code></a>`).join("<br>")}</p></div>`;
+    html += `<h3>${t("docs.reference")}</h3><p>${pkgs.map((p) => `<a href="https://developer.android.com/reference/kotlin/${p.replace(/\./g, "/")}/package-summary" target="_blank" rel="noopener"><code>${esc(p)}</code></a>`).join("<br>")}</p></div>`;
     $("docs").innerHTML = html;
   }
 
@@ -583,24 +603,25 @@
     const doc = state.lastDocument;
     const body = $("document");
     if (!doc) {
-      body.innerHTML = `<p class="empty">Waiting for the first document…</p>`;
+      body.innerHTML = `<p class="empty">${t("doc.waiting")}</p>`;
       return;
     }
     body.innerHTML =
-      `<p>The <code>.rc</code> document this story captures to right now: <b>${doc.bytes.toLocaleString()} bytes</b>, ${doc.operations} operations. This is what a server would send to a player${$("layout").value === "centered" ? " (with the stage's centering box around the story; choose Layout: Top start to see the story alone)" : ""}.</p>` +
-      codeBlock("Structure (one operation per line)", doc.structure, "plain");
+      `<p>${t("doc.summary", {
+        bytes: doc.bytes.toLocaleString(),
+        ops: doc.operations,
+        centered: $("layout").value === "centered" ? t("doc.centered") : "",
+      })}</p>` + codeBlock(t("doc.structure"), doc.structure, "plain");
   }
 
   function renderChanges() {
     const doc = state.lastDocument;
     const body = $("changes");
     if (!doc || !doc.diff) {
-      body.innerHTML = `<p class="empty">Change a control: this tab shows what that change did to the document, operation by operation.</p>`;
+      body.innerHTML = `<p class="empty">${t("changes.none")}</p>`;
       return;
     }
-    body.innerHTML =
-      `<p>What the last change did to the document (structural diff of the previous and the current <code>.rc</code>).</p>` +
-      codeBlock("", doc.diff, "diff");
+    body.innerHTML = `<p>${t("changes.intro")}</p>` + codeBlock("", doc.diff, "diff");
   }
 
   // Host values ------------------------------------------------------------------------------
@@ -610,13 +631,13 @@
   function hostInput(v, label) {
     const kind = NAMED_TYPES[v.type] || "unknown";
     const attrs = `data-host="${esc(v.name)}" data-type="${v.type}" aria-label="${label}"`;
-    if (kind === "text") return `<input type="text" ${attrs} placeholder="the document's value">`;
+    if (kind === "text") return `<input type="text" ${attrs} placeholder="${t("host.placeholder")}">`;
     if (kind === "float" || kind === "int" || kind === "long") {
       const step = kind === "float" ? "0.1" : "1";
-      return `<input type="number" ${attrs} step="${step}" placeholder="the document's value">`;
+      return `<input type="number" ${attrs} step="${step}" placeholder="${t("host.placeholder")}">`;
     }
     if (kind === "color") return `<input type="color" ${attrs} value="#3949ab">`;
-    return `<span class="empty">${esc(kind)}: set by the host app in code</span>`;
+    return `<span class="empty">${t("host.inCode", { kind: esc(kind) })}</span>`;
   }
 
   function renderHostValues() {
@@ -624,9 +645,7 @@
     const doc = state.lastDocument;
     const named = (doc && doc.named) || [];
     if (!named.length) {
-      body.innerHTML = `<p class="empty">This story's document declares no named values. The stories under
-        <a href="#/story/named-state--card">rememberNamedRemote*</a> do: a host app can change them while the
-        document plays, without a new document from the server.</p>`;
+      body.innerHTML = `<p class="empty">${t("host.none")}</p>`;
       return;
     }
     const rows = named
@@ -636,18 +655,15 @@
         return `<tr><td class="name">${label}</td><td><code>${kind}</code></td><td><div class="control">${hostInput(v, label)}</div></td></tr>`;
       })
       .join("");
-    body.innerHTML = `<p>A host app can set these values by name while the document plays. Change one: the stage
-      replays the <b>same ${doc.bytes.toLocaleString()}-byte document</b> with your value, with no new document from
-      the server. That is how live data reaches a Remote Compose screen. Changing a control resets them, because that
-      makes a new document.</p>
-      <table class="controls"><thead><tr><th>Name</th><th>Type</th><th>Host value</th></tr></thead><tbody>${rows}</tbody></table>
-      <p><button class="btn" id="hostReset">Back to the document's values</button></p>`;
+    body.innerHTML = `<p>${t("host.intro", { bytes: doc.bytes.toLocaleString() })}</p>
+      <table class="controls"><thead><tr><th>${t("controls.name")}</th><th>${t("host.type")}</th><th>${t("host.value")}</th></tr></thead><tbody>${rows}</tbody></table>
+      <p><button class="btn" id="hostReset">${t("host.reset")}</button></p>`;
     body.querySelectorAll("[data-host]").forEach((el) => {
       el.addEventListener("input", () => {
         const type = Number(el.dataset.type);
         const value = type === 2 ? "#FF" + el.value.slice(1).toUpperCase() : el.value;
         window.rcStorybook.hostValue(el.dataset.host, type, value);
-        $("hostState").textContent = "same document, host values";
+        $("hostState").textContent = t("host.state");
       });
     });
     $("hostReset").addEventListener("click", () => {
@@ -666,7 +682,7 @@
   function renderActions() {
     const body = $("actions");
     if (!state.actions.length) {
-      body.innerHTML = `<p class="empty">Events the player sends to its host (hostAction, haptics, …) appear here. Try a story under Interaction and tap the stage.</p>`;
+      body.innerHTML = `<p class="empty">${t("actions.none")}</p>`;
       return;
     }
     body.innerHTML = `<ul class="action-log">${state.actions
@@ -674,7 +690,7 @@
       .reverse()
       .map((a) => `<li><time>${a.time}</time><b>${esc(a.type)}</b><span>${esc(a.detail)}</span></li>`)
       .join("")}</ul>
-      <p><button class="btn" id="clearActions">Clear</button></p>`;
+      <p><button class="btn" id="clearActions">${t("actions.clear")}</button></p>`;
     $("clearActions").addEventListener("click", () => {
       state.actions = [];
       updateActionsBadge();
@@ -694,36 +710,22 @@
     const first = (c) => (c.stories[0] ? "#/story/" + c.stories[0].id : "#/");
     return `
       <h1>Remote Compose Storybook</h1>
-      <p class="lede">A live catalog of the public <b>Jetpack Remote Compose</b> creation API, the <code>@RemoteComposable</code>
-      building blocks from <code>androidx.compose.remote</code>. Every story is composed in your browser, captured to a
-      <code>.rc</code> document and drawn by a player, so you can see what each block does, how to call it, and how its
-      document changes when its arguments change.</p>
-      <p>${state.components.length} components · ${total} stories · ${covered}/${cov.length} public building blocks covered
-      (<a href="#/coverage">API coverage</a>).</p>
+      <p class="lede">${t("ov.lede")}</p>
+      <p>${t("ov.counts", { components: state.components.length, stories: total, covered, blocks: cov.length })}</p>
 
-      <h2>What is Remote Compose?</h2>
-      <p>Remote Compose lets a server describe a piece of app UI as a small document instead of shipping new app code.
-      The app plays the document: it lays it out, draws it, animates it and reacts to taps on the device, and the server can change
-      it at any time without an app release. This site shows every building block such a document can be made of.</p>
+      <h2>${t("ov.what.title")}</h2>
+      <p>${t("ov.what")}</p>
       <div class="audience">
-        <div><h3>Designers</h3><p>Browse the components, change their controls and see what is possible: layouts, text, images,
-        shapes, gradients, animations and interactive states. Each component explains what it is and when to use it.</p></div>
-        <div><h3>Product managers</h3><p>See which kinds of screens, widgets and interactions can be updated from the server without
-        an app release. The <a href="#/coverage">API coverage</a> page lists every building block.</p></div>
-        <div><h3>Developers</h3><p>Every story shows the exact Kotlin to write, the public signatures, the bytes the document becomes
-        and how they change when an argument changes.</p></div>
+        <div><h3>${t("ov.designers.title")}</h3><p>${t("ov.designers")}</p></div>
+        <div><h3>${t("ov.pm.title")}</h3><p>${t("ov.pm")}</p></div>
+        <div><h3>${t("ov.dev.title")}</h3><p>${t("ov.dev")}</p></div>
       </div>
 
-      <h2>How to read a story</h2>
-      <p><b>Controls</b> change the story's arguments; the document is rebuilt on every change.
-      <b>Code</b> shows the call with the current arguments and the story's source, written against
-      AndroidX's packages and ready to paste. <b>Docs</b> lists the public signatures from AndroidX's <code>api/current.txt</code>.
-      <b>Document</b> is the operation list a server would send; <b>Changes</b> is what your last change did to it;
-      <b>Host values</b> lets you play the app's part: set a named value and the same document redraws with it, no new document; <b>Actions</b> logs the events the player sends to its host.</p>
+      <h2>${t("ov.read.title")}</h2>
+      <p>${t("ov.read")}</p>
 
-      <h2>Use it in your project</h2>
-      <p>The catalog follows <b>androidx-main</b>: the newest public API, a step ahead of the latest release
-      (<code>${esc(state.meta.androidxRelease || "see Google Maven")}</code>). Use the next release, or AndroidX snapshots, to get every block shown here.</p>
+      <h2>${t("ov.use.title")}</h2>
+      <p>${t("ov.use", { release: esc(state.meta.androidxRelease || "Google Maven") })}</p>
       ${codeBlock(
         "build.gradle.kts",
         `repositories {
@@ -741,7 +743,7 @@ dependencies {
 }`,
       )}
       ${codeBlock(
-        "Capture a @RemoteComposable to bytes (Android)",
+        t("ov.capture"),
         `val document = captureSingleRemoteDocument(
     context = context,
     creationDisplayInfo = RemoteCreationDisplayInfo(width = 1080, height = 1920, densityDpi = 420),
@@ -753,29 +755,26 @@ dependencies {
 // document.bytes is the .rc payload any Remote Compose player can draw.`,
       )}
 
-      <h2>Components</h2>
+      <h2>${t("ov.components")}</h2>
       ${cats
         .map(
           (cat) =>
-            `<h3>${esc(cat)}</h3><div class="cards">${state.components
+            `<h3>${esc(I18n.category(cat))}</h3><div class="cards">${state.components
               .filter((c) => c.category === cat)
-              .map(
-                (c) =>
-                  `<a class="card" href="${first(c)}"><b>${esc(c.title)}</b><span>${esc(c.plain ? c.plain.what : c.description)}</span></a>`,
-              )
+              .map((c) => {
+                const plain = I18n.plain(c);
+                return `<a class="card" href="${first(c)}"><b>${esc(c.title)}</b><span>${esc(plain ? plain.what : c.description)}</span></a>`;
+              })
               .join("")}</div>`,
         )
         .join("")}
 
-      <h2>How this site works</h2>
-      <p>The stories are compiled to WebAssembly with <a href="https://github.com/yschimke/rc-players" target="_blank" rel="noopener">rc-players</a>,
-      a Compose Multiplatform port of AndroidX's creation API that differs from it only by package. Each story is composed live by
-      <code>RcEmbeddedPlayer</code> and drawn by rc-players' Compose player. The source shown in the Code tab is rewritten to
-      <code>androidx.compose.remote.*</code>, and CI compiles every story, exactly as shown, against AndroidX's own artifacts (an androidx.dev snapshot of androidx-main), so what you copy compiles.</p>`;
+      <h2>${t("ov.how.title")}</h2>
+      <p>${t("ov.how")}</p>`;
   }
 
   function renderCoverage() {
-    if (!state.coverage) return `<h1>API coverage</h1><p class="empty">data/coverage.json is missing.</p>`;
+    if (!state.coverage) return `<h1>${t("cov.title")}</h1><p class="empty">${t("cov.missing")}</p>`;
     const blocks = state.coverage.blocks;
     const storyFor = new Map();
     for (const s of state.storiesById.values()) if (!storyFor.has(s.function)) storyFor.set(s.function, s);
@@ -796,10 +795,9 @@ dependencies {
       if (!groups.has(b.group)) groups.set(b.group, []);
       groups.get(b.group).push(b);
     }
-    let html = `<h1>API coverage</h1>
-      <p class="lede">Every public building block in AndroidX's <code>api/current.txt</code>
-      (androidx-main <code>${esc((state.coverage.commit || "").slice(0, 9))}</code>) and the stories that use it.</p>
-      <p><b>${covered}</b> of <b>${blocks.length}</b> covered${pending ? `; <b>${pending}</b> are public but cannot be demonstrated yet (reasons below)` : ""}.</p>
+    let html = `<h1>${t("cov.title")}</h1>
+      <p class="lede">${t("cov.lede", { commit: esc((state.coverage.commit || "").slice(0, 9)) })}</p>
+      <p>${t("cov.summary", { covered, total: blocks.length, pending: pending ? t("cov.pendingSummary", { n: pending }) : "" })}</p>
       <div class="meter"><div style="width:${((100 * covered) / Math.max(1, blocks.length)).toFixed(1)}%"></div></div>`;
     for (const [group, items] of groups) {
       const n = items.filter((b) => b.stories.length || b.inOptions).length;
@@ -810,8 +808,8 @@ dependencies {
         const links = [...direct, ...opts].map((s) => `<a href="#/story/${s.id}">${esc(s.name)}</a>`).join("");
         const note =
           b.pending && !links
-            ? `<span class="pill">cannot be shown yet</span> <span class="empty">${esc(b.pending)}</span>`
-            : '<span class="empty">no story yet</span>';
+            ? `<span class="pill">${t("cov.pending")}</span> <span class="empty">${esc(b.pending)}</span>`
+            : `<span class="empty">${t("cov.none")}</span>`;
         html += `<tr><td>${esc(b.name)}</td><td>${links || note}</td></tr>`;
       }
       html += `</table></div>`;
@@ -833,9 +831,9 @@ dependencies {
   async function copyText(text) {
     try {
       await navigator.clipboard.writeText(text);
-      toast("Copied");
+      toast(t("copied"));
     } catch {
-      toast("Copy failed");
+      toast(t("copyFailed"));
     }
   }
 
@@ -942,12 +940,12 @@ dependencies {
       if (!state.current || doc.story !== state.current.story.id) return;
       state.lastDocument = doc;
       overlay(null);
-      $("docStats").textContent = `${doc.bytes.toLocaleString()} bytes · ${doc.operations} ops`;
+      $("docStats").textContent = t("stats", { bytes: doc.bytes.toLocaleString(), ops: doc.operations });
       const { component, story } = state.current;
       $("stage").setAttribute("aria-label", `Stage: ${component.title}, ${story.name}`);
       $("stageText").textContent = (doc.texts || []).length
-        ? "Text on the stage: " + doc.texts.join("; ")
-        : (component.plain && component.plain.what) || story.description;
+        ? t("stage.text", { texts: doc.texts.join("; ") })
+        : (I18n.plain(component) && I18n.plain(component).what) || story.description;
       $("downloadRc").disabled = false;
       renderDocument();
       renderChanges();
@@ -967,7 +965,7 @@ dependencies {
     window.addEventListener("rcstorybook:failure", (e) => {
       const f = JSON.parse(e.detail);
       if (!state.current || f.story !== state.current.story.id) return;
-      overlay("This story failed to compose:\n" + f.message, true);
+      overlay(t("stage.failed", { message: f.message }), true);
       document.body.dataset.failed = f.story;
     });
   }
@@ -980,7 +978,7 @@ dependencies {
   window.addEventListener("error", (e) => {
     // Only errors from the Wasm bundle; the shell's own errors are not the player's.
     if (!state.current || !/storybook\.js|\.wasm/.test(e.filename || "")) return;
-    overlay("The player stopped: " + (e.message || "unknown error") + "\nReload the page to continue.", true);
+    overlay(t("stage.crashed", { message: e.message || "unknown error" }), true);
   });
 
   boot();

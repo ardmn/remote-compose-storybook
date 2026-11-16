@@ -204,9 +204,9 @@ fun ColorExpressions(from: Color, to: Color, speed: Float) {
 fun Clock(is24Hour: Boolean) {
     // Time is read by the player, so the clock ticks with no new document.
     val time = RemoteTimeVariables
-    val hh = time.hourOfDay.toRemoteString()
-    val mm = (time.minuteOfDay % 60.ri).toRemoteString()
-    val ss = time.secondOfHour % 60.ri
+    val hh = twoDigits(time.hourOfDay)
+    val mm = twoDigits(time.minuteOfDay % 60.ri)
+    val ss = twoDigits(time.secondOfHour % 60.ri)
     RemoteColumn(
         horizontalAlignment = RemoteAlignment.CenterHorizontally,
         verticalArrangement = RemoteArrangement.spacedBy(4.rdp),
@@ -215,7 +215,7 @@ fun Clock(is24Hour: Boolean) {
             RemoteTimeDefaults.defaultTimeString(is24HourFormat = is24Hour.rb),
             fontSize = 40.rsp,
         )
-        RemoteText(hh + ":".rs + mm + ":".rs + ss.toRemoteString(), fontSize = 16.rsp)
+        RemoteText(hh + ":".rs + mm + ":".rs + ss, fontSize = 16.rsp)
         // toRemoteString() groups digits as the player's locale does, so a year reads "2,026".
         RemoteText(
             "day ".rs +

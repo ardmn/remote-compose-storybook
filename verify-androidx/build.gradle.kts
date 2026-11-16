@@ -10,7 +10,11 @@ android {
 }
 
 // Written by `tools/storybook_tools.py sources --verify-out` (scripts/verify-androidx.sh).
-android.sourceSets.named("main") { kotlin.directories.add("build/generated/stories") }
+// Each Code tab snippet is also compiled on its own, in its own package.
+android.sourceSets.named("main") {
+    kotlin.directories.add("build/generated/stories")
+    kotlin.directories.add("build/generated/snippets")
+}
 
 dependencies {
     implementation("androidx.compose.remote:remote-creation-compose:1.0.0-SNAPSHOT")

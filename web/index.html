@@ -24,7 +24,17 @@
         </a>
         <span class="badge" id="versionBadge" title="AndroidX API the catalog is checked against"></span>
         <div class="topbar-spacer"></div>
-        <button class="icon-btn" id="themeBtn" aria-label="Toggle dark theme" title="Toggle dark theme">&#9681;</button>
+        <button class="icon-btn lang-btn" id="langBtn" data-i18n="top.lang" data-i18n-title="top.lang">Русский</button>
+        <button
+          class="icon-btn"
+          id="themeBtn"
+          aria-label="Toggle dark theme"
+          title="Toggle dark theme"
+          data-i18n-aria-label="top.theme"
+          data-i18n-title="top.theme"
+        >
+          &#9681;
+        </button>
         <a
           class="icon-btn"
           id="repoLink"
@@ -49,6 +59,7 @@
             id="search"
             type="search"
             placeholder="Find components  ( / )"
+            data-i18n-placeholder="nav.search"
             autocomplete="off"
             aria-label="Find components"
           />
@@ -72,33 +83,56 @@
           </div>
           <div class="toolbar" role="toolbar" aria-label="Stage">
             <label class="tool">
-              <span>Viewport</span>
+              <span data-i18n="tool.viewport">Viewport</span>
               <select id="viewport">
-                <option value="auto">Story default</option>
+                <option value="auto" data-i18n="tool.viewport.auto">Story default</option>
                 <option value="360x640">Phone 360×640</option>
                 <option value="320x180">Widget 320×180</option>
                 <option value="240x240">Small 240×240</option>
                 <option value="600x400">Tablet 600×400</option>
-                <option value="fill">Fill</option>
+                <option value="fill" data-i18n="tool.viewport.fill">Fill</option>
               </select>
             </label>
             <label class="tool">
-              <span>Layout</span>
+              <span data-i18n="tool.layout">Layout</span>
               <select id="layout">
-                <option value="centered">Centered</option>
-                <option value="topstart">Top start</option>
+                <option value="centered" data-i18n="tool.layout.centered">Centered</option>
+                <option value="topstart" data-i18n="tool.layout.topstart">Top start</option>
               </select>
             </label>
             <label class="tool">
-              <span>Player theme</span>
+              <span data-i18n="tool.theme">Player theme</span>
               <select id="playerTheme">
-                <option value="light">Light</option>
-                <option value="dark">Dark</option>
+                <option value="light" data-i18n="tool.theme.light">Light</option>
+                <option value="dark" data-i18n="tool.theme.dark">Dark</option>
               </select>
             </label>
-            <button class="btn" id="resetArgs" title="Reset every control to its default">Reset args</button>
-            <button class="btn" id="copyLink" title="Copy a link to this story with these args">Copy link</button>
-            <button class="btn" id="downloadRc" title="Download the current document as a .rc file" disabled>
+            <button
+              class="btn"
+              id="resetArgs"
+              title="Reset every control to its default"
+              data-i18n="tool.reset"
+              data-i18n-title="tool.reset.title"
+            >
+              Reset args
+            </button>
+            <button
+              class="btn"
+              id="copyLink"
+              title="Copy a link to this story with these args"
+              data-i18n="tool.link"
+              data-i18n-title="tool.link.title"
+            >
+              Copy link
+            </button>
+            <button
+              class="btn"
+              id="downloadRc"
+              title="Download the current document as a .rc file"
+              data-i18n="tool.download"
+              data-i18n-title="tool.download.title"
+              disabled
+            >
               Download .rc
             </button>
             <div class="toolbar-spacer"></div>
@@ -117,7 +151,9 @@
               aria-describedby="stageText"
             ></div>
             <p class="visually-hidden" id="stageText" aria-live="polite"></p>
-            <div class="stage-overlay" id="stageOverlay" role="status" aria-live="polite">Loading the player…</div>
+            <div class="stage-overlay" id="stageOverlay" role="status" aria-live="polite" data-i18n="stage.loading">
+              Loading the player…
+            </div>
           </div>
           <div class="stage-size" id="stageSize"></div>
         </div>
@@ -125,19 +161,25 @@
         <section class="panel" id="panel" hidden>
           <div class="tabs" role="tablist">
             <button role="tab" id="tab-controls" data-tab="controls" aria-controls="controls" aria-selected="true">
-              Controls
+              <span data-i18n="tab.controls">Controls</span>
             </button>
-            <button role="tab" id="tab-code" data-tab="code" aria-controls="code" tabindex="-1">Code</button>
-            <button role="tab" id="tab-docs" data-tab="docs" aria-controls="docs" tabindex="-1">Docs</button>
+            <button role="tab" id="tab-code" data-tab="code" aria-controls="code" tabindex="-1">
+              <span data-i18n="tab.code">Code</span>
+            </button>
+            <button role="tab" id="tab-docs" data-tab="docs" aria-controls="docs" tabindex="-1">
+              <span data-i18n="tab.docs">Docs</span>
+            </button>
             <button role="tab" id="tab-document" data-tab="document" aria-controls="document" tabindex="-1">
-              Document
+              <span data-i18n="tab.document">Document</span>
             </button>
             <button role="tab" id="tab-changes" data-tab="changes" aria-controls="changes" tabindex="-1">
-              Changes <span class="dot" id="changesDot" hidden></span>
+              <span data-i18n="tab.changes">Changes</span> <span class="dot" id="changesDot" hidden></span>
             </button>
-            <button role="tab" id="tab-host" data-tab="host" aria-controls="host" tabindex="-1">Host values</button>
+            <button role="tab" id="tab-host" data-tab="host" aria-controls="host" tabindex="-1">
+              <span data-i18n="tab.host">Host values</span>
+            </button>
             <button role="tab" id="tab-actions" data-tab="actions" aria-controls="actions" tabindex="-1">
-              Actions <span class="count" id="actionsCount" hidden></span>
+              <span data-i18n="tab.actions">Actions</span> <span class="count" id="actionsCount" hidden></span>
             </button>
           </div>
           <div class="tab-body" role="tabpanel" aria-labelledby="tab-controls" data-body="controls" id="controls"></div>
@@ -175,11 +217,12 @@
     <div class="loading" id="loading" role="status" aria-live="polite">
       <div class="loading-box">
         <div class="brand-mark" aria-hidden="true"></div>
-        <p><b>Loading the Remote Compose player</b></p>
+        <p><b data-i18n="loading.title">Loading the Remote Compose player</b></p>
         <div class="meter"><div id="loadingBar" style="width: 0%"></div></div>
-        <p class="loading-detail" id="loadingDetail">Starting…</p>
+        <p class="loading-detail" id="loadingDetail" data-i18n="loading.starting">Starting…</p>
       </div>
     </div>
+    <script src="i18n.js"></script>
     <script src="highlight.js"></script>
     <script src="app.js"></script>
     <!-- storybook.js (the Wasm player) is added by app.js once its .wasm files are downloaded. -->
