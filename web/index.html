@@ -102,6 +102,7 @@
               Download .rc
             </button>
             <div class="toolbar-spacer"></div>
+            <span class="stat" id="hostState" aria-live="polite"></span>
             <span class="stat" id="docStats" aria-live="polite"></span>
           </div>
         </section>
@@ -128,6 +129,7 @@
             <button role="tab" id="tab-changes" data-tab="changes" aria-controls="changes" tabindex="-1">
               Changes <span class="dot" id="changesDot" hidden></span>
             </button>
+            <button role="tab" id="tab-host" data-tab="host" aria-controls="host" tabindex="-1">Host values</button>
             <button role="tab" id="tab-actions" data-tab="actions" aria-controls="actions" tabindex="-1">
               Actions <span class="count" id="actionsCount" hidden></span>
             </button>
@@ -151,6 +153,7 @@
             id="changes"
             hidden
           ></div>
+          <div class="tab-body" role="tabpanel" aria-labelledby="tab-host" data-body="host" id="host" hidden></div>
           <div
             class="tab-body"
             role="tabpanel"

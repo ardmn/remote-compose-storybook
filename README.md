@@ -15,6 +15,7 @@ The stage has a viewport size, a light or dark player theme and a centered or to
 - **Docs**: the AndroidX API signatures for the component, taken from `api/current.txt`.
 - **Document**: the remote document the story produced.
 - **Changes**: the structural diff against the previous document, e.g. after changing a control.
+- **Host values**: set the document's named values as the host app would; the same document replays with them, no new capture.
 - **Actions**: host actions triggered in the player (for example by tapping a story that defines one).
 
 Pages:

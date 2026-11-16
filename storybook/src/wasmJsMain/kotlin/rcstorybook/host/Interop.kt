@@ -5,6 +5,8 @@ internal fun installApi(
     catalog: () -> JsString,
     show: (JsString, JsAny, Boolean) -> JsString,
     stage: (JsAny) -> Unit,
+    hostValue: (JsString, Int, JsString) -> Unit,
+    hostReset: () -> Unit,
 ): Unit =
     js(
         """{
@@ -12,6 +14,8 @@ internal fun installApi(
     catalog: () => catalog(),
     show: (id, args, fresh) => show(id, args, !!fresh),
     stage: (config) => stage(config),
+    hostValue: (name, type, value) => hostValue(name, type, value),
+    hostReset: () => hostReset(),
   };
   window.dispatchEvent(new Event('rcstorybook:ready'));
 }""",

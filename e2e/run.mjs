@@ -158,6 +158,23 @@ if (!only) {
   await page.click('[data-tab="actions"]');
   await page.screenshot({ path: path.join(outDir, "_actions.png") });
 
+  // A story at rest sends no further documents (a recomposition loop would, many per second).
+  await openStory("remote-row--arrangement");
+  const storm = await page.evaluate(
+    () =>
+      new Promise((resolve) => {
+        let count = 0;
+        const on = () => count++;
+        window.addEventListener("rcstorybook:document", on);
+        setTimeout(() => {
+          window.removeEventListener("rcstorybook:document", on);
+          resolve(count);
+        }, 2000);
+      }),
+  );
+  if (storm > 0) fail(`a story at rest sent ${storm} documents in 2s`);
+  else console.log("  ok a story at rest is quiet");
+
   // Returning to the same story from a page without a stage shows its document again.
   await page.selectOption("#layout", "centered");
   await openStory("remote-box--layering");
@@ -191,6 +208,21 @@ if (!only) {
   const viaText = await injected();
   if (viaColor || viaText) fail(`a URL arg injected markup (color: ${viaColor}, text: ${viaText})`);
   else console.log("  ok URL args are escaped");
+  await page.selectOption("#layout", "topstart");
+
+  // Host values replay the same document with values set by name.
+  await page.selectOption("#layout", "centered");
+  await openStory("named-state--card");
+  const statsBefore = await page.textContent("#docStats");
+  const cardBefore = await page.locator("#stageFrame").screenshot();
+  await page.click('[data-tab="host"]');
+  await page.fill('[data-host="USER:title"]', "Live from the host");
+  await page.waitForTimeout(800);
+  const cardAfter = await page.locator("#stageFrame").screenshot();
+  const statsAfter = await page.textContent("#docStats");
+  if (Buffer.compare(cardBefore, cardAfter) === 0) fail("a host value changed nothing on the stage");
+  else if (statsBefore !== statsAfter) fail(`a host value made a new document (${statsBefore} → ${statsAfter})`);
+  else console.log("  ok host values replay the same document");
   await page.selectOption("#layout", "topstart");
 
   // A tap on a valueChangeAction changes what is drawn.

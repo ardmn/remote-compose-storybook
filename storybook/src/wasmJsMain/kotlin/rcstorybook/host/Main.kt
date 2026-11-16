@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
@@ -21,12 +22,15 @@ import ee.schimke.composeai.rccreation.compose.layout.RemoteAlignment
 import ee.schimke.composeai.rccreation.compose.layout.RemoteBox
 import ee.schimke.composeai.rccreation.compose.modifier.RemoteModifier
 import ee.schimke.composeai.rccreation.compose.modifier.fillMaxSize as remoteFillMaxSize
+import ee.schimke.composeai.rcplayer.compose.RcComposePlayer
 import ee.schimke.composeai.rcplayer.compose.RcManifestTypefaceLoader
 import ee.schimke.composeai.rcplayer.compose.RcPlayerTheme
 import ee.schimke.composeai.rcplayer.compose.RcTypefaceLoader
 import ee.schimke.composeai.rcplayer.embedded.RcEmbeddedPlayer
 import ee.schimke.composeai.rcplayer.protocol.RcDocument
 import ee.schimke.composeai.rcplayer.protocol.RcDocumentCodec
+import ee.schimke.composeai.rcplayer.protocol.RcNamedVariable
+import ee.schimke.composeai.rcplayer.runtime.RcNamedValue
 import ee.schimke.composeai.rcplayer.runtime.RcPlayerEvent
 import kotlin.io.encoding.Base64
 import kotlin.io.encoding.ExperimentalEncodingApi
@@ -62,6 +66,20 @@ private val lastDocuments = mutableMapOf<String, List<String>>()
 /** The last document report each story sent, to send again when nothing changed. */
 private val lastReports = mutableMapOf<String, String>()
 
+/**
+ * Values the page sets "as the host app" (the Host values tab), by the document's own variable
+ * names. While any is set the stage replays [hostDocument] — the same bytes, no new capture — with
+ * these values, which is exactly what an app does with a document a server sent once.
+ */
+private val hostValues = mutableStateMapOf<String, RcNamedValue>()
+
+/**
+ * The current story's last document, for replaying it with [hostValues]. Deliberately not snapshot
+ * state: the stage reads it only when a host value is set, so writing it never recomposes the stage
+ * (which would capture again, report again, and loop).
+ */
+private var hostDocument: ByteArray? = null
+
 private val storiesById: Map<String, Story> by lazy {
     Catalog.components.flatMap { it.stories }.associateBy { it.id }
 }
@@ -83,6 +101,8 @@ fun main() {
                     centered = jsProperty(config, "layout") != "topstart",
                 )
         },
+        hostValue = { name, type, value -> setHostValue(name.toString(), type, value.toString()) },
+        hostReset = { hostValues.clear() },
     )
     ComposeViewport(viewportContainerId = "stage") {
         LaunchedEffect(Unit) {
@@ -123,15 +143,36 @@ private fun show(id: String, rawArgs: JsAny, fresh: Boolean): String {
         // (it may have been away from this story, on a page with no stage).
         lastReports[id]?.let { emit("rcstorybook:document", it) }
     } else {
+        // A new document is coming; host values belonged to the previous one.
+        hostValues.clear()
+        hostDocument = null
         selection = next
     }
     return toJson(story.args.associate { it.name to it.canonicalOf(values[it.name]) })
+}
+
+private fun setHostValue(name: String, type: Int, raw: String) {
+    val value: RcNamedValue? =
+        when (type) {
+            RcNamedVariable.STRING_TYPE -> RcNamedValue.Text(raw)
+            RcNamedVariable.FLOAT_TYPE -> raw.toFloatOrNull()?.let { RcNamedValue.FloatValue(it) }
+            RcNamedVariable.INT_TYPE -> raw.toIntOrNull()?.let { RcNamedValue.Integer(it) }
+            RcNamedVariable.LONG_TYPE -> raw.toLongOrNull()?.let { RcNamedValue.LongValue(it) }
+            RcNamedVariable.COLOR_TYPE ->
+                raw.removePrefix("#")
+                    .takeIf { it.length == 8 }
+                    ?.toLongOrNull(16)
+                    ?.let { RcNamedValue.Color(it.toInt()) }
+            else -> null
+        }
+    if (value == null) hostValues.remove(name) else hostValues[name] = value
 }
 
 @Composable
 private fun Stage() {
     val current = selection ?: return
     val config = stageConfig
+    val replay = if (hostValues.isNotEmpty()) hostDocument else null
     // The canvas is larger than any viewport the page offers and never resizes (a Compose viewport
     // does not follow its container); the player gets exactly the viewport the page asked for, at
     // the top left, and the page's frame clips the rest.
@@ -141,6 +182,21 @@ private fun Stage() {
         val heightPx = (config.heightDp * density).toInt().coerceAtLeast(1)
         val display =
             RemoteCreationDisplayInfo(widthPx, heightPx, (density * 160f).toInt().coerceAtLeast(1))
+        if (replay != null) {
+            RcComposePlayer(
+                replay,
+                modifier =
+                    Modifier.size(config.widthDp.dp, config.heightDp.dp)
+                        .background(if (config.dark) Color(0xFF121316) else Color.White),
+                theme = if (config.dark) RcPlayerTheme.Dark else RcPlayerTheme.Light,
+                namedValues = hostValues,
+                onEvent = { event ->
+                    emit("rcstorybook:event", toJson(describe(current.story.id, event)))
+                },
+                typefaces = typefaces,
+            )
+            return@Box
+        }
         RcEmbeddedPlayer(
             display = display,
             modifier =
@@ -188,6 +244,9 @@ private fun report(story: Story, document: RcDocument) {
     val bytes = RcDocumentCodec.encode(document)
     val lines = document.structureLines()
     val previous = lastDocuments[story.id]
+    // A recomposition that changed nothing in the document (fonts arriving, say) is not news: keep
+    // the last report, and with it the Changes tab's diff of the last real change.
+    if (previous == lines) return
     val diff = previous?.let { unifiedDiff(it, lines) }?.takeIf { it.isNotEmpty() }
     lastDocuments[story.id] = lines
     val report =
@@ -199,9 +258,15 @@ private fun report(story: Story, document: RcDocument) {
                 "structure" to lines.joinToString("\n"),
                 "diff" to diff,
                 "base64" to Base64.encode(bytes),
+                // The variables a host can set by name, with the wire type the page edits them as.
+                "named" to
+                    document.operations.filterIsInstance<RcNamedVariable>().map {
+                        mapOf("name" to it.name, "type" to it.type)
+                    },
             ),
         )
     lastReports[story.id] = report
+    if (story == selection?.story) hostDocument = bytes
     emit("rcstorybook:document", report)
 }
 

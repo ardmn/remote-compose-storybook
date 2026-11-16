@@ -263,6 +263,7 @@
     renderDocs();
     renderDocument();
     renderChanges();
+    renderHostValues();
     renderActions();
     if (switching) $("main").scrollTop = 0;
   }
@@ -514,6 +515,60 @@
       codeBlock("", doc.diff, "diff");
   }
 
+  // Host values ------------------------------------------------------------------------------
+
+  const NAMED_TYPES = { 0: "text", 1: "float", 2: "color", 3: "image", 4: "int", 5: "long", 6: "floats" };
+
+  function hostInput(v, label) {
+    const kind = NAMED_TYPES[v.type] || "unknown";
+    const attrs = `data-host="${esc(v.name)}" data-type="${v.type}" aria-label="${label}"`;
+    if (kind === "text") return `<input type="text" ${attrs} placeholder="the document's value">`;
+    if (kind === "float" || kind === "int" || kind === "long") {
+      const step = kind === "float" ? "0.1" : "1";
+      return `<input type="number" ${attrs} step="${step}" placeholder="the document's value">`;
+    }
+    if (kind === "color") return `<input type="color" ${attrs} value="#3949ab">`;
+    return `<span class="empty">${esc(kind)}: set by the host app in code</span>`;
+  }
+
+  function renderHostValues() {
+    const body = $("host");
+    const doc = state.lastDocument;
+    const named = (doc && doc.named) || [];
+    if (!named.length) {
+      body.innerHTML = `<p class="empty">This story's document declares no named values. The stories under
+        <a href="#/story/named-state--card">rememberNamedRemote*</a> do: a host app can change them while the
+        document plays, without a new document from the server.</p>`;
+      return;
+    }
+    const rows = named
+      .map((v) => {
+        const label = esc(v.name.replace(/^USER:/, ""));
+        const kind = esc(NAMED_TYPES[v.type] || "unknown");
+        return `<tr><td class="name">${label}</td><td><code>${kind}</code></td><td><div class="control">${hostInput(v, label)}</div></td></tr>`;
+      })
+      .join("");
+    body.innerHTML = `<p>A host app can set these values by name while the document plays. Change one: the stage
+      replays the <b>same ${doc.bytes.toLocaleString()}-byte document</b> with your value, with no new document from
+      the server. That is how live data reaches a Remote Compose screen. Changing a control resets them, because that
+      makes a new document.</p>
+      <table class="controls"><thead><tr><th>Name</th><th>Type</th><th>Host value</th></tr></thead><tbody>${rows}</tbody></table>
+      <p><button class="btn" id="hostReset">Back to the document's values</button></p>`;
+    body.querySelectorAll("[data-host]").forEach((el) => {
+      el.addEventListener("input", () => {
+        const type = Number(el.dataset.type);
+        const value = type === 2 ? "#FF" + el.value.slice(1).toUpperCase() : el.value;
+        window.rcStorybook.hostValue(el.dataset.host, type, value);
+        $("hostState").textContent = "same document, host values";
+      });
+    });
+    $("hostReset").addEventListener("click", () => {
+      window.rcStorybook.hostReset();
+      renderHostValues();
+      $("hostState").textContent = "";
+    });
+  }
+
   function updateActionsBadge() {
     const c = $("actionsCount");
     c.hidden = state.actions.length === 0;
@@ -576,7 +631,7 @@
       <b>Code</b> shows the call with the current arguments and the story's source, written against
       AndroidX's packages and ready to paste. <b>Docs</b> lists the public signatures from AndroidX's <code>api/current.txt</code>.
       <b>Document</b> is the operation list a server would send; <b>Changes</b> is what your last change did to it;
-      <b>Actions</b> logs the events the player sends to its host.</p>
+      <b>Host values</b> lets you play the app's part: set a named value and the same document redraws with it, no new document; <b>Actions</b> logs the events the player sends to its host.</p>
 
       <h2>Use it in your project</h2>
       <p>The catalog follows <b>androidx-main</b>: the newest public API, a step ahead of the latest release
@@ -803,6 +858,8 @@ dependencies {
       $("downloadRc").disabled = false;
       renderDocument();
       renderChanges();
+      renderHostValues();
+      $("hostState").textContent = "";
       if (doc.diff && state.tab !== "changes") $("changesDot").hidden = false;
       document.body.dataset.rendered = doc.story;
     });
