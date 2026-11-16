@@ -138,6 +138,15 @@ def parse_kotlin(path):
     return imports, decls
 
 
+def block_used(name, text):
+    """Whether `text` uses a building block: a lowercase name (a function) only counts when
+    called, `name(` or `name {`, so a parameter or variable called `image` is not RemoteBrush.image;
+    a capitalised name (a class, a composable, a constant) counts wherever it appears."""
+    if name[:1].islower():
+        return re.search(r"(?<![\w])" + re.escape(name) + r"\s*[({]", text) is not None
+    return word_used(name, text)
+
+
 def word_used(name, text):
     return (
         re.search(r"(?<![\w.])" + re.escape(name) + r"(?!\w)", text) is not None
@@ -500,11 +509,11 @@ def cmd_coverage(args):
                     and re.search(r"\." + re.escape(member) + r"(?!\w)", code) is not None
                 )
             else:
-                hit = word_used(member, code)
+                hit = block_used(member, code)
             if hit:
                 used_by.append(fn)
         in_options = bool(
-            (qualified and qualified in options_text) or (not qualified and word_used(member, options_text))
+            (qualified and qualified in options_text) or (not qualified and block_used(member, options_text))
         )
         pending = NOT_IN_WEB_PLAYER.get(name)
         uses.append(

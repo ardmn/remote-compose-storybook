@@ -25,6 +25,7 @@ import ee.schimke.composeai.rccreation.compose.modifier.size
 import ee.schimke.composeai.rccreation.compose.shaders.RemoteBrush
 import ee.schimke.composeai.rccreation.compose.shaders.RemoteShaderBrush
 import ee.schimke.composeai.rccreation.compose.shaders.horizontalGradient
+import ee.schimke.composeai.rccreation.compose.shaders.image
 import ee.schimke.composeai.rccreation.compose.shaders.linearGradient
 import ee.schimke.composeai.rccreation.compose.shaders.radialGradient
 import ee.schimke.composeai.rccreation.compose.shaders.sweepGradient
@@ -38,6 +39,7 @@ import ee.schimke.composeai.rccreation.compose.state.RemotePaint
 import ee.schimke.composeai.rccreation.compose.state.RemotePaintingStyle
 import ee.schimke.composeai.rccreation.compose.state.RemoteStrokeCap
 import ee.schimke.composeai.rccreation.compose.state.RemoteStrokeJoin
+import ee.schimke.composeai.rccreation.compose.state.RemoteTileMode
 import ee.schimke.composeai.rccreation.compose.state.RemoteTimeVariables
 import ee.schimke.composeai.rccreation.compose.state.cos
 import ee.schimke.composeai.rccreation.compose.state.rc
@@ -319,5 +321,26 @@ fun CanvasImage(x: Float, y: Float) {
     RemoteCanvas(modifier = RemoteModifier.size(300.rdp, 200.rdp)) {
         // drawImage places an embedded bitmap at a canvas position.
         drawImage(image, topLeft = RemoteOffset(x.rf, y.rf))
+    }
+}
+
+@Composable
+@RemoteComposable
+fun CanvasImageBrush(tileMode: RemoteTileMode) {
+    val tile = remember {
+        val bitmap = ImageBitmap(40, 40)
+        Canvas(bitmap).apply {
+            drawRect(0f, 0f, 40f, 40f, Paint().apply { color = Color(0xFFFFF3E0) })
+            drawCircle(Offset(10f, 10f), 9f, Paint().apply { color = Color(0xFFFB8C00) })
+        }
+        RemoteImageBitmap(bitmap)
+    }
+    RemoteCanvas(modifier = RemoteModifier.size(280.rdp, 180.rdp)) {
+        // An image brush fills a shape with a bitmap; the tile mode decides what happens past its
+        // edges.
+        val brush = RemoteBrush.image(tile, tileModeX = tileMode, tileModeY = tileMode)
+        val paint = RemotePaint()
+        with(brush) { applyTo(paint, size) }
+        drawRoundRect(paint, size = size, cornerRadius = RemoteOffset(24f.rf, 24f.rf))
     }
 }

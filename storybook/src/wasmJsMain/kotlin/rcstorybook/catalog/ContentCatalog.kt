@@ -386,6 +386,7 @@ internal val canvasComponents =
                     "$C.shaders.linearGradient",
                     "$C.shaders.radialGradient",
                     "$C.shaders.sweepGradient",
+                    "$C.shaders.image",
                 ),
             description = "Gradients as shaders applied to a RemotePaint.",
             stories =
@@ -402,6 +403,15 @@ internal val canvasComponents =
                         ),
                     ) {
                         CanvasGradients(it["kind"], it.color("first"), it.color("second"))
+                    },
+                    Story(
+                        "remote-brush--image",
+                        "Image brush",
+                        "CanvasImageBrush",
+                        "A bitmap as a brush, with each RemoteTileMode.",
+                        listOf(choice("tileMode", More.tileModes)),
+                    ) {
+                        CanvasImageBrush(it["tileMode"])
                     },
                 ),
         ),

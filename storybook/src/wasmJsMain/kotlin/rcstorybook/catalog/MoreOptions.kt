@@ -12,6 +12,7 @@ import ee.schimke.composeai.rccreation.compose.state.RemoteEasing
 import ee.schimke.composeai.rccreation.compose.state.RemotePaintingStyle
 import ee.schimke.composeai.rccreation.compose.state.RemoteStrokeCap
 import ee.schimke.composeai.rccreation.compose.state.RemoteStrokeJoin
+import ee.schimke.composeai.rccreation.compose.state.RemoteTileMode
 import ee.schimke.composeai.rccreation.compose.state.rdp
 import ee.schimke.composeai.rccreation.compose.text.RemoteFontStyle
 import ee.schimke.composeai.rccreation.compose.text.RemoteFontWeight
@@ -294,6 +295,13 @@ internal object More {
             option("SansSerif", "RemoteTypeface.SansSerif", RemoteTypeface.SansSerif),
             option("Serif", "RemoteTypeface.Serif", RemoteTypeface.Serif),
             option("Monospace", "RemoteTypeface.Monospace", RemoteTypeface.Monospace),
+        )
+    val tileModes =
+        listOf(
+            option("Repeated", "RemoteTileMode.Repeated", RemoteTileMode.Repeated),
+            option("Mirror", "RemoteTileMode.Mirror", RemoteTileMode.Mirror),
+            option("Clamp", "RemoteTileMode.Clamp", RemoteTileMode.Clamp),
+            option("Decal", "RemoteTileMode.Decal", RemoteTileMode.Decal),
         )
     val gradients =
         listOf("linear", "horizontal", "vertical", "radial", "sweep").map {
