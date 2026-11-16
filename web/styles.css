@@ -827,31 +827,64 @@ input:focus-visible {
   }
 }
 
+/* What it is / Good for: two cards side by side (one column on narrow screens). */
 .plain {
   display: grid;
-  grid-template-columns: 1fr auto;
-  gap: 4px 24px;
+  grid-template-columns: 1.3fr 1fr;
+  gap: 12px;
   max-width: 980px;
-  margin: 0 0 12px;
-  padding: 10px 14px;
-  border-radius: 10px;
-  background: var(--accent-soft);
-  border: 1px solid var(--border);
-  font-size: 13px;
+  margin: 4px 0 14px;
 }
 .plain:empty {
   display: none;
 }
-.plain b {
-  font-size: 11px;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  color: var(--muted);
-  display: block;
+.plain-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 14px 16px;
 }
-.plain ul {
-  margin: 2px 0 0;
-  padding-left: 18px;
+.plain-card h2 {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 6px;
+  font-size: 13px;
+  font-weight: 600;
+}
+.plain-card p {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.5;
+}
+.plain-card ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: 14px;
+}
+.plain-card li {
+  position: relative;
+  padding: 3px 0 3px 22px;
+}
+.plain-card li::before {
+  content: "✓";
+  position: absolute;
+  left: 0;
+  color: var(--ok);
+  font-weight: 700;
+}
+.plain-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 6px;
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-size: 12px;
+  font-weight: 700;
 }
 @media (max-width: 860px) {
   .plain {
@@ -942,4 +975,14 @@ input:focus-visible {
 }
 .how li {
   margin: 4px 0;
+}
+
+.brand-name {
+  white-space: nowrap;
+}
+@media (max-width: 520px) {
+  /* Room for the menu, language, theme and GitHub buttons: the short name only. */
+  .brand-long {
+    display: none;
+  }
 }

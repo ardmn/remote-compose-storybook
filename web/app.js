@@ -357,8 +357,10 @@
     $("storyDesc").textContent = story.description;
     const plain = I18n.plain(component);
     $("storyPlain").innerHTML = plain
-      ? `<div><b>${t("plain.what")}</b>${esc(plain.what)}</div>
-      <div><b>${t("plain.use")}</b><ul>${plain.useWhen.map((u) => `<li>${esc(u)}</li>`).join("")}</ul></div>`
+      ? `<section class="plain-card"><h2><span class="plain-icon" aria-hidden="true">i</span>${t("plain.what")}</h2>
+          <p>${esc(plain.what)}</p></section>
+        <section class="plain-card"><h2><span class="plain-icon" aria-hidden="true">★</span>${t("plain.use")}</h2>
+          <ul>${plain.useWhen.map((u) => `<li>${esc(u)}</li>`).join("")}</ul></section>`
       : "";
     const how = I18n.how(component);
     $("storyHow").hidden = !how;
