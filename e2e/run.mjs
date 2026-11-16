@@ -69,6 +69,7 @@ await new Promise((r) => server.listen(0, "127.0.0.1", r));
 const base = `http://127.0.0.1:${server.address().port}/`;
 
 const failures = [];
+let compared = 0;
 const fail = (what) => {
   failures.push(what);
   console.log("  FAIL", what);
@@ -180,6 +181,7 @@ for (const s of stories) {
       fs.mkdirSync(baselinesDir, { recursive: true });
       fs.writeFileSync(baseline, stage);
     } else if (compareBaselines && fs.existsSync(baseline)) {
+      compared++;
       const want = PNG.sync.read(fs.readFileSync(baseline));
       const got = PNG.sync.read(stage);
       if (want.width !== got.width || want.height !== got.height) {
@@ -335,5 +337,10 @@ if (!only) {
 
 await browser.close();
 server.close();
+console.log(
+  compareBaselines
+    ? `\n${compared} stories compared with their visual baselines`
+    : "\nvisual baselines not compared (pass --compare-baselines, or run in CI)",
+);
 console.log(failures.length ? `\n${failures.length} failure(s)` : "\nall checks passed");
 process.exit(failures.length ? 1 : 0);
