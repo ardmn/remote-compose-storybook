@@ -8,7 +8,14 @@
       "break continue throw try catch finally by get set"
     ).split(" "),
   );
-  const esc = (s) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  // Safe in text and in quoted attribute values.
+  const esc = (s) =>
+    String(s)
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&#39;");
   const TOKEN =
     /(\/\/[^\n]*|\/\*[\s\S]*?\*\/)|("(?:\\.|[^"\\\n])*")|(@[A-Za-z_][\w.]*)|(\b0x[0-9A-Fa-f]+L?\b|\b\d+(?:\.\d+)?(?:[fFL])?\b)|([A-Za-z_]\w*)(?=\s*\()|([A-Za-z_]\w*)/g;
   function highlightKotlin(src) {

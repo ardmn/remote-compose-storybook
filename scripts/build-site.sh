@@ -35,14 +35,34 @@ cp -R web/. "$OUT"/
 # GitHub Pages: serve files and directories that start with an underscore as they are.
 touch "$OUT/.nojekyll"
 
+# What the page shows about versions. Written with json.dump, so nothing here needs escaping.
 REPO_URL="${STORYBOOK_REPOSITORY:-$(git remote get-url origin 2>/dev/null | sed -E 's#git@github.com:#https://github.com/#; s#\.git$##' || true)}"
-cat > "$OUT/data/meta.json" <<JSON
-{
-  "androidxCommit": "$(cat "$API/COMMIT")",
-  "androidxRelease": "$(curl -sf https://dl.google.com/android/maven2/androidx/compose/remote/group-index.xml | sed -n 's/.*<remote-creation-compose versions="[^"]*,\([^,"]*\)".*/\1/p')",
-  "rcPlayersVersion": "$(sed -n 's/^rc-players = "\(.*\)"/\1/p' gradle/libs.versions.toml)",
-  "repository": "${REPO_URL}",
-  "builtFrom": "$(git rev-parse --short HEAD 2>/dev/null || echo local)"
+REPO_URL="$REPO_URL" BUILT_FROM="$(git rev-parse --short HEAD 2>/dev/null || echo local)" python3 - "$API/COMMIT" "$OUT/data/meta.json" <<'PY'
+import json, os, re, sys, urllib.request
+
+commit_file, out = sys.argv[1:3]
+release = ""
+try:
+    index = urllib.request.urlopen(
+        "https://dl.google.com/android/maven2/androidx/compose/remote/group-index.xml", timeout=20
+    ).read().decode()
+    versions = re.search(r'<remote-creation-compose versions="([^"]*)"', index)
+    if versions:
+        release = versions.group(1).split(",")[-1]
+except OSError as error:
+    print(f"meta: could not read the latest AndroidX release ({error})", file=sys.stderr)
+with open(commit_file, encoding="utf-8") as fh:
+    commit = fh.read().strip()
+with open("gradle/libs.versions.toml", encoding="utf-8") as fh:
+    rc_players = re.search(r'^rc-players = "([^"]+)"', fh.read(), re.M).group(1)
+meta = {
+    "androidxCommit": commit,
+    "androidxRelease": release,
+    "rcPlayersVersion": rc_players,
+    "repository": os.environ.get("REPO_URL", ""),
+    "builtFrom": os.environ.get("BUILT_FROM", ""),
 }
-JSON
+with open(out, "w", encoding="utf-8") as fh:
+    json.dump(meta, fh, indent=2)
+PY
 du -sh "$OUT" | awk '{print "site: " $1 " in build/site"}'

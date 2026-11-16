@@ -266,7 +266,7 @@ fun Configuration() {
         RemoteBox(
             RemoteModifier.size(config.windowWidth / 2, 12.rdp).background(Color(0xFF1E88E5).rc),
         )
-        // …and a square as tall as one line of the user's font size, a tenth of the window high.
+        // …a square the size of the user's font size, and a bar a tenth of the window high.
         RemoteRow(horizontalArrangement = RemoteArrangement.spacedBy(8.rdp)) {
             RemoteBox(
                 RemoteModifier.size(config.fontSize, config.fontSize)

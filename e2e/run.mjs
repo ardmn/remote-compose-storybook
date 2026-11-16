@@ -36,7 +36,14 @@ const types = {
   ".svg": "image/svg+xml",
 };
 const server = http.createServer((req, res) => {
-  const url = decodeURIComponent(req.url.split("?")[0]);
+  let url;
+  try {
+    url = decodeURIComponent(req.url.split("?")[0]);
+  } catch {
+    res.writeHead(400);
+    res.end("bad request");
+    return;
+  }
   let file = path.join(site, url === "/" ? "index.html" : url);
   if (!file.startsWith(site) || !fs.existsSync(file) || fs.statSync(file).isDirectory()) {
     res.writeHead(404);
@@ -126,7 +133,9 @@ if (!only) {
   await page.waitForFunction(() => document.body.dataset.rendered === "remote-row--weights", null, { timeout: 10000 });
   await page.click('[data-tab="changes"]');
   const diff = await page.textContent("#changes");
-  if (!/[+-]/.test(diff) || diff.includes("Change a control")) fail("changing firstWeight produced no structural diff");
+  // A hunk header and at least one changed line of the document.
+  if (!/@@ -\d+,\d+ \+\d+,\d+ @@/.test(diff) || !/\n[+-](?![+-]{2})/.test(diff))
+    fail("changing firstWeight produced no structural diff");
   const recorded = await page
     .waitForFunction(() => location.hash.includes("firstWeight=4"), null, { timeout: 3000 })
     .then(() => true)
@@ -149,6 +158,41 @@ if (!only) {
   await page.click('[data-tab="actions"]');
   await page.screenshot({ path: path.join(outDir, "_actions.png") });
 
+  // Returning to the same story from a page without a stage shows its document again.
+  await page.selectOption("#layout", "centered");
+  await openStory("remote-box--layering");
+  await page.goto(base + "#/");
+  await page.waitForSelector("#page h1");
+  if ((await openStory("remote-box--layering")) !== "ok") fail("returning to the same story left it rendering");
+  else console.log("  ok return to the same story");
+
+  // Args from a URL are clamped or defaulted, and the Code tab prints what the player draws.
+  await openStory("remote-box--content-alignment", "?boxSize=99999&childSize=abc&contentAlignment=Bogus");
+  const usage = await page.textContent("#code pre");
+  if (
+    !usage.includes("boxSize = 320") ||
+    !usage.includes("childSize = 72") ||
+    !usage.includes("RemoteAlignment.Center")
+  )
+    fail("URL args were not normalised in the Code tab: " + usage.slice(0, 200));
+  else console.log("  ok URL args normalised");
+
+  // Nothing from the URL is ever markup: no element or event-handler attribute appears in the
+  // controls, whatever the arg's type.
+  const injected = () =>
+    page.evaluate(() =>
+      [...document.querySelectorAll("#controls *")].some(
+        (el) => el.tagName === "IMG" || [...el.attributes].some((at) => at.name.startsWith("on")),
+      ),
+    );
+  await openStory("remote-box--empty", "?color=" + encodeURIComponent('FF"><img src=x onerror="alert(1)">'));
+  const viaColor = await injected();
+  await openStory("remote-text--basics", "?text=" + encodeURIComponent('x" onfocus="alert(1)" y="'));
+  const viaText = await injected();
+  if (viaColor || viaText) fail(`a URL arg injected markup (color: ${viaColor}, text: ${viaText})`);
+  else console.log("  ok URL args are escaped");
+  await page.selectOption("#layout", "topstart");
+
   // A tap on a valueChangeAction changes what is drawn.
   await openStory("clickable--counter");
   await page.waitForTimeout(400);
@@ -157,7 +201,7 @@ if (!only) {
   await page.mouse.click(c.x + 28, c.y + 28); // the "−" button at the row's start
   await page.waitForTimeout(600);
   const shotB = await page.locator("#stageFrame").screenshot();
-  if (Buffer.compare(shotA, shotB) === 0) fail("tapping the counter's + changed nothing on the stage");
+  if (Buffer.compare(shotA, shotB) === 0) fail("tapping the counter's − changed nothing on the stage");
   else console.log("  ok valueChangeAction redraws");
 }
 

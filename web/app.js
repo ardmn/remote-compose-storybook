@@ -101,7 +101,7 @@
       $("playerTheme").value = next;
       if (state.current) {
         sizeStage();
-        sendToPlayer();
+        sendStage();
       }
     });
   }
@@ -225,11 +225,11 @@
     const story = state.storiesById.get(id);
     const component = state.componentByStory.get(id);
     const switching = !state.current || state.current.story.id !== id;
-    const values = defaultValues(story);
+    const raw = defaultValues(story);
     for (const a of story.args) {
-      if (params.has(a.name)) values[a.name] = params.get(a.name);
+      if (params.has(a.name)) raw[a.name] = params.get(a.name);
     }
-    state.current = { story, component, values };
+    state.current = { story, component, values: raw };
     state.expanded.add(component.id);
     if (switching) {
       state.lastDocument = null;
@@ -254,16 +254,20 @@
       : "";
     document.title = component.title + " · " + story.name + " — Remote Compose Storybook";
     sizeStage();
+    // Stage and story go to the player together, so it never re-renders the previous story at the
+    // new size; the values come back canonical (clamped, defaulted) for the controls and the code.
+    window.rcStorybook.stage(stageConfig());
+    state.current.values = JSON.parse(window.rcStorybook.show(id, raw, switching));
     renderControls();
     renderCode();
     renderDocs();
     renderDocument();
     renderChanges();
     renderActions();
-    sendToPlayer();
     if (switching) $("main").scrollTop = 0;
   }
 
+  // Control changes are coalesced to one per frame: a dragged slider fires far more often.
   let pending = false;
   function sendToPlayer() {
     if (pending) return;
@@ -271,16 +275,20 @@
     requestAnimationFrame(() => {
       pending = false;
       if (!state.current) return;
-      window.rcStorybook.stage(stageConfig());
-      window.rcStorybook.show(state.current.story.id, Object.assign({}, state.current.values));
+      const { story, values } = state.current;
+      state.current.values = JSON.parse(window.rcStorybook.show(story.id, values, false));
+      renderCode();
+      syncUrl();
     });
   }
 
-  function setValue(name, value, opts) {
+  function sendStage() {
+    if (state.current) window.rcStorybook.stage(stageConfig());
+  }
+
+  function setValue(name, value) {
     state.current.values[name] = value;
     sendToPlayer();
-    renderCode();
-    if (!opts || !opts.skipUrl) syncUrl();
   }
 
   let urlTimer = 0;
@@ -290,7 +298,7 @@
       if (!state.current) return;
       const { story, values } = state.current;
       const params = new URLSearchParams();
-      for (const a of story.args) if (String(values[a.name]) !== String(a.default)) params.set(a.name, values[a.name]);
+      for (const a of story.args) if (values[a.name] !== a.default) params.set(a.name, values[a.name]);
       const q = params.toString();
       const hash = "#/story/" + story.id + (q ? "?" + q : "");
       if (location.hash !== hash) history.replaceState(null, "", hash);
@@ -335,9 +343,7 @@
     frame.style.height = h + "px";
     frame.style.background = $("playerTheme").value === "dark" ? "#121316" : "#ffffff";
     $("stageSize").textContent = `${w} × ${h} dp`;
-    const changed = !state.stageSize || state.stageSize.w !== w || state.stageSize.h !== h;
     state.stageSize = { w, h };
-    if (changed && window.rcStorybook) window.rcStorybook.stage(stageConfig());
   }
 
   // Controls ---------------------------------------------------------------------------------
@@ -393,21 +399,22 @@
     const n = esc(a.name);
     switch (a.type) {
       case "boolean":
-        return `<label class="switch"><input type="checkbox" data-arg="${n}" ${v === "true" ? "checked" : ""}><span></span></label>`;
+        return `<label class="switch"><input type="checkbox" data-arg="${n}" aria-label="${n}" ${v === "true" ? "checked" : ""}><span></span></label>`;
       case "int":
       case "float":
-        return `<div class="control"><input type="range" data-arg="${n}" min="${a.min}" max="${a.max}" step="${a.step}" value="${esc(String(v))}"><output data-for="${n}">${esc(displayValue(a, v))}</output></div>`;
+        return `<div class="control"><input type="range" data-arg="${n}" aria-label="${n}" min="${a.min}" max="${a.max}" step="${a.step}" value="${esc(String(v))}"><output data-for="${n}">${esc(displayValue(a, v))}</output></div>`;
       case "text":
-        return `<div class="control"><input type="text" data-arg="${n}" value="${esc(String(v))}"></div>`;
+        return `<div class="control"><input type="text" data-arg="${n}" aria-label="${n}" value="${esc(String(v))}"></div>`;
       case "color": {
-        const hex = String(v).replace("#", "");
+        // Canonical colours are #AARRGGBB; anything else (never expected) falls back to opaque black.
+        const hex = /^#[0-9A-F]{8}$/i.test(String(v)) ? String(v).slice(1).toUpperCase() : "FF000000";
         const alpha = parseInt(hex.slice(0, 2), 16);
-        return `<div class="control"><input type="color" data-arg="${n}" value="#${hex.slice(2)}">
-          <label class="tool">alpha <input type="range" data-alpha="${n}" min="0" max="255" value="${alpha}" style="width:110px"></label>
+        return `<div class="control"><input type="color" data-arg="${n}" aria-label="${n} colour" value="#${hex.slice(2)}">
+          <label class="tool">alpha <input type="range" data-alpha="${n}" aria-label="${n} alpha" min="0" max="255" value="${alpha}" style="width:110px"></label>
           <output data-for="${n}">#${esc(hex)}</output></div>`;
       }
       case "choice":
-        return `<select data-arg="${n}">${a.options.map((o) => `<option ${o.label === v ? "selected" : ""}>${esc(o.label)}</option>`).join("")}</select>`;
+        return `<select data-arg="${n}" aria-label="${n}">${a.options.map((o) => `<option ${o.label === v ? "selected" : ""}>${esc(o.label)}</option>`).join("")}</select>`;
       default:
         return esc(String(v));
     }
@@ -420,18 +427,16 @@
       case "boolean":
         return v === "true" ? "true" : "false";
       case "int":
-        return String(Math.round(Number(v)));
-      case "float": {
-        let s = String(Math.round(Number(v) * 1000) / 1000);
-        if (!s.includes(".")) s += ".0";
-        return s + "f";
-      }
+        return String(v);
+      case "float":
+        // Canonical floats are Kotlin's Float.toString() ("30.0", "0.25", "1.0E-4").
+        return v + "f";
       case "text":
         return (
           '"' + String(v).replace(/\\/g, "\\\\").replace(/"/g, '\\"').replace(/\$/g, "\\$").replace(/\n/g, "\\n") + '"'
         );
       case "color":
-        return "Color(0x" + String(v).replace("#", "").toUpperCase() + ")";
+        return "Color(0x" + String(v).slice(1).toUpperCase() + ")";
       case "choice": {
         const o = a.options.find((o) => o.label === v);
         return o ? o.code : String(v);
@@ -539,7 +544,7 @@
   function renderOverview() {
     const total = state.components.reduce((n, c) => n + c.stories.length, 0);
     const cov = state.coverage ? state.coverage.blocks : [];
-    const covered = cov.filter((b) => b.stories.length).length;
+    const covered = cov.filter((b) => b.stories.length || b.inOptions).length;
     const cats = [...new Set(state.components.map((c) => c.category))].sort(
       (a, b) => CATEGORY_ORDER.indexOf(a) - CATEGORY_ORDER.indexOf(b),
     );
@@ -693,9 +698,11 @@ dependencies {
 
   function selectTab(name) {
     state.tab = name;
-    document
-      .querySelectorAll(".tabs [role=tab]")
-      .forEach((b) => b.setAttribute("aria-selected", String(b.dataset.tab === name)));
+    document.querySelectorAll(".tabs [role=tab]").forEach((b) => {
+      const selected = b.dataset.tab === name;
+      b.setAttribute("aria-selected", String(selected));
+      b.tabIndex = selected ? 0 : -1;
+    });
     document.querySelectorAll(".tab-body").forEach((b) => {
       b.hidden = b.dataset.body !== name;
     });
@@ -706,11 +713,8 @@ dependencies {
     window.addEventListener("hashchange", route);
     $("search").addEventListener("input", (e) => renderNav(e.target.value));
     document.addEventListener("keydown", (e) => {
-      if (
-        e.key === "/" &&
-        document.activeElement.tagName !== "INPUT" &&
-        document.activeElement.tagName !== "TEXTAREA"
-      ) {
+      const typing = ["INPUT", "TEXTAREA", "SELECT"].includes(document.activeElement.tagName);
+      if (e.key === "/" && !typing && !e.metaKey && !e.ctrlKey && !e.altKey) {
         e.preventDefault();
         $("search").focus();
       }
@@ -730,6 +734,20 @@ dependencies {
     });
     $("menuBtn").addEventListener("click", () => document.body.classList.toggle("nav-open"));
     $("scrim").addEventListener("click", () => document.body.classList.remove("nav-open"));
+    document.querySelector(".tabs").addEventListener("keydown", (e) => {
+      const tabs = [...document.querySelectorAll(".tabs [role=tab]")];
+      const i = tabs.indexOf(document.activeElement);
+      if (i < 0) return;
+      let next = -1;
+      if (e.key === "ArrowRight") next = (i + 1) % tabs.length;
+      else if (e.key === "ArrowLeft") next = (i - 1 + tabs.length) % tabs.length;
+      else if (e.key === "Home") next = 0;
+      else if (e.key === "End") next = tabs.length - 1;
+      if (next < 0) return;
+      e.preventDefault();
+      selectTab(tabs[next].dataset.tab);
+      tabs[next].focus();
+    });
     document.querySelector(".tabs").addEventListener("click", (e) => {
       const b = e.target.closest("[role=tab]");
       if (b) selectTab(b.dataset.tab);
@@ -738,21 +756,25 @@ dependencies {
       const b = e.target.closest("[data-copy]");
       if (b) copyText(b.parentElement.querySelector("pre").innerText);
     });
-    $("viewport").addEventListener("change", sizeStage);
-    $("playerTheme").addEventListener("change", () => {
+    const restage = () => {
+      if (!state.current) return;
       sizeStage();
-      sendToPlayer();
-    });
-    $("layout").addEventListener("change", () => sendToPlayer());
+      sendStage();
+    };
+    $("viewport").addEventListener("change", restage);
+    $("playerTheme").addEventListener("change", restage);
+    $("layout").addEventListener("change", restage);
+    let resizeTimer = 0;
     window.addEventListener("resize", () => {
-      if (state.current) sizeStage();
+      clearTimeout(resizeTimer);
+      resizeTimer = setTimeout(restage, 150);
     });
     $("resetArgs").addEventListener("click", () => {
       if (!state.current) return;
-      state.current.values = defaultValues(state.current.story);
+      const { story } = state.current;
+      state.current.values = JSON.parse(window.rcStorybook.show(story.id, defaultValues(story), false));
       renderControls();
       renderCode();
-      sendToPlayer();
       syncUrl();
     });
     $("copyLink").addEventListener("click", () => {
@@ -802,7 +824,8 @@ dependencies {
 
   // A crash inside the Wasm player leaves its canvas dead: say so rather than showing a blank stage.
   window.addEventListener("error", (e) => {
-    if (!state.current) return;
+    // Only errors from the Wasm bundle; the shell's own errors are not the player's.
+    if (!state.current || !/storybook\.js|\.wasm/.test(e.filename || "")) return;
     overlay("The player stopped: " + (e.message || "unknown error") + "\nReload the page to continue.", true);
   });
 

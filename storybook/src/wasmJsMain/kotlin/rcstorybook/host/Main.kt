@@ -33,7 +33,7 @@ import rcstorybook.catalog.Args
 import rcstorybook.catalog.Catalog
 import rcstorybook.catalog.Story
 
-/** What the stage shows: a story, the values of its args, and a counter the page bumps. */
+/** What the stage shows: a story and the values of its args. */
 private data class Selection(val story: Story, val args: Args)
 
 /** The stage as the page sizes it: the player's viewport in dp, and its theme. */
@@ -50,6 +50,9 @@ private var stageConfig by mutableStateOf(StageConfig())
 /** The last document each story produced, for the Changes tab's structural diff. */
 private val lastDocuments = mutableMapOf<String, List<String>>()
 
+/** The last document report each story sent, to send again when nothing changed. */
+private val lastReports = mutableMapOf<String, String>()
+
 private val storiesById: Map<String, Story> by lazy {
     Catalog.components.flatMap { it.stories }.associateBy { it.id }
 }
@@ -57,7 +60,7 @@ private val storiesById: Map<String, Story> by lazy {
 fun main() {
     installApi(
         catalog = { catalogJson().toJsString() },
-        show = { id, args -> show(id.toString(), args) },
+        show = { id, args, fresh -> show(id.toString(), args, fresh).toJsString() },
         stage = { config ->
             stageConfig =
                 StageConfig(
@@ -75,7 +78,12 @@ fun main() {
     ComposeViewport(viewportContainerId = "stage") { Stage() }
 }
 
-private fun show(id: String, rawArgs: JsAny) {
+/**
+ * Shows [id] with the args the page sent, and returns their canonical values (as JSON) for the
+ * page's controls, URL and Code tab. [fresh] means the page has just switched to this story: the
+ * Changes tab then starts from the next document rather than from an earlier visit.
+ */
+private fun show(id: String, rawArgs: JsAny, fresh: Boolean): String {
     val story =
         storiesById[id]
             ?: run {
@@ -83,13 +91,22 @@ private fun show(id: String, rawArgs: JsAny) {
                     "rcstorybook:failure",
                     toJson(mapOf("story" to id, "message" to "Unknown story $id")),
                 )
-                return
+                return "{}"
             }
     val values =
         story.args.associate { arg ->
             arg.name to (jsProperty(rawArgs, arg.name)?.let { arg.parse(it) } ?: arg.default)
         }
-    selection = Selection(story, Args(values))
+    if (fresh) lastDocuments.remove(id)
+    val next = Selection(story, Args(values))
+    if (next == selection) {
+        // Nothing to recompose, so no new document will come: send the page the current one again
+        // (it may have been away from this story, on a page with no stage).
+        lastReports[id]?.let { emit("rcstorybook:document", it) }
+    } else {
+        selection = next
+    }
+    return toJson(story.args.associate { it.name to it.canonicalOf(values[it.name]) })
 }
 
 @Composable
@@ -153,8 +170,7 @@ private fun report(story: Story, document: RcDocument) {
     val previous = lastDocuments[story.id]
     val diff = previous?.let { unifiedDiff(it, lines) }?.takeIf { it.isNotEmpty() }
     lastDocuments[story.id] = lines
-    emit(
-        "rcstorybook:document",
+    val report =
         toJson(
             mapOf(
                 "story" to story.id,
@@ -164,8 +180,9 @@ private fun report(story: Story, document: RcDocument) {
                 "diff" to diff,
                 "base64" to Base64.encode(bytes),
             ),
-        ),
-    )
+        )
+    lastReports[story.id] = report
+    emit("rcstorybook:document", report)
 }
 
 private fun describe(storyId: String, event: RcPlayerEvent): Map<String, Any?> =

@@ -251,8 +251,8 @@ fun PainterBackground(color: Color, useImage: Boolean) {
 @RemoteComposable
 fun AlphaRotateScale(alpha: Float, degrees: Float, scale: Float) {
     RemoteBox(RemoteModifier.size(240.rdp), contentAlignment = RemoteAlignment.Center) {
-        // Each transform on its own component: the web player accepts one layer modifier per
-        // component.
+        // One transform per component. AndroidX accepts alpha().rotate().scale() on one component;
+        // this site's web player (rc-players) rejects more than one layer modifier per component.
         RemoteBox(RemoteModifier.alpha(alpha.rf)) {
             RemoteBox(RemoteModifier.rotate(degrees.rf)) {
                 RemoteBox(

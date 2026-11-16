@@ -109,27 +109,56 @@
         <!-- The Compose viewport lives outside the story view so the wasm canvas is created once. -->
         <div class="stage-wrap offstage" id="stageWrap">
           <div class="stage-frame" id="stageFrame">
-            <div id="stage"></div>
-            <div class="stage-overlay" id="stageOverlay">Loading the player…</div>
+            <div id="stage" role="region" aria-label="Stage: the story drawn by the Remote Compose player"></div>
+            <div class="stage-overlay" id="stageOverlay" role="status" aria-live="polite">Loading the player…</div>
           </div>
           <div class="stage-size" id="stageSize"></div>
         </div>
 
         <section class="panel" id="panel" hidden>
           <div class="tabs" role="tablist">
-            <button role="tab" data-tab="controls" aria-selected="true">Controls</button>
-            <button role="tab" data-tab="code">Code</button>
-            <button role="tab" data-tab="docs">Docs</button>
-            <button role="tab" data-tab="document">Document</button>
-            <button role="tab" data-tab="changes">Changes <span class="dot" id="changesDot" hidden></span></button>
-            <button role="tab" data-tab="actions">Actions <span class="count" id="actionsCount" hidden></span></button>
+            <button role="tab" id="tab-controls" data-tab="controls" aria-controls="controls" aria-selected="true">
+              Controls
+            </button>
+            <button role="tab" id="tab-code" data-tab="code" aria-controls="code" tabindex="-1">Code</button>
+            <button role="tab" id="tab-docs" data-tab="docs" aria-controls="docs" tabindex="-1">Docs</button>
+            <button role="tab" id="tab-document" data-tab="document" aria-controls="document" tabindex="-1">
+              Document
+            </button>
+            <button role="tab" id="tab-changes" data-tab="changes" aria-controls="changes" tabindex="-1">
+              Changes <span class="dot" id="changesDot" hidden></span>
+            </button>
+            <button role="tab" id="tab-actions" data-tab="actions" aria-controls="actions" tabindex="-1">
+              Actions <span class="count" id="actionsCount" hidden></span>
+            </button>
           </div>
-          <div class="tab-body" data-body="controls" id="controls"></div>
-          <div class="tab-body" data-body="code" id="code" hidden></div>
-          <div class="tab-body" data-body="docs" id="docs" hidden></div>
-          <div class="tab-body" data-body="document" id="document" hidden></div>
-          <div class="tab-body" data-body="changes" id="changes" hidden></div>
-          <div class="tab-body" data-body="actions" id="actions" hidden></div>
+          <div class="tab-body" role="tabpanel" aria-labelledby="tab-controls" data-body="controls" id="controls"></div>
+          <div class="tab-body" role="tabpanel" aria-labelledby="tab-code" data-body="code" id="code" hidden></div>
+          <div class="tab-body" role="tabpanel" aria-labelledby="tab-docs" data-body="docs" id="docs" hidden></div>
+          <div
+            class="tab-body"
+            role="tabpanel"
+            aria-labelledby="tab-document"
+            data-body="document"
+            id="document"
+            hidden
+          ></div>
+          <div
+            class="tab-body"
+            role="tabpanel"
+            aria-labelledby="tab-changes"
+            data-body="changes"
+            id="changes"
+            hidden
+          ></div>
+          <div
+            class="tab-body"
+            role="tabpanel"
+            aria-labelledby="tab-actions"
+            data-body="actions"
+            id="actions"
+            hidden
+          ></div>
         </section>
       </main>
     </div>

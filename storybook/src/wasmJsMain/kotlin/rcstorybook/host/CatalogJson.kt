@@ -8,7 +8,6 @@ import rcstorybook.catalog.ColorArg
 import rcstorybook.catalog.FloatArg
 import rcstorybook.catalog.IntArg
 import rcstorybook.catalog.TextArg
-import rcstorybook.catalog.argbHex
 
 /** The catalog as the page reads it: components, their stories, and each arg's control. */
 internal fun catalogJson(): String =
@@ -43,35 +42,30 @@ internal fun catalogJson(): String =
         ),
     )
 
-@Suppress("UNCHECKED_CAST")
 private fun argJson(arg: Arg<*>): Map<String, Any?> {
     val base = mapOf("name" to arg.name, "type" to arg.type, "doc" to arg.doc)
     return base +
         when (arg) {
-            is BoolArg ->
-                mapOf(
-                    "default" to arg.default.toString(),
-                    "codes" to mapOf("true" to "true", "false" to "false"),
-                )
+            is BoolArg -> mapOf("default" to arg.canonicalOf(arg.default))
             is IntArg ->
                 mapOf(
-                    "default" to arg.default.toString(),
+                    "default" to arg.canonicalOf(arg.default),
                     "min" to arg.min,
                     "max" to arg.max,
                     "step" to arg.step,
                 )
             is FloatArg ->
                 mapOf(
-                    "default" to arg.default.toString(),
+                    "default" to arg.canonicalOf(arg.default),
                     "min" to arg.min,
                     "max" to arg.max,
                     "step" to arg.step,
                 )
-            is TextArg -> mapOf("default" to arg.default)
-            is ColorArg -> mapOf("default" to "#" + argbHex(arg.default))
+            is TextArg -> mapOf("default" to arg.canonical(arg.default))
+            is ColorArg -> mapOf("default" to arg.canonical(arg.default))
             is ChoiceArg<*> ->
                 mapOf(
-                    "default" to arg.defaultLabel,
+                    "default" to arg.canonicalOf(arg.default),
                     "options" to arg.options.map { mapOf("label" to it.label, "code" to it.code) },
                 )
         }

@@ -3,8 +3,8 @@
 
 Subcommands:
   sources   Extract every story function's source, rewritten to AndroidX's packages, into
-            sources.json for the Code tab, and write the rewritten story files for the AndroidX
-            compile check (verify-androidx).
+            sources.json for the Code tab; fail when a story imports anything from
+            androidx.compose.remote that AndroidX's api/current.txt does not declare public.
   api       Extract the public signatures of each component's symbols from AndroidX's
             api/current.txt files into api.json for the Docs tab.
   coverage  List every public building block in AndroidX's current.txt and which stories use it;
@@ -63,9 +63,8 @@ def rewrite(text):
 
 
 class Decl:
-    def __init__(self, name, kind, lines, composable):
+    def __init__(self, name, lines, composable):
         self.name = name
-        self.kind = kind
         self.lines = lines
         self.composable = composable
 
@@ -74,8 +73,15 @@ class Decl:
         return "\n".join(self.lines)
 
 
+# A top-level declaration's first line: modifiers, the keyword, type parameters, an extension
+# receiver (`fun RemoteModifier.x`, whose name is `x`), then the name.
 DECL_RE = re.compile(
-    r"^(?:(?:private|internal|public)\s+)?(?:enum\s+class|data\s+class|class|object|fun|val|const\s+val)\s+(?:<[^>]+>\s+)?([A-Za-z_]\w*)"
+    r"^(?:@\w+(?:\([^)]*\))?\s+)*"
+    r"(?:(?:private|internal|public|inline|suspend|sealed|abstract|open|data|enum|const)\s+)*"
+    r"(?:class|interface|object|fun|val|var)\s+"
+    r"(?:<[^>]+>\s+)?"
+    r"(?:[\w.<>?, ]+\.)?"
+    r"([A-Za-z_]\w*)"
 )
 
 
@@ -103,7 +109,6 @@ def parse_kotlin(path):
             header = lines[i]
             m = DECL_RE.match(header)
             name = m.group(1)
-            kind = "fun" if " fun " in " " + header or header.startswith("fun ") else "other"
             # The declaration ends at the first `}` in column 0 after an opening brace, or on the
             # header line itself when it opens no block.
             depth = 0
@@ -125,8 +130,8 @@ def parse_kotlin(path):
             else:
                 end = len(lines) - 1
             block = lines[start : end + 1]
-            composable = any(line.strip().startswith("@RemoteComposable") for line in lines[start:i])
-            decls.append(Decl(name, kind, block, composable))
+            composable = any("@RemoteComposable" in line for line in lines[start : i + 1])
+            decls.append(Decl(name, block, composable))
             i = end + 1
             continue
         i += 1

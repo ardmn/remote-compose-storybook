@@ -87,7 +87,9 @@ fun FloatFunctionPlot(function: String, animate: Boolean, color: Color) {
         drawLine(axis, RemoteOffset(width / 2f.rf, 0f.rf), RemoteOffset(width / 2f.rf, height))
         val dot = RemotePaint { this.color = color.rc }
         val shift = if (animate) sin(RemoteTimeVariables.continuousSeconds) * 0.5f.rf else 0f.rf
-        // 61 samples of y = f(x) for x in [-1, 1]; the player computes each y.
+        // 61 samples of y = f(x) across the plot's x range [-1, 1] (shifted over time when
+        // animated);
+        // the player computes each y.
         for (i in 0..60) {
             val x = -1f + i / 30f
             val y = remoteFunction(function, x.rf + shift)
