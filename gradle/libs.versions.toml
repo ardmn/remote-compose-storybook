@@ -1,0 +1,20 @@
+[versions]
+kotlin = "2.4.21"
+compose-multiplatform = "1.12.2"
+kotlinx-coroutines = "1.11.0"
+# rc-players: the Compose Multiplatform port of AndroidX's creation API (package
+# ee.schimke.composeai.rccreation) and the players. The Code tab shows the stories rewritten to
+# AndroidX's packages; reference/androidx-api holds the androidx-main API they are checked against.
+rc-players = "3.7.0"
+
+[libraries]
+rc-creation-compose = { module = "ee.schimke.composeai:rc-creation-compose", version.ref = "rc-players" }
+rc-creation-foundation = { module = "ee.schimke.composeai:rc-creation-foundation", version.ref = "rc-players" }
+rc-player-compose = { module = "ee.schimke.composeai:rc-player-compose", version.ref = "rc-players" }
+rc-player-embedded = { module = "ee.schimke.composeai:rc-player-embedded", version.ref = "rc-players" }
+kotlinx-coroutines-core = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-core", version.ref = "kotlinx-coroutines" }
+
+[plugins]
+kotlin-multiplatform = { id = "org.jetbrains.kotlin.multiplatform", version.ref = "kotlin" }
+compose-compiler = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }
+compose-multiplatform = { id = "org.jetbrains.compose", version.ref = "compose-multiplatform" }

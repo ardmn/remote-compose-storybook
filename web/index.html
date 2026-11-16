@@ -1,0 +1,114 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Remote Compose Storybook</title>
+  <meta name="description" content="Live catalog of the public Jetpack Remote Compose creation API: every @RemoteComposable building block, how to use it, and how its document changes.">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%233367d6'/%3E%3Crect x='7' y='7' width='8' height='8' rx='2' fill='white'/%3E%3Crect x='17' y='7' width='8' height='8' rx='2' fill='white' opacity='.7'/%3E%3Crect x='7' y='17' width='18' height='8' rx='2' fill='white' opacity='.85'/%3E%3C/svg%3E">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div id="app">
+    <header class="topbar">
+      <button class="icon-btn mobile-only" id="menuBtn" aria-label="Open navigation">&#9776;</button>
+      <a class="brand" href="#/">
+        <span class="brand-mark" aria-hidden="true"></span>
+        <span>Remote Compose <b>Storybook</b></span>
+      </a>
+      <span class="badge" id="versionBadge" title="AndroidX API the catalog is checked against"></span>
+      <div class="topbar-spacer"></div>
+      <button class="icon-btn" id="themeBtn" aria-label="Toggle dark theme" title="Toggle dark theme">&#9681;</button>
+      <a class="icon-btn" id="repoLink" href="https://github.com/" target="_blank" rel="noopener" title="Source on GitHub" aria-label="Source on GitHub">
+        <svg viewBox="0 0 16 16" width="18" height="18" aria-hidden="true"><path fill="currentColor" d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+      </a>
+    </header>
+
+    <aside class="sidebar" id="sidebar">
+      <div class="search">
+        <input id="search" type="search" placeholder="Find components  ( / )" autocomplete="off" aria-label="Find components">
+      </div>
+      <nav id="nav" aria-label="Components"></nav>
+    </aside>
+    <div class="scrim mobile-only" id="scrim"></div>
+
+    <main class="main" id="main">
+      <!-- Pages (overview, coverage) render here; the story view below is shown for stories. -->
+      <section class="page" id="page" hidden></section>
+
+      <section class="story" id="storyView" hidden>
+        <div class="story-head">
+          <div>
+            <div class="crumbs" id="crumbs"></div>
+            <h1 id="storyTitle"></h1>
+            <p class="story-desc" id="storyDesc"></p>
+            <div class="plain" id="storyPlain"></div>
+          </div>
+        </div>
+        <div class="toolbar" role="toolbar" aria-label="Stage">
+          <label class="tool">
+            <span>Viewport</span>
+            <select id="viewport">
+              <option value="auto">Story default</option>
+              <option value="360x640">Phone 360×640</option>
+              <option value="320x180">Widget 320×180</option>
+              <option value="240x240">Small 240×240</option>
+              <option value="600x400">Tablet 600×400</option>
+              <option value="fill">Fill</option>
+            </select>
+          </label>
+          <label class="tool">
+            <span>Layout</span>
+            <select id="layout">
+              <option value="centered">Centered</option>
+              <option value="topstart">Top start</option>
+            </select>
+          </label>
+          <label class="tool">
+            <span>Player theme</span>
+            <select id="playerTheme">
+              <option value="light">Light</option>
+              <option value="dark">Dark</option>
+            </select>
+          </label>
+          <button class="btn" id="resetArgs" title="Reset every control to its default">Reset args</button>
+          <button class="btn" id="copyLink" title="Copy a link to this story with these args">Copy link</button>
+          <button class="btn" id="downloadRc" title="Download the current document as a .rc file" disabled>Download .rc</button>
+          <div class="toolbar-spacer"></div>
+          <span class="stat" id="docStats" aria-live="polite"></span>
+        </div>
+      </section>
+
+      <!-- The Compose viewport lives outside the story view so the wasm canvas is created once. -->
+      <div class="stage-wrap offstage" id="stageWrap">
+        <div class="stage-frame" id="stageFrame">
+          <div id="stage"></div>
+          <div class="stage-overlay" id="stageOverlay">Loading the player…</div>
+        </div>
+        <div class="stage-size" id="stageSize"></div>
+      </div>
+
+      <section class="panel" id="panel" hidden>
+        <div class="tabs" role="tablist">
+          <button role="tab" data-tab="controls" aria-selected="true">Controls</button>
+          <button role="tab" data-tab="code">Code</button>
+          <button role="tab" data-tab="docs">Docs</button>
+          <button role="tab" data-tab="document">Document</button>
+          <button role="tab" data-tab="changes">Changes <span class="dot" id="changesDot" hidden></span></button>
+          <button role="tab" data-tab="actions">Actions <span class="count" id="actionsCount" hidden></span></button>
+        </div>
+        <div class="tab-body" data-body="controls" id="controls"></div>
+        <div class="tab-body" data-body="code" id="code" hidden></div>
+        <div class="tab-body" data-body="docs" id="docs" hidden></div>
+        <div class="tab-body" data-body="document" id="document" hidden></div>
+        <div class="tab-body" data-body="changes" id="changes" hidden></div>
+        <div class="tab-body" data-body="actions" id="actions" hidden></div>
+      </section>
+    </main>
+  </div>
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+  <script src="highlight.js"></script>
+  <script src="app.js"></script>
+  <script src="storybook.js"></script>
+</body>
+</html>
