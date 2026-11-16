@@ -72,6 +72,7 @@
         state.componentByStory.set(s.id, c);
       }
     }
+    $("playerTheme").value = effectiveDark() ? "dark" : "light";
     wireEvents();
     renderNav();
     route();
@@ -82,13 +83,26 @@
 
   function initTheme() {
     let saved = null;
-    try { saved = localStorage.getItem("rcsb-theme"); } catch (_) {}
+    try {
+      saved = localStorage.getItem("rcsb-theme");
+    } catch {
+      // Storage can be blocked (private windows, previews); the theme then follows the system.
+    }
     if (saved) document.documentElement.dataset.theme = saved;
     $("themeBtn").addEventListener("click", () => {
       const dark = effectiveDark();
       const next = dark ? "light" : "dark";
       document.documentElement.dataset.theme = next;
-      try { localStorage.setItem("rcsb-theme", next); } catch (_) {}
+      try {
+        localStorage.setItem("rcsb-theme", next);
+      } catch {
+        // Not remembered when storage is blocked; the toggle still applies to this page.
+      }
+      $("playerTheme").value = next;
+      if (state.current) {
+        sizeStage();
+        sendToPlayer();
+      }
     });
   }
 
@@ -101,21 +115,33 @@
   // ------------------------------------------------------------------------------------------
   // Navigation
 
-  const CATEGORY_ORDER = ["Layout", "Content", "Canvas", "Modifiers", "Interaction", "Animation", "State & expressions", "Styling"];
+  const CATEGORY_ORDER = [
+    "Layout",
+    "Content",
+    "Canvas",
+    "Modifiers",
+    "Interaction",
+    "Animation",
+    "State & expressions",
+    "Styling",
+  ];
 
   function renderNav(filter) {
     const q = (filter || "").trim().toLowerCase();
     const nav = $("nav");
     const byCategory = new Map();
     for (const c of state.components) {
-      const matches = !q || c.title.toLowerCase().includes(q) ||
+      const matches =
+        !q ||
+        c.title.toLowerCase().includes(q) ||
         c.stories.some((s) => s.name.toLowerCase().includes(q) || s.function.toLowerCase().includes(q));
       if (!matches) continue;
       if (!byCategory.has(c.category)) byCategory.set(c.category, []);
       byCategory.get(c.category).push(c);
     }
     const cats = [...byCategory.keys()].sort((a, b) => {
-      const ia = CATEGORY_ORDER.indexOf(a), ib = CATEGORY_ORDER.indexOf(b);
+      const ia = CATEGORY_ORDER.indexOf(a),
+        ib = CATEGORY_ORDER.indexOf(b);
       return (ia < 0 ? 99 : ia) - (ib < 0 ? 99 : ib);
     });
     const currentId = state.current && state.current.story.id;
@@ -133,7 +159,15 @@
         html += `<button class="nav-comp" data-comp="${c.id}" aria-expanded="${open ? "true" : "false"}">${esc(c.title)}</button>`;
         if (open) {
           for (const s of c.stories) {
-            if (q && !(c.title.toLowerCase().includes(q) || s.name.toLowerCase().includes(q) || s.function.toLowerCase().includes(q))) continue;
+            if (
+              q &&
+              !(
+                c.title.toLowerCase().includes(q) ||
+                s.name.toLowerCase().includes(q) ||
+                s.function.toLowerCase().includes(q)
+              )
+            )
+              continue;
             html += `<a class="nav-link" href="#/story/${s.id}" ${s.id === currentId ? 'aria-current="page"' : ""}>${esc(s.name)}</a>`;
           }
         }
@@ -214,8 +248,10 @@
     $("storyTitle").textContent = story.name;
     $("storyDesc").textContent = story.description;
     const plain = component.plain;
-    $("storyPlain").innerHTML = plain ? `<div><b>What it is</b>${esc(plain.what)}</div>
-      <div><b>Use it for</b><ul>${plain.useWhen.map((u) => `<li>${esc(u)}</li>`).join("")}</ul></div>` : "";
+    $("storyPlain").innerHTML = plain
+      ? `<div><b>What it is</b>${esc(plain.what)}</div>
+      <div><b>Use it for</b><ul>${plain.useWhen.map((u) => `<li>${esc(u)}</li>`).join("")}</ul></div>`
+      : "";
     document.title = component.title + " · " + story.name + " — Remote Compose Storybook";
     sizeStage();
     renderControls();
@@ -263,7 +299,10 @@
 
   function overlay(text, isError) {
     const el = $("stageOverlay");
-    if (text == null) { el.hidden = true; return; }
+    if (text == null) {
+      el.hidden = true;
+      return;
+    }
     el.hidden = false;
     el.textContent = text;
     el.classList.toggle("error", !!isError);
@@ -280,11 +319,15 @@
     if (!state.current) return;
     const v = $("viewport").value;
     let w, h;
-    if (v === "auto") { w = state.current.story.width; h = state.current.story.height; }
-    else if (v === "fill") {
+    if (v === "auto") {
+      w = state.current.story.width;
+      h = state.current.story.height;
+    } else if (v === "fill") {
       w = Math.max(200, $("stageWrap").clientWidth - 50);
       h = Math.max(240, Math.round(window.innerHeight * 0.5));
-    } else { [w, h] = v.split("x").map(Number); }
+    } else {
+      [w, h] = v.split("x").map(Number);
+    }
     const max = Math.max(200, $("stageWrap").clientWidth - 50);
     w = Math.min(w, max);
     const frame = $("stageFrame");
@@ -307,7 +350,8 @@
       return;
     }
     let rows = "";
-    for (const a of story.args) rows += `<tr><td class="name">${esc(a.name)}</td><td>${controlHtml(a, values[a.name])}</td><td class="doc">${esc(a.doc || "")}</td></tr>`;
+    for (const a of story.args)
+      rows += `<tr><td class="name">${esc(a.name)}</td><td>${controlHtml(a, values[a.name])}</td><td class="doc">${esc(a.doc || "")}</td></tr>`;
     body.innerHTML = `<table class="controls"><thead><tr><th>Name</th><th>Control</th><th>Description</th></tr></thead><tbody>${rows}</tbody></table>`;
     body.querySelectorAll("[data-arg]").forEach((el) => {
       const name = el.dataset.arg;
@@ -328,7 +372,9 @@
       el.addEventListener("input", handler);
       el.addEventListener("change", handler);
       const alphaEl = body.querySelector(`[data-alpha="${name}"]`);
-      if (alphaEl) { alphaEl.addEventListener("input", handler); }
+      if (alphaEl) {
+        alphaEl.addEventListener("input", handler);
+      }
     });
   }
 
@@ -371,15 +417,21 @@
 
   function kotlinValue(a, v) {
     switch (a.type) {
-      case "boolean": return v === "true" ? "true" : "false";
-      case "int": return String(Math.round(Number(v)));
+      case "boolean":
+        return v === "true" ? "true" : "false";
+      case "int":
+        return String(Math.round(Number(v)));
       case "float": {
         let s = String(Math.round(Number(v) * 1000) / 1000);
         if (!s.includes(".")) s += ".0";
         return s + "f";
       }
-      case "text": return '"' + String(v).replace(/\\/g, "\\\\").replace(/"/g, '\\"').replace(/\$/g, "\\$").replace(/\n/g, "\\n") + '"';
-      case "color": return "Color(0x" + String(v).replace("#", "").toUpperCase() + ")";
+      case "text":
+        return (
+          '"' + String(v).replace(/\\/g, "\\\\").replace(/"/g, '\\"').replace(/\$/g, "\\$").replace(/\n/g, "\\n") + '"'
+        );
+      case "color":
+        return "Color(0x" + String(v).replace("#", "").toUpperCase() + ")";
       case "choice": {
         const o = a.options.find((o) => o.label === v);
         return o ? o.code : String(v);
@@ -406,7 +458,8 @@
     const src = state.sources[story.function];
     const body = $("code");
     let html = codeBlock("Usage with the current args", usageCode());
-    html += src ? codeBlock("Story source · " + src.file, src.code)
+    html += src
+      ? codeBlock("Story source · " + src.file, src.code)
       : `<p class="empty">Source for ${esc(story.function)} is missing from data/sources.json.</p>`;
     body.innerHTML = html;
   }
@@ -435,8 +488,12 @@
   function renderDocument() {
     const doc = state.lastDocument;
     const body = $("document");
-    if (!doc) { body.innerHTML = `<p class="empty">Waiting for the first document…</p>`; return; }
-    body.innerHTML = `<p>The <code>.rc</code> document this story captures to right now: <b>${doc.bytes.toLocaleString()} bytes</b>, ${doc.operations} operations. This is what a server would send to a player${$("layout").value === "centered" ? " (with the stage's centering box around the story; choose Layout: Top start to see the story alone)" : ""}.</p>` +
+    if (!doc) {
+      body.innerHTML = `<p class="empty">Waiting for the first document…</p>`;
+      return;
+    }
+    body.innerHTML =
+      `<p>The <code>.rc</code> document this story captures to right now: <b>${doc.bytes.toLocaleString()} bytes</b>, ${doc.operations} operations. This is what a server would send to a player${$("layout").value === "centered" ? " (with the stage's centering box around the story; choose Layout: Top start to see the story alone)" : ""}.</p>` +
       codeBlock("Structure (one operation per line)", doc.structure, "plain");
   }
 
@@ -447,7 +504,9 @@
       body.innerHTML = `<p class="empty">Change a control: this tab shows what that change did to the document, operation by operation.</p>`;
       return;
     }
-    body.innerHTML = `<p>What the last change did to the document (structural diff of the previous and the current <code>.rc</code>).</p>` + codeBlock("", doc.diff, "diff");
+    body.innerHTML =
+      `<p>What the last change did to the document (structural diff of the previous and the current <code>.rc</code>).</p>` +
+      codeBlock("", doc.diff, "diff");
   }
 
   function updateActionsBadge() {
@@ -462,10 +521,17 @@
       body.innerHTML = `<p class="empty">Events the player sends to its host (hostAction, haptics, …) appear here. Try a story under Interaction and tap the stage.</p>`;
       return;
     }
-    body.innerHTML = `<ul class="action-log">${state.actions.slice().reverse().map((a) =>
-      `<li><time>${a.time}</time><b>${esc(a.type)}</b><span>${esc(a.detail)}</span></li>`).join("")}</ul>
+    body.innerHTML = `<ul class="action-log">${state.actions
+      .slice()
+      .reverse()
+      .map((a) => `<li><time>${a.time}</time><b>${esc(a.type)}</b><span>${esc(a.detail)}</span></li>`)
+      .join("")}</ul>
       <p><button class="btn" id="clearActions">Clear</button></p>`;
-    $("clearActions").addEventListener("click", () => { state.actions = []; updateActionsBadge(); renderActions(); });
+    $("clearActions").addEventListener("click", () => {
+      state.actions = [];
+      updateActionsBadge();
+      renderActions();
+    });
   }
 
   // Pages ------------------------------------------------------------------------------------
@@ -474,8 +540,10 @@
     const total = state.components.reduce((n, c) => n + c.stories.length, 0);
     const cov = state.coverage ? state.coverage.blocks : [];
     const covered = cov.filter((b) => b.stories.length).length;
-    const cats = [...new Set(state.components.map((c) => c.category))].sort((a, b) => CATEGORY_ORDER.indexOf(a) - CATEGORY_ORDER.indexOf(b));
-    const first = (c) => c.stories[0] ? "#/story/" + c.stories[0].id : "#/";
+    const cats = [...new Set(state.components.map((c) => c.category))].sort(
+      (a, b) => CATEGORY_ORDER.indexOf(a) - CATEGORY_ORDER.indexOf(b),
+    );
+    const first = (c) => (c.stories[0] ? "#/story/" + c.stories[0].id : "#/");
     return `
       <h1>Remote Compose Storybook</h1>
       <p class="lede">A live catalog of the public <b>Jetpack Remote Compose</b> creation API, the <code>@RemoteComposable</code>
@@ -508,7 +576,9 @@
       <h2>Use it in your project</h2>
       <p>The catalog follows <b>androidx-main</b>: the newest public API, a step ahead of the latest release
       (<code>${esc(state.meta.androidxRelease || "see Google Maven")}</code>). Use the next release, or AndroidX snapshots, to get every block shown here.</p>
-      ${codeBlock("build.gradle.kts", `repositories {
+      ${codeBlock(
+        "build.gradle.kts",
+        `repositories {
     google()
     // Snapshots of androidx-main: https://androidx.dev
     maven("https://androidx.dev/snapshots/latest/artifacts/repository")
@@ -520,8 +590,11 @@ dependencies {
     implementation("androidx.compose.remote.foundation:foundation:1.0.0-SNAPSHOT")
     // Play documents on Android
     implementation("androidx.compose.remote:remote-player-compose:1.0.0-SNAPSHOT")
-}`)}
-      ${codeBlock("Capture a @RemoteComposable to bytes (Android)", `val document = captureSingleRemoteDocument(
+}`,
+      )}
+      ${codeBlock(
+        "Capture a @RemoteComposable to bytes (Android)",
+        `val document = captureSingleRemoteDocument(
     context = context,
     creationDisplayInfo = RemoteCreationDisplayInfo(width = 1080, height = 1920, densityDpi = 420),
 ) {
@@ -529,11 +602,22 @@ dependencies {
         RemoteText("Hello from the server".rs, fontSize = 20.rsp)
     }
 }
-// document.bytes is the .rc payload any Remote Compose player can draw.`)}
+// document.bytes is the .rc payload any Remote Compose player can draw.`,
+      )}
 
       <h2>Components</h2>
-      ${cats.map((cat) => `<h3>${esc(cat)}</h3><div class="cards">${state.components.filter((c) => c.category === cat).map((c) =>
-        `<a class="card" href="${first(c)}"><b>${esc(c.title)}</b><span>${esc(c.plain ? c.plain.what : c.description)}</span></a>`).join("")}</div>`).join("")}
+      ${cats
+        .map(
+          (cat) =>
+            `<h3>${esc(cat)}</h3><div class="cards">${state.components
+              .filter((c) => c.category === cat)
+              .map(
+                (c) =>
+                  `<a class="card" href="${first(c)}"><b>${esc(c.title)}</b><span>${esc(c.plain ? c.plain.what : c.description)}</span></a>`,
+              )
+              .join("")}</div>`,
+        )
+        .join("")}
 
       <h2>How this site works</h2>
       <p>The stories are compiled to WebAssembly with <a href="https://github.com/yschimke/rc-players" target="_blank" rel="noopener">rc-players</a>,
@@ -568,7 +652,7 @@ dependencies {
       <p class="lede">Every public building block in AndroidX's <code>api/current.txt</code>
       (androidx-main <code>${esc((state.coverage.commit || "").slice(0, 9))}</code>) and the stories that use it.</p>
       <p><b>${covered}</b> of <b>${blocks.length}</b> covered${pending ? `; <b>${pending}</b> are public on androidx-main but not yet in the web player` : ""}.</p>
-      <div class="meter"><div style="width:${(100 * covered / Math.max(1, blocks.length)).toFixed(1)}%"></div></div>`;
+      <div class="meter"><div style="width:${((100 * covered) / Math.max(1, blocks.length)).toFixed(1)}%"></div></div>`;
     for (const [group, items] of groups) {
       const n = items.filter((b) => b.stories.length || b.inOptions).length;
       html += `<div class="cov-group"><h2>${esc(group)} <span class="pill">${n}/${items.length}</span></h2><table class="cov-table">`;
@@ -576,7 +660,10 @@ dependencies {
         const direct = b.stories.map((fn) => storyFor.get(fn)).filter(Boolean);
         const opts = b.inOptions ? viaOptions(b.name).filter((s) => !direct.includes(s)) : [];
         const links = [...direct, ...opts].map((s) => `<a href="#/story/${s.id}">${esc(s.name)}</a>`).join("");
-        const note = b.pending && !links ? `<span class="pill">not in the web player yet</span> <span class="empty">${esc(b.pending)}</span>` : '<span class="empty">no story yet</span>';
+        const note =
+          b.pending && !links
+            ? `<span class="pill">not in the web player yet</span> <span class="empty">${esc(b.pending)}</span>`
+            : '<span class="empty">no story yet</span>';
         html += `<tr><td>${esc(b.name)}</td><td>${links || note}</td></tr>`;
       }
       html += `</table></div>`;
@@ -596,14 +683,22 @@ dependencies {
   }
 
   async function copyText(text) {
-    try { await navigator.clipboard.writeText(text); toast("Copied"); }
-    catch (_) { toast("Copy failed"); }
+    try {
+      await navigator.clipboard.writeText(text);
+      toast("Copied");
+    } catch {
+      toast("Copy failed");
+    }
   }
 
   function selectTab(name) {
     state.tab = name;
-    document.querySelectorAll(".tabs [role=tab]").forEach((b) => b.setAttribute("aria-selected", String(b.dataset.tab === name)));
-    document.querySelectorAll(".tab-body").forEach((b) => { b.hidden = b.dataset.body !== name; });
+    document
+      .querySelectorAll(".tabs [role=tab]")
+      .forEach((b) => b.setAttribute("aria-selected", String(b.dataset.tab === name)));
+    document.querySelectorAll(".tab-body").forEach((b) => {
+      b.hidden = b.dataset.body !== name;
+    });
     if (name === "changes") $("changesDot").hidden = true;
   }
 
@@ -611,7 +706,11 @@ dependencies {
     window.addEventListener("hashchange", route);
     $("search").addEventListener("input", (e) => renderNav(e.target.value));
     document.addEventListener("keydown", (e) => {
-      if (e.key === "/" && document.activeElement.tagName !== "INPUT" && document.activeElement.tagName !== "TEXTAREA") {
+      if (
+        e.key === "/" &&
+        document.activeElement.tagName !== "INPUT" &&
+        document.activeElement.tagName !== "TEXTAREA"
+      ) {
         e.preventDefault();
         $("search").focus();
       }
@@ -624,7 +723,8 @@ dependencies {
       if (state.expanded.has(id) && !(state.current && state.current.component.id === id)) state.expanded.delete(id);
       else {
         state.expanded.add(id);
-        if (comp && comp.stories[0] && !(state.current && state.current.component.id === id)) location.hash = "#/story/" + comp.stories[0].id;
+        if (comp && comp.stories[0] && !(state.current && state.current.component.id === id))
+          location.hash = "#/story/" + comp.stories[0].id;
       }
       renderNav($("search").value);
     });
@@ -639,9 +739,14 @@ dependencies {
       if (b) copyText(b.parentElement.querySelector("pre").innerText);
     });
     $("viewport").addEventListener("change", sizeStage);
-    $("playerTheme").addEventListener("change", () => { sizeStage(); sendToPlayer(); });
+    $("playerTheme").addEventListener("change", () => {
+      sizeStage();
+      sendToPlayer();
+    });
     $("layout").addEventListener("change", () => sendToPlayer());
-    window.addEventListener("resize", () => { if (state.current) sizeStage(); });
+    window.addEventListener("resize", () => {
+      if (state.current) sizeStage();
+    });
     $("resetArgs").addEventListener("click", () => {
       if (!state.current) return;
       state.current.values = defaultValues(state.current.story);

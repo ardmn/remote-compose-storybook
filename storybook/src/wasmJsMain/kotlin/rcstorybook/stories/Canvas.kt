@@ -1,5 +1,12 @@
 package rcstorybook.stories
 
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Canvas
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.graphics.Paint
 import ee.schimke.composeai.rccreation.compose.layout.RemoteAlignment
 import ee.schimke.composeai.rccreation.compose.layout.RemoteBox
 import ee.schimke.composeai.rccreation.compose.layout.RemoteCanvas
@@ -28,7 +35,6 @@ import ee.schimke.composeai.rccreation.compose.shapes.drawOutline
 import ee.schimke.composeai.rccreation.compose.state.RemoteBlendMode
 import ee.schimke.composeai.rccreation.compose.state.RemoteImageBitmap
 import ee.schimke.composeai.rccreation.compose.state.RemotePaint
-import ee.schimke.composeai.rccreation.compose.text.RemoteTypeface
 import ee.schimke.composeai.rccreation.compose.state.RemotePaintingStyle
 import ee.schimke.composeai.rccreation.compose.state.RemoteStrokeCap
 import ee.schimke.composeai.rccreation.compose.state.RemoteStrokeJoin
@@ -40,13 +46,7 @@ import ee.schimke.composeai.rccreation.compose.state.rf
 import ee.schimke.composeai.rccreation.compose.state.rs
 import ee.schimke.composeai.rccreation.compose.state.sin
 import ee.schimke.composeai.rccreation.compose.state.toRemoteDp
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.remember
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.graphics.Canvas
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.ImageBitmap
-import androidx.compose.ui.graphics.Paint
+import ee.schimke.composeai.rccreation.compose.text.RemoteTypeface
 
 @Composable
 @RemoteComposable
@@ -74,7 +74,11 @@ fun CanvasShapes(style: RemotePaintingStyle, strokeWidth: Float, color: Color) {
             topLeft = RemoteOffset(150f.rf, 115f.rf),
             size = RemoteSize(80f.rf, 80f.rf),
         )
-        drawLine(paint, start = RemoteOffset(250f.rf, 110f.rf), end = RemoteOffset(290f.rf, 200f.rf))
+        drawLine(
+            paint,
+            start = RemoteOffset(250f.rf, 110f.rf),
+            end = RemoteOffset(290f.rf, 200f.rf),
+        )
     }
 }
 
@@ -98,9 +102,18 @@ fun CanvasStrokes(strokeWidth: Float, cap: RemoteStrokeCap, join: RemoteStrokeJo
 @RemoteComposable
 fun CanvasUsePaint(color: Color, blendMode: RemoteBlendMode) {
     RemoteCanvas(modifier = RemoteModifier.size(260.rdp, 200.rdp)) {
-        drawCircle(RemotePaint { this.color = Color(0xFF1E88E5).rc }, radius = 70f.rf, center = RemoteOffset(100f.rf, 100f.rf))
+        drawCircle(
+            RemotePaint { this.color = Color(0xFF1E88E5).rc },
+            radius = 70f.rf,
+            center = RemoteOffset(100f.rf, 100f.rf),
+        )
         // usePaint makes a paint current for every draw in the block that passes no paint.
-        usePaint(RemotePaint { this.color = color.rc; this.blendMode = blendMode }) {
+        usePaint(
+            RemotePaint {
+                this.color = color.rc
+                this.blendMode = blendMode
+            },
+        ) {
             drawCircle(null, radius = 70f.rf, center = RemoteOffset(160f.rf, 100f.rf))
         }
     }
@@ -115,11 +128,19 @@ fun CanvasAnimated(speed: Float, amplitude: Float) {
         val x = 150f.rf + cos(t) * amplitude.rf
         val y = 100f.rf + sin(t * 2f.rf) * (amplitude / 2f).rf
         drawCircle(
-            RemotePaint { color = Color(0x558E24AA).rc; style = RemotePaintingStyle.Stroke; strokeWidth = 2f.rf },
+            RemotePaint {
+                color = Color(0x558E24AA).rc
+                style = RemotePaintingStyle.Stroke
+                strokeWidth = 2f.rf
+            },
             radius = amplitude.rf,
             center = RemoteOffset(150f.rf, 100f.rf),
         )
-        drawCircle(RemotePaint { color = Color(0xFF8E24AA).rc }, radius = 18f.rf, center = RemoteOffset(x, y))
+        drawCircle(
+            RemotePaint { color = Color(0xFF8E24AA).rc },
+            radius = 18f.rf,
+            center = RemoteOffset(x, y),
+        )
     }
 }
 
@@ -128,11 +149,16 @@ fun CanvasAnimated(speed: Float, amplitude: Float) {
 fun CanvasOutline(corner: Int, color: Color) {
     RemoteCanvas(modifier = RemoteModifier.size(260.rdp, 180.rdp)) {
         // A shape turns into an outline for the canvas's size, which drawOutline paints…
-        val outline = RemoteRoundedCornerShape(corner.rdp).createOutline(size, layoutDirection, remoteDensity)
+        val outline =
+            RemoteRoundedCornerShape(corner.rdp).createOutline(size, layoutDirection, remoteDensity)
         drawOutline(outline, RemotePaint { this.color = color.rc })
         // …and clipOutline clips the drawing in its block.
         clipOutline(outline) {
-            drawCircle(RemotePaint { this.color = Color(0x88FFFFFF).rc }, radius = height / 2f.rf, center = RemoteOffset(0f.rf, 0f.rf))
+            drawCircle(
+                RemotePaint { this.color = Color(0x88FFFFFF).rc },
+                radius = height / 2f.rf,
+                center = RemoteOffset(0f.rf, 0f.rf),
+            )
         }
     }
 }
@@ -142,13 +168,20 @@ fun CanvasOutline(corner: Int, color: Color) {
 fun CanvasGradients(kind: String, first: Color, second: Color) {
     RemoteCanvas(modifier = RemoteModifier.size(280.rdp, 180.rdp)) {
         val colors = listOf(first.rc, second.rc)
-        val brush: RemoteShaderBrush = when (kind) {
-            "linear" -> RemoteBrush.linearGradient(colors, start = RemoteOffset.Zero, end = RemoteOffset(width, height))
-            "horizontal" -> RemoteBrush.horizontalGradient(colors)
-            "vertical" -> RemoteBrush.verticalGradient(colors)
-            "radial" -> RemoteBrush.radialGradient(colors, center = center, radius = height / 2f.rf)
-            else -> RemoteBrush.sweepGradient(colors, center = center)
-        }
+        val brush: RemoteShaderBrush =
+            when (kind) {
+                "linear" ->
+                    RemoteBrush.linearGradient(
+                        colors,
+                        start = RemoteOffset.Zero,
+                        end = RemoteOffset(width, height),
+                    )
+                "horizontal" -> RemoteBrush.horizontalGradient(colors)
+                "vertical" -> RemoteBrush.verticalGradient(colors)
+                "radial" ->
+                    RemoteBrush.radialGradient(colors, center = center, radius = height / 2f.rf)
+                else -> RemoteBrush.sweepGradient(colors, center = center)
+            }
         val paint = RemotePaint()
         with(brush) { applyTo(paint, size) }
         drawRoundRect(paint, size = size, cornerRadius = RemoteOffset(24f.rf, 24f.rf))
@@ -159,19 +192,23 @@ fun CanvasGradients(kind: String, first: Color, second: Color) {
 @RemoteComposable
 fun DrawWithContent(ringColor: Color, ringScale: Float, behind: Boolean) {
     RemoteBox(
-        modifier = RemoteModifier.size(200.rdp).drawWithContent {
-            val ring = RemotePaint { color = ringColor.rc }
-            if (behind) {
-                drawCircle(ring, radius = width * (ringScale / 2f).rf, center = center)
-                drawContent()
-            } else {
-                drawContent()
-                drawCircle(ring, radius = width * (ringScale / 2f).rf, center = center)
-            }
-        },
+        modifier =
+            RemoteModifier.size(200.rdp).drawWithContent {
+                val ring = RemotePaint { color = ringColor.rc }
+                if (behind) {
+                    drawCircle(ring, radius = width * (ringScale / 2f).rf, center = center)
+                    drawContent()
+                } else {
+                    drawContent()
+                    drawCircle(ring, radius = width * (ringScale / 2f).rf, center = center)
+                }
+            },
         contentAlignment = RemoteAlignment.Center,
     ) {
-        RemoteBox(RemoteModifier.size(100.rdp).background(Color(0xFF263238).rc), contentAlignment = RemoteAlignment.Center) {
+        RemoteBox(
+            RemoteModifier.size(100.rdp).background(Color(0xFF263238).rc),
+            contentAlignment = RemoteAlignment.Center,
+        ) {
             RemoteText("content".rs, color = Color.White.rc)
         }
     }
@@ -180,13 +217,16 @@ fun DrawWithContent(ringColor: Color, ringScale: Float, behind: Boolean) {
 @Composable
 @RemoteComposable
 fun ComponentSizeExpression(fraction: Float, parentHeight: Int) {
-    RemoteColumn(modifier = RemoteModifier.size(220.rdp, parentHeight.rdp).background(Color(0xFFF1F3F4).rc)) {
+    RemoteColumn(
+        modifier = RemoteModifier.size(220.rdp, parentHeight.rdp).background(Color(0xFFF1F3F4).rc),
+    ) {
         // remoteComponent() reads the enclosing component's measured size at play time.
         val parent = remoteComponent()
         RemoteBox(
-            modifier = RemoteModifier.fillMaxWidth()
-                .height((parent.height * fraction.rf).toRemoteDp())
-                .background(Color(0xFF1E88E5).rc),
+            modifier =
+                RemoteModifier.fillMaxWidth()
+                    .height((parent.height * fraction.rf).toRemoteDp())
+                    .background(Color(0xFF1E88E5).rc),
             contentAlignment = RemoteAlignment.Center,
         ) {
             RemoteText("parent.height × $fraction".rs, color = Color.White.rc)
@@ -206,7 +246,10 @@ fun CanvasText(text: String, textSize: Float, color: Color, typeface: RemoteType
         // x, y is the start of the baseline.
         drawText(text.rs, 16f.rf, 70f.rf, paint)
         drawLine(
-            RemotePaint { this.color = Color(0x55000000).rc; strokeWidth = 1f.rf },
+            RemotePaint {
+                this.color = Color(0x55000000).rc
+                strokeWidth = 1f.rf
+            },
             RemoteOffset(0f.rf, 70f.rf),
             RemoteOffset(width, 70f.rf),
         )
@@ -217,14 +260,24 @@ fun CanvasText(text: String, textSize: Float, color: Color, typeface: RemoteType
 @RemoteComposable
 fun CanvasTransforms(degrees: Float, scale: Float, translateX: Float) {
     RemoteCanvas(modifier = RemoteModifier.size(300.rdp, 240.rdp)) {
-        drawRect(RemotePaint { color = Color(0x22000000).rc; style = RemotePaintingStyle.Stroke; strokeWidth = 1f.rf })
+        drawRect(
+            RemotePaint {
+                color = Color(0x22000000).rc
+                style = RemotePaintingStyle.Stroke
+                strokeWidth = 1f.rf
+            },
+        )
         val pivot = RemoteOffset(150f.rf, 120f.rf)
         val fill = RemotePaint { color = Color(0xFFF4511E).rc }
         // Each transform applies to the draws inside its block, innermost first.
         translate(translateX.rf, 0f.rf) {
             rotate(degrees.rf, pivot) {
                 scale(scale.rf, scale.rf, pivot) {
-                    drawRect(fill, topLeft = RemoteOffset(100f.rf, 70f.rf), size = RemoteSize(100f.rf, 100f.rf))
+                    drawRect(
+                        fill,
+                        topLeft = RemoteOffset(100f.rf, 70f.rf),
+                        size = RemoteSize(100f.rf, 100f.rf),
+                    )
                 }
             }
         }
@@ -241,7 +294,11 @@ fun CanvasClipAndTransform(degrees: Float, inset: Float) {
             // withTransform applies several transforms to one block.
             withTransform({ rotate(degrees.rf, center) }) {
                 for (i in 0..12) {
-                    drawRect(stripe, topLeft = RemoteOffset((i * 40f - 120f).rf, (-200f).rf), size = RemoteSize(18f.rf, 600f.rf))
+                    drawRect(
+                        stripe,
+                        topLeft = RemoteOffset((i * 40f - 120f).rf, (-200f).rf),
+                        size = RemoteSize(18f.rf, 600f.rf),
+                    )
                 }
             }
         }

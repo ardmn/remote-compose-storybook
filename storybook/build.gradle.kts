@@ -2,9 +2,14 @@ plugins {
     alias(libs.plugins.kotlin.multiplatform)
     alias(libs.plugins.compose.compiler)
     alias(libs.plugins.compose.multiplatform)
+    alias(libs.plugins.ktfmt)
 }
 
+// AndroidX's own style: the stories are shown to users as AndroidX code.
+ktfmt { kotlinLangStyle() }
+
 kotlin {
+    compilerOptions { allWarningsAsErrors.set(true) }
     @OptIn(org.jetbrains.kotlin.gradle.ExperimentalWasmDsl::class)
     wasmJs {
         outputModuleName.set("storybook")
@@ -13,7 +18,9 @@ kotlin {
     }
     sourceSets {
         all {
-            languageSettings.optIn("ee.schimke.composeai.rccreation.bridge.ExperimentalRcCreationApi")
+            languageSettings.optIn(
+                "ee.schimke.composeai.rccreation.bridge.ExperimentalRcCreationApi",
+            )
             languageSettings.optIn("ee.schimke.composeai.rcplayer.compose.ExperimentalRcPlayerApi")
             languageSettings.optIn("kotlin.js.ExperimentalWasmJsInterop")
             languageSettings.optIn("androidx.compose.ui.ExperimentalComposeUiApi")

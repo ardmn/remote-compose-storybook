@@ -1,8 +1,8 @@
 package rcstorybook.host
 
 /**
- * Serializes maps, lists, strings, numbers, booleans and null as JSON: the catalog and the
- * document reports are the only JSON this app writes, so a tree serializer is all it needs.
+ * Serializes maps, lists, strings, numbers, booleans and null as JSON: the catalog and the document
+ * reports are the only JSON this app writes, so a tree serializer is all it needs.
  */
 internal fun toJson(value: Any?): String = StringBuilder().also { it.appendJson(value) }.toString()
 

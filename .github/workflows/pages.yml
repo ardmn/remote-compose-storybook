@@ -14,7 +14,53 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - uses: gradle/actions/setup-gradle@v6
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: e2e/package-lock.json
+
+      - name: Kotlin (ktfmt, kotlinlang style)
+        run: ./gradlew --console=plain :storybook:ktfmtCheck
+
+      - name: Python (ruff)
+        run: |
+          pip install ruff==0.15.8
+          ruff check tools
+          ruff format --check tools
+
+      - name: Shell (shellcheck)
+        run: shellcheck scripts/*.sh
+
+      - name: Workflows (actionlint)
+        run: |
+          bash <(curl -sSfL https://raw.githubusercontent.com/rhysd/actionlint/v1.7.12/scripts/download-actionlint.bash) 1.7.12
+          ./actionlint -color
+
+      - name: JavaScript, CSS, HTML (eslint, prettier)
+        working-directory: e2e
+        run: |
+          npm ci
+          npm run lint
+
   build:
+    needs: lint
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7

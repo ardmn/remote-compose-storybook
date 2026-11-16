@@ -2,9 +2,8 @@ package rcstorybook.host
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.size
-import androidx.compose.ui.unit.dp
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.size
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -14,6 +13,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asSkiaBitmap
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.ComposeViewport
 import ee.schimke.composeai.rccreation.compose.capture.RemoteCreationDisplayInfo
 import ee.schimke.composeai.rccreation.compose.layout.RemoteAlignment
@@ -59,25 +59,36 @@ fun main() {
         catalog = { catalogJson().toJsString() },
         show = { id, args -> show(id.toString(), args) },
         stage = { config ->
-            stageConfig = StageConfig(
-                dark = jsProperty(config, "theme") == "dark",
-                widthDp = jsProperty(config, "width")?.toDoubleOrNull()?.toInt()?.coerceIn(16, 4000) ?: 360,
-                heightDp = jsProperty(config, "height")?.toDoubleOrNull()?.toInt()?.coerceIn(16, 4000) ?: 360,
-                centered = jsProperty(config, "layout") != "topstart",
-            )
+            stageConfig =
+                StageConfig(
+                    dark = jsProperty(config, "theme") == "dark",
+                    widthDp =
+                        jsProperty(config, "width")?.toDoubleOrNull()?.toInt()?.coerceIn(16, 4000)
+                            ?: 360,
+                    heightDp =
+                        jsProperty(config, "height")?.toDoubleOrNull()?.toInt()?.coerceIn(16, 4000)
+                            ?: 360,
+                    centered = jsProperty(config, "layout") != "topstart",
+                )
         },
     )
     ComposeViewport(viewportContainerId = "stage") { Stage() }
 }
 
 private fun show(id: String, rawArgs: JsAny) {
-    val story = storiesById[id] ?: run {
-        emit("rcstorybook:failure", toJson(mapOf("story" to id, "message" to "Unknown story $id")))
-        return
-    }
-    val values = story.args.associate { arg ->
-        arg.name to (jsProperty(rawArgs, arg.name)?.let { arg.parse(it) } ?: arg.default)
-    }
+    val story =
+        storiesById[id]
+            ?: run {
+                emit(
+                    "rcstorybook:failure",
+                    toJson(mapOf("story" to id, "message" to "Unknown story $id")),
+                )
+                return
+            }
+    val values =
+        story.args.associate { arg ->
+            arg.name to (jsProperty(rawArgs, arg.name)?.let { arg.parse(it) } ?: arg.default)
+        }
     selection = Selection(story, Args(values))
 }
 
@@ -92,27 +103,40 @@ private fun Stage() {
         val density = LocalDensity.current.density
         val widthPx = (config.widthDp * density).toInt().coerceAtLeast(1)
         val heightPx = (config.heightDp * density).toInt().coerceAtLeast(1)
-        val display = RemoteCreationDisplayInfo(widthPx, heightPx, (density * 160f).toInt().coerceAtLeast(1))
+        val display =
+            RemoteCreationDisplayInfo(widthPx, heightPx, (density * 160f).toInt().coerceAtLeast(1))
         RcEmbeddedPlayer(
             display = display,
-            modifier = Modifier.size(config.widthDp.dp, config.heightDp.dp)
-                .background(if (config.dark) Color(0xFF121316) else Color.White),
+            modifier =
+                Modifier.size(config.widthDp.dp, config.heightDp.dp)
+                    .background(if (config.dark) Color(0xFF121316) else Color.White),
             theme = if (config.dark) RcPlayerTheme.Dark else RcPlayerTheme.Light,
             encodePng = ::encodePng,
-            onEvent = { event -> emit("rcstorybook:event", toJson(describe(current.story.id, event))) },
+            onEvent = { event ->
+                emit("rcstorybook:event", toJson(describe(current.story.id, event)))
+            },
             onDocument = { document -> report(current.story, document) },
             onFailure = { error ->
                 emit(
                     "rcstorybook:failure",
-                    toJson(mapOf("story" to current.story.id, "message" to (error.message ?: error.toString()))),
+                    toJson(
+                        mapOf(
+                            "story" to current.story.id,
+                            "message" to (error.message ?: error.toString()),
+                        ),
+                    ),
                 )
             },
             key = current,
         ) {
             if (config.centered) {
-                // Storybook's "centered" layout: a full-size box around the story. It is part of the
+                // Storybook's "centered" layout: a full-size box around the story. It is part of
+                // the
                 // document the Document tab shows; choose "Top start" to see the story alone.
-                RemoteBox(RemoteModifier.remoteFillMaxSize(), contentAlignment = RemoteAlignment.Center) {
+                RemoteBox(
+                    RemoteModifier.remoteFillMaxSize(),
+                    contentAlignment = RemoteAlignment.Center,
+                ) {
                     current.story.content(current.args)
                 }
             } else {
@@ -139,7 +163,7 @@ private fun report(story: Story, document: RcDocument) {
                 "structure" to lines.joinToString("\n"),
                 "diff" to diff,
                 "base64" to Base64.encode(bytes),
-            )
+            ),
         ),
     )
 }

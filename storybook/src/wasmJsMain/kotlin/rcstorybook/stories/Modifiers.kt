@@ -4,9 +4,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Canvas
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.Paint
-import androidx.compose.ui.graphics.Color
 import ee.schimke.composeai.rccreation.compose.layout.RemoteAlignment
 import ee.schimke.composeai.rccreation.compose.layout.RemoteArrangement
 import ee.schimke.composeai.rccreation.compose.layout.RemoteBox
@@ -47,12 +47,10 @@ import ee.schimke.composeai.rccreation.compose.modifier.wrapContentWidth
 import ee.schimke.composeai.rccreation.compose.modifier.zIndex
 import ee.schimke.composeai.rccreation.compose.painter.painterRemoteColor
 import ee.schimke.composeai.rccreation.compose.painter.painterRemoteImageBitmap
-import ee.schimke.composeai.rccreation.compose.state.RemoteImageBitmap
-import ee.schimke.composeai.rccreation.compose.shapes.RemoteCircleShape
 import ee.schimke.composeai.rccreation.compose.shapes.RemoteCornerSize
-import ee.schimke.composeai.rccreation.compose.shapes.RemoteRectangleShape
 import ee.schimke.composeai.rccreation.compose.shapes.RemoteRoundedCornerShape
 import ee.schimke.composeai.rccreation.compose.shapes.RemoteShape
+import ee.schimke.composeai.rccreation.compose.state.RemoteImageBitmap
 import ee.schimke.composeai.rccreation.compose.state.RemoteInt
 import ee.schimke.composeai.rccreation.compose.state.rc
 import ee.schimke.composeai.rccreation.compose.state.rdp
@@ -91,8 +89,16 @@ fun FillFractions(widthFraction: Float, heightFraction: Float) {
 fun FillMaxSizeInParent(fraction: Float) {
     RemoteColumn(RemoteModifier.size(300.rdp, 220.rdp).background(Color(0xFFF1F3F4).rc)) {
         // fillParentMax* sizes against the parent even inside a scrolling or weighted container.
-        RemoteBox(RemoteModifier.fillParentMaxWidth(fraction.rf).height(40.rdp).background(Color(0xFF26A69A).rc))
-        RemoteBox(RemoteModifier.width(60.rdp).fillParentMaxHeight((fraction / 2f).rf).background(Color(0xFFFFA726).rc))
+        RemoteBox(
+            RemoteModifier.fillParentMaxWidth(fraction.rf)
+                .height(40.rdp)
+                .background(Color(0xFF26A69A).rc),
+        )
+        RemoteBox(
+            RemoteModifier.width(60.rdp)
+                .fillParentMaxHeight((fraction / 2f).rf)
+                .background(Color(0xFFFFA726).rc),
+        )
         RemoteBox(RemoteModifier.fillMaxSize(0.5f.rf).background(Color(0x5542A5F5).rc))
     }
 }
@@ -104,13 +110,17 @@ fun SizeConstraints(minWidth: Int, maxWidth: Int, minHeight: Int, text: String) 
         // widthIn / heightIn bound the size the content asks for.
         RemoteText(
             text.rs,
-            modifier = RemoteModifier.widthIn(min = minWidth.rdp, max = maxWidth.rdp)
-                .heightIn(min = minHeight.rdp)
-                .background(Color(0xFFFFE0B2).rc)
-                .padding(8.rdp),
+            modifier =
+                RemoteModifier.widthIn(min = minWidth.rdp, max = maxWidth.rdp)
+                    .heightIn(min = minHeight.rdp)
+                    .background(Color(0xFFFFE0B2).rc)
+                    .padding(8.rdp),
         )
         // defaultMinSize applies only when nothing else constrains the size.
-        RemoteBox(RemoteModifier.defaultMinSize(minWidth = minWidth.rdp, minHeight = minHeight.rdp).background(Color(0xFFEF6C00).rc))
+        RemoteBox(
+            RemoteModifier.defaultMinSize(minWidth = minWidth.rdp, minHeight = minHeight.rdp)
+                .background(Color(0xFFEF6C00).rc),
+        )
     }
 }
 
@@ -118,12 +128,17 @@ fun SizeConstraints(minWidth: Int, maxWidth: Int, minHeight: Int, text: String) 
 @RemoteComposable
 fun WrapContent(mode: String) {
     RemoteBox(RemoteModifier.size(280.rdp, 160.rdp).background(Color(0xFFF1F3F4).rc)) {
-        val modifier = when (mode) {
-            "width" -> RemoteModifier.fillMaxSize().wrapContentWidth()
-            "height" -> RemoteModifier.fillMaxSize().wrapContentHeight()
-            else -> RemoteModifier.fillMaxSize().wrapContentSize()
-        }
-        RemoteText("wrapContent: $mode".rs, modifier = modifier.background(Color(0xFF5C6BC0).rc).padding(8.rdp), color = Color.White.rc)
+        val modifier =
+            when (mode) {
+                "width" -> RemoteModifier.fillMaxSize().wrapContentWidth()
+                "height" -> RemoteModifier.fillMaxSize().wrapContentHeight()
+                else -> RemoteModifier.fillMaxSize().wrapContentSize()
+            }
+        RemoteText(
+            "wrapContent: $mode".rs,
+            modifier = modifier.background(Color(0xFF5C6BC0).rc).padding(8.rdp),
+            color = Color.White.rc,
+        )
     }
 }
 
@@ -131,13 +146,21 @@ fun WrapContent(mode: String) {
 @RemoteComposable
 fun PaddingVariants(start: Int, top: Int, end: Int, bottom: Int) {
     RemoteColumn(verticalArrangement = RemoteArrangement.spacedBy(10.rdp)) {
-        RemoteBox(RemoteModifier.background(Color(0xFFBBDEFB).rc).padding(start = start.rdp, top = top.rdp, end = end.rdp, bottom = bottom.rdp)) {
+        RemoteBox(
+            RemoteModifier.background(Color(0xFFBBDEFB).rc)
+                .padding(start = start.rdp, top = top.rdp, end = end.rdp, bottom = bottom.rdp),
+        ) {
             RemoteBox(RemoteModifier.size(120.rdp, 40.rdp).background(Color(0xFF1E88E5).rc))
         }
-        RemoteBox(RemoteModifier.background(Color(0xFFC8E6C9).rc).padding(horizontal = start.rdp, vertical = top.rdp)) {
+        RemoteBox(
+            RemoteModifier.background(Color(0xFFC8E6C9).rc)
+                .padding(horizontal = start.rdp, vertical = top.rdp),
+        ) {
             RemoteBox(RemoteModifier.size(120.rdp, 40.rdp).background(Color(0xFF43A047).rc))
         }
-        RemoteBox(RemoteModifier.background(Color(0xFFFFE0B2).rc).padding(RemotePaddingValues(start.rdp))) {
+        RemoteBox(
+            RemoteModifier.background(Color(0xFFFFE0B2).rc).padding(RemotePaddingValues(start.rdp)),
+        ) {
             RemoteBox(RemoteModifier.size(120.rdp, 40.rdp).background(Color(0xFFFB8C00).rc))
         }
     }
@@ -148,14 +171,23 @@ fun PaddingVariants(start: Int, top: Int, end: Int, bottom: Int) {
 fun OffsetAndZIndex(x: Int, y: Int, frontOnTop: Boolean) {
     RemoteBox(RemoteModifier.size(260.rdp, 200.rdp)) {
         RemoteBox(
-            RemoteModifier.zIndex(if (frontOnTop) 1f.rf else 0f.rf).size(120.rdp).background(Color(0xFFE53935).rc),
+            RemoteModifier.zIndex(if (frontOnTop) 1f.rf else 0f.rf)
+                .size(120.rdp)
+                .background(Color(0xFFE53935).rc),
             contentAlignment = RemoteAlignment.Center,
-        ) { RemoteText("A".rs, color = Color.White.rc, fontSize = 24.rsp) }
+        ) {
+            RemoteText("A".rs, color = Color.White.rc, fontSize = 24.rsp)
+        }
         // offset moves the drawing without changing the layout; zIndex orders siblings.
         RemoteBox(
-            RemoteModifier.offset(x.rdp, y.rdp).zIndex(if (frontOnTop) 0f.rf else 1f.rf).size(120.rdp).background(Color(0xFF1E88E5).rc),
+            RemoteModifier.offset(x.rdp, y.rdp)
+                .zIndex(if (frontOnTop) 0f.rf else 1f.rf)
+                .size(120.rdp)
+                .background(Color(0xFF1E88E5).rc),
             contentAlignment = RemoteAlignment.Center,
-        ) { RemoteText("B".rs, color = Color.White.rc, fontSize = 24.rsp) }
+        ) {
+            RemoteText("B".rs, color = Color.White.rc, fontSize = 24.rsp)
+        }
     }
 }
 
@@ -179,14 +211,22 @@ fun CornerShapes(topStart: Int, topEnd: Int, bottomEnd: Int, bottomStart: Int) {
     RemoteRow(horizontalArrangement = RemoteArrangement.spacedBy(12.rdp)) {
         // Per-corner sizes in dp…
         RemoteBox(
-            RemoteModifier.size(110.rdp).clip(
-                RemoteRoundedCornerShape(topStart.rdp, topEnd.rdp, bottomEnd.rdp, bottomStart.rdp)
-            ).background(Color(0xFF00897B).rc)
+            RemoteModifier.size(110.rdp)
+                .clip(
+                    RemoteRoundedCornerShape(
+                        topStart.rdp,
+                        topEnd.rdp,
+                        bottomEnd.rdp,
+                        bottomStart.rdp,
+                    ),
+                )
+                .background(Color(0xFF00897B).rc),
         )
         // …or as a percentage of the shorter side, through RemoteCornerSize.
         RemoteBox(
-            RemoteModifier.size(110.rdp).clip(RemoteRoundedCornerShape(RemoteCornerSize(topStart.coerceAtMost(50))))
-                .background(Color(0xFF5E35B1).rc)
+            RemoteModifier.size(110.rdp)
+                .clip(RemoteRoundedCornerShape(RemoteCornerSize(topStart.coerceAtMost(50))))
+                .background(Color(0xFF5E35B1).rc),
         )
     }
 }
@@ -211,13 +251,16 @@ fun PainterBackground(color: Color, useImage: Boolean) {
 @RemoteComposable
 fun AlphaRotateScale(alpha: Float, degrees: Float, scale: Float) {
     RemoteBox(RemoteModifier.size(240.rdp), contentAlignment = RemoteAlignment.Center) {
-        // Each transform on its own component: the web player accepts one layer modifier per component.
+        // Each transform on its own component: the web player accepts one layer modifier per
+        // component.
         RemoteBox(RemoteModifier.alpha(alpha.rf)) {
             RemoteBox(RemoteModifier.rotate(degrees.rf)) {
                 RemoteBox(
                     RemoteModifier.scale(scale.rf).size(110.rdp).background(Color(0xFFD81B60).rc),
                     contentAlignment = RemoteAlignment.Center,
-                ) { RemoteText("Remote".rs, color = Color.White.rc) }
+                ) {
+                    RemoteText("Remote".rs, color = Color.White.rc)
+                }
             }
         }
     }
@@ -225,19 +268,30 @@ fun AlphaRotateScale(alpha: Float, degrees: Float, scale: Float) {
 
 @Composable
 @RemoteComposable
-fun GraphicsLayer(rotationX: Float, rotationY: Float, rotationZ: Float, scaleX: Float, scaleY: Float, shadowElevation: Float) {
+fun GraphicsLayer(
+    rotationX: Float,
+    rotationY: Float,
+    rotationZ: Float,
+    scaleX: Float,
+    scaleY: Float,
+    shadowElevation: Float,
+) {
     RemoteBox(RemoteModifier.size(260.rdp), contentAlignment = RemoteAlignment.Center) {
         RemoteBox(
             RemoteModifier.graphicsLayer(
-                rotationX = rotationX.rf,
-                rotationY = rotationY.rf,
-                rotationZ = rotationZ.rf,
-                scaleX = scaleX.rf,
-                scaleY = scaleY.rf,
-                shadowElevation = shadowElevation.rf,
-            ).size(140.rdp, 90.rdp).background(Color(0xFF3949AB).rc),
+                    rotationX = rotationX.rf,
+                    rotationY = rotationY.rf,
+                    rotationZ = rotationZ.rf,
+                    scaleX = scaleX.rf,
+                    scaleY = scaleY.rf,
+                    shadowElevation = shadowElevation.rf,
+                )
+                .size(140.rdp, 90.rdp)
+                .background(Color(0xFF3949AB).rc),
             contentAlignment = RemoteAlignment.Center,
-        ) { RemoteText("graphicsLayer".rs, color = Color.White.rc) }
+        ) {
+            RemoteText("graphicsLayer".rs, color = Color.White.rc)
+        }
     }
 }
 
@@ -248,10 +302,12 @@ fun GraphicsLayerBlock(translationX: Float, translationY: Float, alpha: Float) {
         RemoteBox(
             // The block form sets the same properties on a RemoteGraphicsLayerScope.
             RemoteModifier.graphicsLayer {
-                this.translationX = translationX.rf
-                this.translationY = translationY.rf
-                this.alpha = alpha.rf
-            }.size(120.rdp).background(Color(0xFF00ACC1).rc)
+                    this.translationX = translationX.rf
+                    this.translationY = translationY.rf
+                    this.alpha = alpha.rf
+                }
+                .size(120.rdp)
+                .background(Color(0xFF00ACC1).rc),
         )
     }
 }
@@ -262,7 +318,11 @@ fun Visibility(visibility: Int) {
     RemoteRow(verticalAlignment = RemoteAlignment.CenterVertically) {
         RemoteBox(RemoteModifier.size(60.rdp).background(Color(0xFF90A4AE).rc))
         // 1 = visible, 2 = invisible (keeps its space), 0 = gone (takes no space).
-        RemoteBox(RemoteModifier.visibility(RemoteInt(visibility)).size(60.rdp).background(Color(0xFFE53935).rc))
+        RemoteBox(
+            RemoteModifier.visibility(RemoteInt(visibility))
+                .size(60.rdp)
+                .background(Color(0xFFE53935).rc),
+        )
         RemoteBox(RemoteModifier.size(60.rdp).background(Color(0xFF90A4AE).rc))
     }
 }
@@ -272,13 +332,20 @@ fun Visibility(visibility: Int) {
 fun VerticalScroll(itemCount: Int, notches: Int) {
     val scrollState = rememberRemoteScrollState(notches)
     RemoteColumn(
-        RemoteModifier.size(240.rdp, 260.rdp).background(Color(0xFFF1F3F4).rc).verticalScroll(scrollState)
+        RemoteModifier.size(240.rdp, 260.rdp)
+            .background(Color(0xFFF1F3F4).rc)
+            .verticalScroll(scrollState),
     ) {
         for (i in 1..itemCount) {
             RemoteBox(
-                RemoteModifier.fillMaxWidth().height(56.rdp).padding(4.rdp).background(Color(0xFF26A69A).rc),
+                RemoteModifier.fillMaxWidth()
+                    .height(56.rdp)
+                    .padding(4.rdp)
+                    .background(Color(0xFF26A69A).rc),
                 contentAlignment = RemoteAlignment.Center,
-            ) { RemoteText("Item $i".rs, color = Color.White.rc) }
+            ) {
+                RemoteText("Item $i".rs, color = Color.White.rc)
+            }
         }
     }
 }
@@ -288,14 +355,18 @@ fun VerticalScroll(itemCount: Int, notches: Int) {
 fun HorizontalScroll(itemCount: Int) {
     val scrollState = rememberRemoteScrollState()
     RemoteRow(
-        RemoteModifier.size(300.rdp, 100.rdp).background(Color(0xFFF1F3F4).rc).horizontalScroll(scrollState),
+        RemoteModifier.size(300.rdp, 100.rdp)
+            .background(Color(0xFFF1F3F4).rc)
+            .horizontalScroll(scrollState),
         verticalAlignment = RemoteAlignment.CenterVertically,
     ) {
         for (i in 1..itemCount) {
             RemoteBox(
                 RemoteModifier.size(80.rdp).padding(4.rdp).background(Color(0xFFEF5350).rc),
                 contentAlignment = RemoteAlignment.Center,
-            ) { RemoteText("$i".rs, color = Color.White.rc) }
+            ) {
+                RemoteText("$i".rs, color = Color.White.rc)
+            }
         }
     }
 }
@@ -305,8 +376,16 @@ fun HorizontalScroll(itemCount: Int) {
 fun AlignByBaseline(smallSize: Int, largeSize: Int) {
     RemoteRow(RemoteModifier.background(Color(0xFFF1F3F4).rc).padding(8.rdp)) {
         // Children aligned by their first text baseline rather than by their top.
-        RemoteText("Small".rs, fontSize = smallSize.rsp, modifier = RemoteModifier.alignByBaseline())
-        RemoteText("Large".rs, fontSize = largeSize.rsp, modifier = RemoteModifier.alignByBaseline())
+        RemoteText(
+            "Small".rs,
+            fontSize = smallSize.rsp,
+            modifier = RemoteModifier.alignByBaseline(),
+        )
+        RemoteText(
+            "Large".rs,
+            fontSize = largeSize.rsp,
+            modifier = RemoteModifier.alignByBaseline(),
+        )
     }
 }
 

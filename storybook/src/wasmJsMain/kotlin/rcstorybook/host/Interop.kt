@@ -5,16 +5,17 @@ internal fun installApi(
     catalog: () -> JsString,
     show: (JsString, JsAny) -> Unit,
     stage: (JsAny) -> Unit,
-): Unit = js(
-    """{
+): Unit =
+    js(
+        """{
   window.rcStorybook = {
     catalog: () => catalog(),
     show: (id, args) => show(id, args),
     stage: (config) => stage(config),
   };
   window.dispatchEvent(new Event('rcstorybook:ready'));
-}"""
-)
+}""",
+    )
 
 /** `obj[key]` as a string, or null when absent. */
 internal fun jsProperty(obj: JsAny, key: String): String? =

@@ -25,13 +25,23 @@ const only = opt("--only", "");
 const outDir = path.join(here, "out");
 fs.mkdirSync(outDir, { recursive: true });
 
-const types = { ".html": "text/html", ".js": "text/javascript", ".mjs": "text/javascript", ".css": "text/css",
-  ".json": "application/json", ".wasm": "application/wasm", ".png": "image/png", ".svg": "image/svg+xml" };
+const types = {
+  ".html": "text/html",
+  ".js": "text/javascript",
+  ".mjs": "text/javascript",
+  ".css": "text/css",
+  ".json": "application/json",
+  ".wasm": "application/wasm",
+  ".png": "image/png",
+  ".svg": "image/svg+xml",
+};
 const server = http.createServer((req, res) => {
   const url = decodeURIComponent(req.url.split("?")[0]);
   let file = path.join(site, url === "/" ? "index.html" : url);
   if (!file.startsWith(site) || !fs.existsSync(file) || fs.statSync(file).isDirectory()) {
-    res.writeHead(404); res.end("not found"); return;
+    res.writeHead(404);
+    res.end("not found");
+    return;
   }
   res.writeHead(200, { "content-type": types[path.extname(file)] || "application/octet-stream" });
   fs.createReadStream(file).pipe(res);
@@ -40,13 +50,18 @@ await new Promise((r) => server.listen(0, "127.0.0.1", r));
 const base = `http://127.0.0.1:${server.address().port}/`;
 
 const failures = [];
-const fail = (what) => { failures.push(what); console.log("  FAIL", what); };
+const fail = (what) => {
+  failures.push(what);
+  console.log("  FAIL", what);
+};
 
 const browser = await chromium.launch();
 const page = await browser.newPage({ viewport: { width: 1360, height: 1000 } });
 const pageErrors = [];
 page.on("pageerror", (e) => pageErrors.push(e.message));
-page.on("console", (m) => { if (m.type() === "error") pageErrors.push(m.text()); });
+page.on("console", (m) => {
+  if (m.type() === "error") pageErrors.push(m.text());
+});
 
 await page.goto(base);
 await page.waitForFunction(() => !!window.rcStorybook, null, { timeout: 60000 });
@@ -63,12 +78,19 @@ await page.waitForSelector(".cov-table");
 await page.screenshot({ path: path.join(outDir, "_coverage.png"), fullPage: true });
 
 async function openStory(id, query = "") {
-  await page.evaluate(() => { delete document.body.dataset.rendered; delete document.body.dataset.failed; });
+  await page.evaluate(() => {
+    delete document.body.dataset.rendered;
+    delete document.body.dataset.failed;
+  });
   await page.goto(base + "#/story/" + id + query);
-  const result = await page.waitForFunction(
-    (sid) => document.body.dataset.rendered === sid ? "ok" : document.body.dataset.failed === sid ? "failed" : null,
-    id, { timeout: 20000 },
-  ).then((h) => h.jsonValue()).catch(() => "timeout");
+  const result = await page
+    .waitForFunction(
+      (sid) => (document.body.dataset.rendered === sid ? "ok" : document.body.dataset.failed === sid ? "failed" : null),
+      id,
+      { timeout: 20000 },
+    )
+    .then((h) => h.jsonValue())
+    .catch(() => "timeout");
   return result;
 }
 
@@ -88,7 +110,8 @@ for (const s of stories) {
   // Docs tab: every symbol must resolve.
   const docs = await page.textContent("#docs");
   if (docs.includes("No signature found")) fail(`${s.id}: Docs tab has a symbol with no AndroidX signature`);
-  if (pageErrors.length > errorsBefore) fail(`${s.id}: page errors: ${pageErrors.slice(errorsBefore).join(" | ").slice(0, 300)}`);
+  if (pageErrors.length > errorsBefore)
+    fail(`${s.id}: page errors: ${pageErrors.slice(errorsBefore).join(" | ").slice(0, 300)}`);
   console.log(`  ok ${s.id}`);
 }
 
@@ -96,13 +119,18 @@ for (const s of stories) {
 if (!only) {
   await openStory("remote-row--weights");
   const before = await page.textContent("#docStats");
-  await page.evaluate(() => { delete document.body.dataset.rendered; });
+  await page.evaluate(() => {
+    delete document.body.dataset.rendered;
+  });
   await page.locator('[data-arg="firstWeight"]').fill("4");
   await page.waitForFunction(() => document.body.dataset.rendered === "remote-row--weights", null, { timeout: 10000 });
   await page.click('[data-tab="changes"]');
   const diff = await page.textContent("#changes");
   if (!/[+-]/.test(diff) || diff.includes("Change a control")) fail("changing firstWeight produced no structural diff");
-  const recorded = await page.waitForFunction(() => location.hash.includes("firstWeight=4"), null, { timeout: 3000 }).then(() => true).catch(() => false);
+  const recorded = await page
+    .waitForFunction(() => location.hash.includes("firstWeight=4"), null, { timeout: 3000 })
+    .then(() => true)
+    .catch(() => false);
   if (!recorded) fail("the URL did not record the changed arg: " + page.url());
   await page.screenshot({ path: path.join(outDir, "_changes.png") });
   console.log(`  ok control change (${before} → ${await page.textContent("#docStats")})`);

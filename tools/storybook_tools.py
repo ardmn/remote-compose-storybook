@@ -14,6 +14,7 @@ The stories are written against rc-players' multiplatform fork of the creation A
 AndroidX's source in another package. The only rewrite is the package: anything else from
 rc-players in a story file is an error, so the code users copy is AndroidX's public API.
 """
+
 import argparse
 import json
 import os
@@ -34,6 +35,21 @@ ALLOWED_IMPORT_PREFIXES = (
     "kotlin.",
 )
 API_FILES = ["remote-creation-compose.txt", "remote-creation-expression.txt", "foundation.txt"]
+
+
+def read_text(path):
+    with open(path, encoding="utf-8") as fh:
+        return fh.read()
+
+
+def read_json(path):
+    with open(path, encoding="utf-8") as fh:
+        return json.load(fh)
+
+
+def write_json(value, path, indent=1, sort_keys=False):
+    with open(path, "w", encoding="utf-8") as fh:
+        json.dump(value, fh, indent=indent, sort_keys=sort_keys)
 
 
 def rewrite(text):
@@ -58,18 +74,20 @@ class Decl:
         return "\n".join(self.lines)
 
 
-DECL_RE = re.compile(r"^(?:(?:private|internal|public)\s+)?(?:enum\s+class|data\s+class|class|object|fun|val|const\s+val)\s+(?:<[^>]+>\s+)?([A-Za-z_]\w*)")
+DECL_RE = re.compile(
+    r"^(?:(?:private|internal|public)\s+)?(?:enum\s+class|data\s+class|class|object|fun|val|const\s+val)\s+(?:<[^>]+>\s+)?([A-Za-z_]\w*)"
+)
 
 
 def parse_kotlin(path):
-    lines = open(path, encoding="utf-8").read().split("\n")
+    lines = read_text(path).split("\n")
     imports = []
     decls = []
     i = 0
     while i < len(lines):
         line = lines[i]
         if line.startswith("import "):
-            imports.append(line[len("import "):].strip())
+            imports.append(line[len("import ") :].strip())
             i += 1
             continue
         if line.startswith(("@", "/**", "//")) or DECL_RE.match(line):
@@ -100,14 +118,14 @@ def parse_kotlin(path):
                 if opened and depth <= 0:
                     end = j
                     break
-                if not opened and j > i and lines[j].strip() == "" :
+                if not opened and j > i and lines[j].strip() == "":
                     end = j - 1
                     break
                 j += 1
             else:
                 end = len(lines) - 1
-            block = lines[start:end + 1]
-            composable = any(l.strip().startswith("@RemoteComposable") for l in lines[start:i])
+            block = lines[start : end + 1]
+            composable = any(line.strip().startswith("@RemoteComposable") for line in lines[start:i])
             decls.append(Decl(name, kind, block, composable))
             i = end + 1
             continue
@@ -116,14 +134,36 @@ def parse_kotlin(path):
 
 
 def word_used(name, text):
-    return re.search(r"(?<![\w.])" + re.escape(name) + r"(?!\w)", text) is not None or \
-        re.search(r"\." + re.escape(name) + r"(?!\w)", text) is not None
+    return (
+        re.search(r"(?<![\w.])" + re.escape(name) + r"(?!\w)", text) is not None
+        or re.search(r"\." + re.escape(name) + r"(?!\w)", text) is not None
+    )
+
+
+def import_used(name, text):
+    """Whether `text` uses the imported `name`; a named argument (`f(name = …)`) is not a use."""
+    for m in re.finditer(r"(?<![\w])" + re.escape(name) + r"(?!\w)", text):
+        after = text[m.end() :]
+        if re.match(r"\s*=(?!=)", after) and innermost_opener(text, m.start()) == "(":
+            continue
+        return True
+    return False
+
+
+def innermost_opener(text, index):
+    """The bracket that encloses `index`, ignoring string literals: "(", "{", "[" or None."""
+    stripped = re.sub(r'"(?:\\.|[^"\\])*"', lambda m: '"' + " " * (len(m.group(0)) - 2) + '"', text[:index])
+    stack = []
+    for c in stripped:
+        if c in "({[":
+            stack.append(c)
+        elif c in ")}]" and stack:
+            stack.pop()
+    return stack[-1] if stack else None
 
 
 def story_files(stories_dir):
-    return sorted(
-        os.path.join(stories_dir, f) for f in os.listdir(stories_dir) if f.endswith(".kt")
-    )
+    return sorted(os.path.join(stories_dir, f) for f in os.listdir(stories_dir) if f.endswith(".kt"))
 
 
 def cmd_sources(args):
@@ -138,8 +178,14 @@ def cmd_sources(args):
         for imp in imports:
             if not imp.startswith(ALLOWED_IMPORT_PREFIXES):
                 errors.append(f"{os.path.basename(path)}: import {imp} is not AndroidX's public API")
-            elif public is not None and rewrite(imp).startswith("androidx.compose.remote.") and rewrite(imp) not in public:
-                errors.append(f"{os.path.basename(path)}: {rewrite(imp)} is not in AndroidX's api/current.txt")
+            elif (
+                public is not None
+                and rewrite(imp).startswith("androidx.compose.remote.")
+                and rewrite(imp) not in public
+            ):
+                errors.append(
+                    f"{os.path.basename(path)}: {rewrite(imp)} is not in AndroidX's api/current.txt"
+                )
         for d in decls:
             if d.name in all_decls:
                 errors.append(f"duplicate top-level declaration {d.name}")
@@ -154,7 +200,7 @@ def cmd_sources(args):
             queue = [d]
             while queue:
                 cur = queue.pop()
-                for name, (hpath, h) in all_decls.items():
+                for name, (_path, h) in all_decls.items():
                     if name in seen or h.composable:
                         continue
                     if word_used(name, cur.text):
@@ -162,14 +208,12 @@ def cmd_sources(args):
                         helpers.append(h)
                         queue.append(h)
             body = "\n\n".join([h.text for h in helpers] + [d.text])
-            used_imports = sorted(
-                imp for imp in imports if word_used(imp.rsplit(".", 1)[1], body)
-            )
-            code = "\n".join("import " + rewrite(i) for i in used_imports) + "\n\n" + rewrite(body)
+            used_imports = sorted(rewrite(imp) for imp in imports if import_used(imp.rsplit(".", 1)[1], body))
+            code = "\n".join("import " + i for i in used_imports) + "\n\n" + rewrite(body)
             out[d.name] = {
                 "file": os.path.basename(path),
                 "code": code.strip() + "\n",
-                "imports": [rewrite(i) for i in used_imports],
+                "imports": used_imports,
             }
     if errors:
         print("\n".join(errors), file=sys.stderr)
@@ -191,9 +235,14 @@ def public_names(entries):
     for e in entries:
         if e["kind"] == "class":
             names.add(e["package"] + "." + e["name"].split(".")[0])
-        elif e["owner"] and (e["owner"].endswith("Kt") or e.get("static")) and e["kind"] in ("method", "property"):
-            names.add(e["package"] + "." + e["name"])
-        elif e["owner"] and e["owner"].endswith("Kt") and e["kind"] == "field":
+        elif (
+            e["owner"]
+            and (e["owner"].endswith("Kt") or e.get("static"))
+            and e["kind"] in ("method", "property")
+            or e["owner"]
+            and e["owner"].endswith("Kt")
+            and e["kind"] == "field"
+        ):
             names.add(e["package"] + "." + e["name"])
     return names
 
@@ -209,7 +258,9 @@ def clean_signature(s):
     s = re.sub(r"\bandroidx\.compose\.ui\.(\w+\.)+", "", s)
     s = re.sub(r"\bandroidx\.compose\.runtime\.", "", s)
     s = s.replace("kotlin.jvm.functions.Function0<kotlin.Unit>", "() -> Unit")
-    s = re.sub(r"kotlin\.jvm\.functions\.Function1<\??\s*(?:super\s+)?([\w.<>?]+),kotlin\.Unit>", r"\1.() -> Unit", s)
+    s = re.sub(
+        r"kotlin\.jvm\.functions\.Function1<\??\s*(?:super\s+)?([\w.<>?]+),kotlin\.Unit>", r"\1.() -> Unit", s
+    )
     s = s.replace("java.lang.String", "String").replace("java.util.List", "List").replace("kotlin.", "")
     s = re.sub(r"\s+", " ", s).strip().rstrip(";")
     return s
@@ -221,31 +272,50 @@ def parse_api(api_dir):
     for f in API_FILES:
         pkg = None
         owner = None
-        for raw in open(os.path.join(api_dir, f), encoding="utf-8"):
+        for raw in read_text(os.path.join(api_dir, f)).splitlines():
             s = raw.strip()
             m = re.match(r"package (\S+) \{", s)
             if m:
                 pkg = m.group(1)
                 continue
             if not s.startswith(("method", "ctor", "property", "field", "enum_constant")):
-                m = re.search(r"\b(?:class|interface|enum|@interface)\s+([\w.<>,? ]+?)\s*(?:extends|implements|\{)", s)
+                m = re.search(
+                    r"\b(?:class|interface|enum|@interface)\s+([\w.<>,? ]+?)\s*(?:extends|implements|\{)", s
+                )
                 if m:
                     owner = m.group(1).split("<")[0].strip()
-                    entries.append({"package": pkg, "owner": None, "kind": "class", "name": owner,
-                                    "signature": clean_signature(s.rstrip("{").strip()), "file": f})
+                    entries.append(
+                        {
+                            "package": pkg,
+                            "owner": None,
+                            "kind": "class",
+                            "name": owner,
+                            "signature": clean_signature(s.rstrip("{").strip()),
+                            "file": f,
+                        }
+                    )
                 continue
             if "@BytecodeOnly" in s or "@InaccessibleFromKotlin" in s:
                 continue
             kind = s.split()[0]
-            body = s[len(kind):]
+            body = s[len(kind) :]
             if kind in ("method", "ctor"):
                 m = re.search(r"([\w-]+)\s*\(", body)
             else:
                 m = re.search(r"[\s.]([\w]+)\s*;", body)
             if not m:
                 continue
-            entries.append({"package": pkg, "owner": owner, "kind": kind, "name": m.group(1),
-                            "signature": clean_signature(body), "file": f, "static": " static " in s})
+            entries.append(
+                {
+                    "package": pkg,
+                    "owner": owner,
+                    "kind": kind,
+                    "name": m.group(1),
+                    "signature": clean_signature(body),
+                    "file": f,
+                    "static": " static " in s,
+                }
+            )
     return entries
 
 
@@ -268,7 +338,7 @@ def cmd_api(args):
         key = pkg + "." + base
         if key in out and not owner.endswith("Kt"):
             out[key].append("  " + e["signature"])
-    json.dump(out, open(args.out, "w"), indent=0, sort_keys=True)
+    write_json(out, args.out, indent=0, sort_keys=True)
     print(f"api: {len(out)} symbols -> {args.out}")
     return 0
 
@@ -276,11 +346,21 @@ def cmd_api(args):
 # Public API that is not a building block a storybook can show: capture plumbing, Android-only
 # resources and intents, and members reached through their owner.
 NOT_BLOCKS = {
-    "captureRemoteDocument", "captureSingleRemoteDocument", "Profile", "createCreationDisplayInfo",
-    "rememberRemoteCreationDisplayInfo", "RemoteCreationDisplayInfo", "currentProfileSupports",
-    "currentProfileSupportsPathClip", "currentProfileSupportsThemedColors",
-    "currentProfileSupportsTouchModifiers", "rememberPendingIntentAction", "vectorResource",
-    "createThemedRemoteColor", "toRemoteString", "fromTextStyle",
+    "captureRemoteDocument",
+    "captureSingleRemoteDocument",
+    "Profile",
+    "createCreationDisplayInfo",
+    "rememberRemoteCreationDisplayInfo",
+    "RemoteCreationDisplayInfo",
+    "currentProfileSupports",
+    "currentProfileSupportsPathClip",
+    "currentProfileSupportsThemedColors",
+    "currentProfileSupportsTouchModifiers",
+    "rememberPendingIntentAction",
+    "vectorResource",
+    "createThemedRemoteColor",
+    "toRemoteString",
+    "fromTextStyle",
 }
 
 
@@ -311,16 +391,33 @@ def building_blocks(entries):
     for e in entries:
         pkg = e["package"]
         short = pkg.replace("androidx.compose.remote.creation.compose", "creation.compose").replace(
-            "androidx.compose.remote.foundation", "foundation")
+            "androidx.compose.remote.foundation", "foundation"
+        )
         sig = e["signature"]
-        if e["kind"] == "method" and e["owner"] and e["owner"].endswith("Kt") and e["name"][0].isupper() \
-                and "void " in sig and pkg.endswith((".layout", ".icon", ".image", ".text")):
+        if (
+            e["kind"] == "method"
+            and e["owner"]
+            and e["owner"].endswith("Kt")
+            and e["name"][0].isupper()
+            and "void " in sig
+            and pkg.endswith((".layout", ".icon", ".image", ".text"))
+        ):
             add("Composables", e["name"], short)
-        elif e["kind"] == "method" and e["owner"] and e["owner"].endswith("Kt") and pkg.endswith(".modifier") \
-                and sig.startswith("RemoteModifier "):
-            add("Modifiers", e["name"], short)
-        elif e["kind"] == "method" and e["owner"] in ("RemoteRowScope", "RemoteColumnScope",
-                                                    "RemoteCollapsibleRowScope", "RemoteCollapsibleColumnScope"):
+        elif (
+            e["kind"] == "method"
+            and e["owner"]
+            and e["owner"].endswith("Kt")
+            and pkg.endswith(".modifier")
+            and sig.startswith("RemoteModifier ")
+            or e["kind"] == "method"
+            and e["owner"]
+            in (
+                "RemoteRowScope",
+                "RemoteColumnScope",
+                "RemoteCollapsibleRowScope",
+                "RemoteCollapsibleColumnScope",
+            )
+        ):
             add("Modifiers", e["name"], short)
         elif e["kind"] == "method" and pkg.endswith(".action") and e["owner"].endswith("Kt"):
             add("Actions", e["name"], short)
@@ -330,8 +427,13 @@ def building_blocks(entries):
             add("Painters", e["name"], short)
         elif e["kind"] in ("method", "property") and pkg.endswith(".shapes") and e["owner"].endswith("Kt"):
             add("Shapes", e["name"], short)
-        elif e["kind"] == "method" and pkg.endswith(".state") and e["owner"] and e["owner"].endswith("Kt") \
-                and re.match(r"(remember|animate|remote(Tween|Spring)|Mutable|lerp|RemoteColor$)", e["name"]):
+        elif (
+            e["kind"] == "method"
+            and pkg.endswith(".state")
+            and e["owner"]
+            and e["owner"].endswith("Kt")
+            and re.match(r"(remember|animate|remote(Tween|Spring)|Mutable|lerp|RemoteColor$)", e["name"])
+        ):
             add("State & animation", e["name"], short)
         elif e["kind"] == "method" and e["owner"] == "RemoteDrawScope":
             add("Canvas drawing", e["name"], short)
@@ -343,7 +445,10 @@ def building_blocks(entries):
             add("Text measuring", e["name"], short)
         elif e["kind"] == "property" and e["owner"] in ("RemoteTimeVariables", "RemoteConfiguration"):
             add("Environment", e["owner"] + "." + e["name"], short)
-        elif e["kind"] == "property" and e["owner"] in ("RemoteEnterTransition.Companion", "RemoteExitTransition.Companion"):
+        elif e["kind"] == "property" and e["owner"] in (
+            "RemoteEnterTransition.Companion",
+            "RemoteExitTransition.Companion",
+        ):
             add("Transitions", e["owner"].split(".")[0] + "." + e["name"], short)
         elif e["kind"] == "property" and e["owner"] == "RemoteEasing.Companion":
             add("Easing", "RemoteEasing." + e["name"], short)
@@ -351,8 +456,13 @@ def building_blocks(entries):
             add("Content scale", "RemoteContentScale." + e["name"], short)
         elif e["kind"] == "method" and e["owner"] == "RemoteFloatOperations":
             add("Float operations", e["name"], short)
-        elif e["kind"] == "class" and pkg.endswith(".text") and e["name"].startswith("Remote") and "." not in e["name"] \
-                and not e["name"].endswith("Kt"):
+        elif (
+            e["kind"] == "class"
+            and pkg.endswith(".text")
+            and e["name"].startswith("Remote")
+            and "." not in e["name"]
+            and not e["name"].endswith("Kt")
+        ):
             add("Text", e["name"], short)
     return blocks
 
@@ -360,14 +470,14 @@ def building_blocks(entries):
 def cmd_coverage(args):
     entries = parse_api(args.api)
     blocks = building_blocks(entries)
-    sources = json.load(open(args.sources))
+    sources = read_json(args.sources)
     # Option codes the catalog offers in its controls (`option("Label", "Code", value)`): a value a
     # user can pick and see printed in the Code tab counts as covered too.
     option_codes = []
     if args.catalog:
         for f in sorted(os.listdir(args.catalog)):
             if f.endswith(".kt"):
-                text = open(os.path.join(args.catalog, f), encoding="utf-8").read()
+                text = read_text(os.path.join(args.catalog, f))
                 option_codes += re.findall(r'option\(\s*"(?:\\.|[^"\\])*"\s*,\s*"((?:\\.|[^"\\])*)"', text)
     options_text = "\n".join(c.replace('\\"', '"') for c in option_codes)
     uses = []
@@ -380,22 +490,38 @@ def cmd_coverage(args):
             code = src["code"]
             if qualified:
                 owner = qualified.split(".")[0]
-                hit = qualified in code or (word_used(owner, code) and re.search(r"\." + re.escape(member) + r"(?!\w)", code) is not None)
+                hit = qualified in code or (
+                    word_used(owner, code)
+                    and re.search(r"\." + re.escape(member) + r"(?!\w)", code) is not None
+                )
             else:
                 hit = word_used(member, code)
             if hit:
                 used_by.append(fn)
-        in_options = bool((qualified and qualified in options_text) or (not qualified and word_used(member, options_text)))
+        in_options = bool(
+            (qualified and qualified in options_text) or (not qualified and word_used(member, options_text))
+        )
         pending = NOT_IN_WEB_PLAYER.get(name)
-        uses.append({"group": group, "name": name, "packages": sorted(pkgs), "stories": used_by,
-                     "inOptions": in_options, "pending": pending})
+        uses.append(
+            {
+                "group": group,
+                "name": name,
+                "packages": sorted(pkgs),
+                "stories": used_by,
+                "inOptions": in_options,
+                "pending": pending,
+            }
+        )
         if not used_by and not in_options and not pending:
             missing.append(f"{group}: {name}")
-    json.dump({"commit": open(os.path.join(args.api, "COMMIT")).read().strip(), "blocks": uses},
-              open(args.out, "w"), indent=1)
+    commit = read_text(os.path.join(args.api, "COMMIT")).strip()
+    write_json({"commit": commit, "blocks": uses}, args.out)
     pending = sum(1 for u in uses if u["pending"] and not u["stories"])
     covered = len(uses) - len(missing) - pending
-    print(f"coverage: {covered}/{len(uses)} public building blocks used by a story, {pending} not in the web player yet -> {args.out}")
+    print(
+        f"coverage: {covered}/{len(uses)} public building blocks used by a story, "
+        f"{pending} not in the web player yet -> {args.out}"
+    )
     if missing:
         print("not covered by any story:\n  " + "\n  ".join(missing), file=sys.stderr)
         return 0 if args.report_only else 1
