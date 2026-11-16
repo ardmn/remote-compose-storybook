@@ -239,7 +239,8 @@ fun ComponentSizeExpression(fraction: Float, parentHeight: Int) {
 @Composable
 @RemoteComposable
 fun CanvasText(text: String, textSize: Float, color: Color, typeface: RemoteTypeface) {
-    RemoteCanvas(modifier = RemoteModifier.size(300.rdp, 120.rdp)) {
+    // textSize is in pixels; this canvas fills the stage's width.
+    RemoteCanvas(modifier = RemoteModifier.fillMaxWidth().height(120.rdp)) {
         val paint = RemotePaint {
             this.color = color.rc
             this.textSize = textSize.rf

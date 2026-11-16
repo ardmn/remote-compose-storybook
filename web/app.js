@@ -105,6 +105,35 @@
     document.body.appendChild(script);
   }
 
+  // Compose Multiplatform gives its canvas role="generic", which is not a valid role for a canvas.
+  // It is an interactive surface (taps, drags, keys), so describe it as one.
+  function labelPlayerCanvas() {
+    // The canvas lives in a shadow root that Compose attaches inside #stage.
+    const findCanvas = () => {
+      for (const el of [$("stage"), ...$("stage").querySelectorAll("*")]) {
+        const canvas = (el.shadowRoot || el).querySelector("canvas");
+        if (canvas) return canvas;
+      }
+      return null;
+    };
+    let observed = null;
+    const label = () => {
+      const canvas = findCanvas();
+      if (!canvas) return;
+      if (canvas.getAttribute("role") !== "application") {
+        canvas.setAttribute("role", "application");
+        canvas.setAttribute("aria-label", "Remote Compose player: interact with the story");
+      }
+      if (observed !== canvas) {
+        observed = canvas;
+        // Compose sets the role again as it updates its canvas: keep it valid.
+        new MutationObserver(label).observe(canvas, { attributes: true, attributeFilter: ["role"] });
+      }
+    };
+    label();
+    new MutationObserver(label).observe($("stage"), { childList: true, subtree: true });
+  }
+
   async function boot() {
     initTheme();
     loadPlayer();
@@ -121,6 +150,7 @@
     }
     await ready;
     $("loading").hidden = true;
+    labelPlayerCanvas();
     state.catalog = JSON.parse(window.rcStorybook.catalog());
     state.components = state.catalog.components;
     for (const c of state.components) {
@@ -913,6 +943,11 @@ dependencies {
       state.lastDocument = doc;
       overlay(null);
       $("docStats").textContent = `${doc.bytes.toLocaleString()} bytes · ${doc.operations} ops`;
+      const { component, story } = state.current;
+      $("stage").setAttribute("aria-label", `Stage: ${component.title}, ${story.name}`);
+      $("stageText").textContent = (doc.texts || []).length
+        ? "Text on the stage: " + doc.texts.join("; ")
+        : (component.plain && component.plain.what) || story.description;
       $("downloadRc").disabled = false;
       renderDocument();
       renderChanges();

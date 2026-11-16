@@ -29,7 +29,9 @@ import ee.schimke.composeai.rcplayer.compose.RcTypefaceLoader
 import ee.schimke.composeai.rcplayer.embedded.RcEmbeddedPlayer
 import ee.schimke.composeai.rcplayer.protocol.RcDocument
 import ee.schimke.composeai.rcplayer.protocol.RcDocumentCodec
+import ee.schimke.composeai.rcplayer.protocol.RcHostNamedAction
 import ee.schimke.composeai.rcplayer.protocol.RcNamedVariable
+import ee.schimke.composeai.rcplayer.protocol.RcTextData
 import ee.schimke.composeai.rcplayer.runtime.RcNamedValue
 import ee.schimke.composeai.rcplayer.runtime.RcPlayerEvent
 import kotlin.io.encoding.Base64
@@ -258,6 +260,9 @@ private fun report(story: Story, document: RcDocument) {
                 "structure" to lines.joinToString("\n"),
                 "diff" to diff,
                 "base64" to Base64.encode(bytes),
+                // The document's constant texts: the page offers them to screen readers, which
+                // cannot read a canvas.
+                "texts" to screenReaderTexts(document),
                 // The variables a host can set by name, with the wire type the page edits them as.
                 "named" to
                     document.operations.filterIsInstance<RcNamedVariable>().map {
@@ -268,6 +273,17 @@ private fun report(story: Story, document: RcDocument) {
     lastReports[story.id] = report
     if (story == selection?.story) hostDocument = bytes
     emit("rcstorybook:document", report)
+}
+
+/** The document's constant texts a reader would see; action names are wiring, not text. */
+private fun screenReaderTexts(document: RcDocument): List<String> {
+    val actionNames =
+        document.operations.filterIsInstance<RcHostNamedAction>().map { it.nameTextId }.toSet()
+    return document.operations
+        .filterIsInstance<RcTextData>()
+        .filter { it.id !in actionNames && it.text.isNotBlank() }
+        .map { it.text }
+        .distinct()
 }
 
 private fun describe(storyId: String, event: RcPlayerEvent): Map<String, Any?> =

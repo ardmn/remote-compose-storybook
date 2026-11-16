@@ -15,6 +15,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import pixelmatch from "pixelmatch";
 import { PNG } from "pngjs";
+import AxeBuilder from "@axe-core/playwright";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const args = process.argv.slice(2);
@@ -74,7 +75,9 @@ const fail = (what) => {
 };
 
 const browser = await chromium.launch();
-const page = await browser.newPage({ viewport: { width: 1360, height: 1000 } });
+// A context, not browser.newPage(): the accessibility audit opens pages in it.
+const context = await browser.newContext({ viewport: { width: 1360, height: 1000 } });
+const page = await context.newPage();
 const pageErrors = [];
 page.on("pageerror", (e) => pageErrors.push(e.message));
 page.on("console", (m) => {
@@ -94,6 +97,15 @@ await page.screenshot({ path: path.join(outDir, "_overview.png") });
 await page.goto(base + "#/coverage");
 await page.waitForSelector(".cov-table");
 await page.screenshot({ path: path.join(outDir, "_coverage.png"), fullPage: true });
+
+// The stage layout for the next story; the control may be hidden (on a page without a stage).
+async function setLayout(value) {
+  await page.evaluate((v) => {
+    const el = document.getElementById("layout");
+    el.value = v;
+    el.dispatchEvent(new Event("change"));
+  }, value);
+}
 
 async function openStory(id, query = "") {
   await page.evaluate(() => {
@@ -179,7 +191,7 @@ if (!only) {
   console.log(`  ok control change (${before} → ${await page.textContent("#docStats")})`);
 
   // Taps below aim at fixed points of the story, so lay it out from the top start.
-  await page.selectOption("#layout", "topstart");
+  await setLayout("topstart");
   // A tap on a host action reaches the Actions tab.
   await openStory("host-action--named");
   await page.waitForTimeout(500);
@@ -209,8 +221,21 @@ if (!only) {
   if (storm > 0) fail(`a story at rest sent ${storm} documents in 2s`);
   else console.log("  ok a story at rest is quiet");
 
+  // Accessibility: no serious or critical axe violation on the overview, a story or the coverage page.
+  for (const hash of ["#/", "#/story/recipe-product-card--default", "#/coverage"]) {
+    if (hash.startsWith("#/story/")) await openStory(hash.slice("#/story/".length));
+    else {
+      await page.goto(base + hash);
+      await page.waitForSelector("#page h1");
+    }
+    const audit = await new AxeBuilder({ page }).analyze();
+    const bad = audit.violations.filter((v) => v.impact === "serious" || v.impact === "critical");
+    if (bad.length) fail(`${hash}: ${bad.map((v) => `${v.id} (${v.nodes.length})`).join(", ")}`);
+    else console.log(`  ok accessibility ${hash}`);
+  }
+
   // Returning to the same story from a page without a stage shows its document again.
-  await page.selectOption("#layout", "centered");
+  await setLayout("centered");
   await openStory("remote-box--layering");
   await page.goto(base + "#/");
   await page.waitForSelector("#page h1");
@@ -242,10 +267,10 @@ if (!only) {
   const viaText = await injected();
   if (viaColor || viaText) fail(`a URL arg injected markup (color: ${viaColor}, text: ${viaText})`);
   else console.log("  ok URL args are escaped");
-  await page.selectOption("#layout", "topstart");
+  await setLayout("topstart");
 
   // Host values replay the same document with values set by name.
-  await page.selectOption("#layout", "centered");
+  await setLayout("centered");
   await openStory("named-state--card");
   const statsBefore = await page.textContent("#docStats");
   const cardBefore = await page.locator("#stageFrame").screenshot();
@@ -257,7 +282,7 @@ if (!only) {
   if (Buffer.compare(cardBefore, cardAfter) === 0) fail("a host value changed nothing on the stage");
   else if (statsBefore !== statsAfter) fail(`a host value made a new document (${statsBefore} → ${statsAfter})`);
   else console.log("  ok host values replay the same document");
-  await page.selectOption("#layout", "topstart");
+  await setLayout("topstart");
 
   // A tap on a valueChangeAction changes what is drawn.
   await openStory("clickable--counter");

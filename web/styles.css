@@ -5,7 +5,7 @@
   --border: #e2e5e9;
   --text: #1c1f24;
   --muted: #5f6873;
-  --accent: #3367d6;
+  --accent: #2a5bc4;
   --accent-soft: #e8effc;
   --code-bg: #f7f8fa;
   --ok: #1e8e3e;
@@ -15,7 +15,7 @@
   --tok-kw: #7b30d0;
   --tok-str: #1a7f37;
   --tok-num: #0b6bcb;
-  --tok-com: #6e7781;
+  --tok-com: #5a6470;
   --tok-ann: #b35900;
   --tok-fn: #0550ae;
   --tok-type: #953800;
@@ -873,4 +873,13 @@ input[type="number"] {
 .loading-detail {
   color: var(--muted);
   font: 12px var(--mono);
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
 }

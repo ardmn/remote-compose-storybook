@@ -190,9 +190,9 @@ fun ColorExpressions(from: Color, to: Color, speed: Float) {
     RemoteRow(horizontalArrangement = RemoteArrangement.spacedBy(10.rdp)) {
         // lerp between two colors, by a time-driven fraction.
         RemoteBox(RemoteModifier.size(90.rdp).background(lerp(from.rc, to.rc, t)))
-        // A hue that rotates with time.
+        // A hue that rotates with time: hue, saturation and value are all in 0..1.
         RemoteBox(
-            RemoteModifier.size(90.rdp).background(RemoteColor.hsv(t * 360f.rf, 0.8f.rf, 0.9f.rf)),
+            RemoteModifier.size(90.rdp).background(RemoteColor.hsv(t, 0.8f.rf, 0.9f.rf)),
         )
         // A copy of a color with a computed alpha.
         RemoteBox(RemoteModifier.size(90.rdp).background(from.rc.copy(alpha = t)))
@@ -216,6 +216,7 @@ fun Clock(is24Hour: Boolean) {
             fontSize = 40.rsp,
         )
         RemoteText(hh + ":".rs + mm + ":".rs + ss.toRemoteString(), fontSize = 16.rsp)
+        // toRemoteString() groups digits as the player's locale does, so a year reads "2,026".
         RemoteText(
             "day ".rs +
                 time.dayOfMonth.toRemoteString() +

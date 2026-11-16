@@ -110,7 +110,13 @@
         <!-- The Compose viewport lives outside the story view so the wasm canvas is created once. -->
         <div class="stage-wrap offstage" id="stageWrap">
           <div class="stage-frame" id="stageFrame">
-            <div id="stage" role="region" aria-label="Stage: the story drawn by the Remote Compose player"></div>
+            <div
+              id="stage"
+              role="region"
+              aria-label="Stage: the story drawn by the Remote Compose player"
+              aria-describedby="stageText"
+            ></div>
+            <p class="visually-hidden" id="stageText" aria-live="polite"></p>
             <div class="stage-overlay" id="stageOverlay" role="status" aria-live="polite">Loading the player…</div>
           </div>
           <div class="stage-size" id="stageSize"></div>

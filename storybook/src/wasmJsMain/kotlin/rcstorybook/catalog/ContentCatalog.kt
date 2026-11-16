@@ -296,8 +296,8 @@ internal val canvasComponents =
                         "CanvasText",
                         "Text drawn at a baseline position.",
                         listOf(
-                            text("text", "Drawn on a canvas"),
-                            float("textSize", 56f, 12f, 120f, step = 2f),
+                            text("text", "Hello, canvas"),
+                            float("textSize", 40f, 12f, 96f, step = 2f),
                             color("color", Color(0xFF00897B)),
                             choice("typeface", More.typefaces),
                         ),
