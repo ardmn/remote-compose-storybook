@@ -215,7 +215,9 @@ def cmd_sources(args):
             while queue:
                 cur = queue.pop()
                 for name, (_path, h) in all_decls.items():
-                    if name in seen or h.composable:
+                    # Every declaration the story reads comes with it: enums, constants, plain helpers,
+                    # and other @RemoteComposable functions it calls, so the snippet compiles alone.
+                    if name in seen:
                         continue
                     if word_used(name, cur.text):
                         seen.add(name)

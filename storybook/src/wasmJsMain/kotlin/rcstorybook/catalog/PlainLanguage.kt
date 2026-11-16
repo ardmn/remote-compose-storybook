@@ -244,4 +244,32 @@ internal val plainLanguage: Map<String, Plain> =
                     "Respecting the user's font size",
                 ),
             ),
+        "recipe-product-card" to
+            Plain(
+                "A complete shop card built from the blocks on this site, with a working cart button.",
+                listOf("E-commerce promos the server can change daily", "Personalised offers"),
+            ),
+        "recipe-weather-widget" to
+            Plain(
+                "A widget that rearranges itself for its size and shows live data the app supplies.",
+                listOf(
+                    "Home-screen and glanceable widgets",
+                    "Live scores, prices, delivery status",
+                ),
+            ),
+        "recipe-onboarding" to
+            Plain(
+                "A multi-step flow whose steps all arrive at once and run on the device.",
+                listOf("Onboarding and tutorials", "Surveys and step-by-step forms"),
+            ),
+        "recipe-media-player" to
+            Plain(
+                "Playback controls with a moving progress bar, all animated on the device.",
+                listOf("Media and podcast controls", "Timers and progress displays"),
+            ),
+        "recipe-settings" to
+            Plain(
+                "A list of switches the user flips on the device and values the app keeps up to date.",
+                listOf("Settings and preferences", "Feature toggles shown in a remote screen"),
+            ),
     )

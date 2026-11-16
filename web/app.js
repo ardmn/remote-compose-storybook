@@ -116,6 +116,7 @@
   // Navigation
 
   const CATEGORY_ORDER = [
+    "Recipes",
     "Layout",
     "Content",
     "Canvas",

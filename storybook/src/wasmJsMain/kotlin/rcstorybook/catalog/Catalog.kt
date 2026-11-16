@@ -10,5 +10,6 @@ object Catalog {
             modifierComponents +
             interactionComponents +
             animationComponents +
-            stateComponents
+            stateComponents +
+            recipeComponents
 }
