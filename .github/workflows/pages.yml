@@ -5,6 +5,11 @@ on:
     branches: [main]
   pull_request:
   workflow_dispatch:
+    inputs:
+      update_baselines:
+        description: "Take new visual baselines (download the e2e-baselines artifact and commit it to e2e/baselines)"
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -103,10 +108,19 @@ jobs:
 
       - name: End-to-end test
         working-directory: e2e
+        env:
+          UPDATE_BASELINES: ${{ inputs.update_baselines && '--update-baselines' || '' }}
         run: |
           npm ci
           npx playwright install --with-deps chromium
-          node run.mjs
+          node run.mjs ${UPDATE_BASELINES:+"$UPDATE_BASELINES"}
+
+      - name: Upload new visual baselines
+        if: inputs.update_baselines
+        uses: actions/upload-artifact@v7
+        with:
+          name: e2e-baselines
+          path: e2e/baselines
 
       - name: Upload e2e screenshots
         if: always()

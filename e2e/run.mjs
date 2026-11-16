@@ -13,6 +13,8 @@ import http from "node:http";
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import pixelmatch from "pixelmatch";
+import { PNG } from "pngjs";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const args = process.argv.slice(2);
@@ -23,6 +25,15 @@ const opt = (name, def) => {
 const site = path.resolve(here, "..", opt("--site", "build/site"));
 const only = opt("--only", "");
 const outDir = path.join(here, "out");
+// Visual regression: each story's stage against e2e/baselines/<id>.png. Baselines come from CI
+// (Linux), where rendering is the same run to run; elsewhere they are compared only on request.
+const baselinesDir = path.join(here, "baselines");
+const compareBaselines = args.includes("--compare-baselines") || !!process.env.CI;
+const updateBaselines = args.includes("--update-baselines");
+// Stories whose drawing follows the clock cannot have a baseline.
+const sources = JSON.parse(fs.readFileSync(path.join(site, "data", "sources.json"), "utf8"));
+const timeDriven = (fn) =>
+  /RemoteTimeVariables|continuousSeconds|animateRemote|remoteSpring/.test(sources[fn]?.code ?? "");
 fs.mkdirSync(outDir, { recursive: true });
 
 const types = {
@@ -111,6 +122,29 @@ for (const s of stories) {
   }
   await page.waitForTimeout(400);
   await page.locator("#stageWrap").screenshot({ path: path.join(outDir, s.id + ".png") });
+  if (!timeDriven(s.function)) {
+    const stage = await page.locator("#stageFrame").screenshot();
+    const baseline = path.join(baselinesDir, s.id + ".png");
+    if (updateBaselines) {
+      fs.mkdirSync(baselinesDir, { recursive: true });
+      fs.writeFileSync(baseline, stage);
+    } else if (compareBaselines && fs.existsSync(baseline)) {
+      const want = PNG.sync.read(fs.readFileSync(baseline));
+      const got = PNG.sync.read(stage);
+      if (want.width !== got.width || want.height !== got.height) {
+        fail(`${s.id}: stage is ${got.width}×${got.height}, baseline ${want.width}×${want.height}`);
+      } else {
+        const diff = new PNG({ width: got.width, height: got.height });
+        const changed = pixelmatch(want.data, got.data, diff.data, got.width, got.height, { threshold: 0.15 });
+        const ratio = changed / (got.width * got.height);
+        if (ratio > 0.005) {
+          fs.writeFileSync(path.join(outDir, s.id + ".diff.png"), PNG.sync.write(diff));
+          fs.writeFileSync(path.join(outDir, s.id + ".actual.png"), stage);
+          fail(`${s.id}: ${(ratio * 100).toFixed(2)}% of the stage differs from its baseline (see ${s.id}.diff.png)`);
+        }
+      }
+    }
+  }
   // Code tab: the story's source must be there.
   const code = await page.textContent("#code");
   if (!code.includes("fun " + s.function + "(")) fail(`${s.id}: Code tab lacks the source of ${s.function}`);
