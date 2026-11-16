@@ -112,13 +112,28 @@ async function setLayout(value) {
 
 // The stage once it has stopped changing: two screenshots in a row that match. A document arriving
 // is not the same as its first frame being drawn, so a fixed pause would race the player.
+// The stage as pixels: its own size, at whole-pixel coordinates. An element screenshot rounds a
+// fractional position into a 1px taller image (a block above the stage moved it by half a pixel).
+async function stageShot() {
+  const clip = await page.evaluate(() => {
+    const frame = document.getElementById("stageFrame");
+    const r = frame.getBoundingClientRect();
+    return {
+      x: Math.round(r.left + window.scrollX),
+      y: Math.round(r.top + window.scrollY),
+      width: parseInt(frame.style.width, 10),
+      height: parseInt(frame.style.height, 10),
+    };
+  });
+  return page.screenshot({ clip, fullPage: true });
+}
+
 async function stableStage(timeoutMs = 10000) {
-  const frame = page.locator("#stageFrame");
-  let previous = await frame.screenshot();
+  let previous = await stageShot();
   const deadline = Date.now() + timeoutMs;
   while (Date.now() < deadline) {
     await page.waitForTimeout(150);
-    const next = await frame.screenshot();
+    const next = await stageShot();
     if (Buffer.compare(previous, next) === 0) return next;
     previous = next;
   }
@@ -129,7 +144,7 @@ async function stableStage(timeoutMs = 10000) {
 async function stageChangesFrom(before, timeoutMs = 5000) {
   const deadline = Date.now() + timeoutMs;
   while (Date.now() < deadline) {
-    if (Buffer.compare(before, await page.locator("#stageFrame").screenshot()) !== 0) return true;
+    if (Buffer.compare(before, await stageShot()) !== 0) return true;
     await page.waitForTimeout(100);
   }
   return false;

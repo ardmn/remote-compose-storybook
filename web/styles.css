@@ -283,6 +283,7 @@ kbd {
 }
 .tool {
   display: inline-flex;
+  height: 32px;
   align-items: center;
   gap: 6px;
   color: var(--muted);
@@ -292,13 +293,42 @@ select,
 .btn,
 input[type="text"],
 input[type="number"] {
+  box-sizing: border-box;
+  height: 32px;
   font: inherit;
   font-size: 13px;
+  line-height: 1;
   color: var(--text);
-  background: var(--surface);
+  background-color: var(--surface);
   border: 1px solid var(--border);
   border-radius: 8px;
-  padding: 5px 10px;
+  padding: 0 10px;
+  vertical-align: middle;
+}
+.btn {
+  display: inline-flex;
+  align-items: center;
+  white-space: nowrap;
+}
+/* Our own chevron, centred: native arrows sit at a different height in every browser. */
+select {
+  appearance: none;
+  -webkit-appearance: none;
+  padding-right: 30px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' fill='none' stroke='%235f6873' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 11px center;
+  background-size: 10px 6px;
+  cursor: pointer;
+}
+select:hover {
+  background-color: var(--surface-2);
+}
+select:focus-visible,
+.btn:focus-visible,
+input:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
 }
 .btn {
   cursor: pointer;
