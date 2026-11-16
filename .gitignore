@@ -9,3 +9,7 @@ node_modules/
 /site/
 e2e/out/
 __pycache__/
+verify-androidx/local.properties
+verify-androidx/build/
+verify-androidx/.gradle/
+verify-androidx/.kotlin/

@@ -14,5 +14,10 @@ curl -sf "$BASE/remote-creation-compose/api/current.txt" -o "$TMP/remote-creatio
 curl -sf "$BASE/remote-creation-expression/api/current.txt" -o "$TMP/remote-creation-expression.txt"
 curl -sf "$BASE/foundation/foundation/api/current.txt" -o "$TMP/foundation.txt"
 echo "$SHA" >"$TMP/COMMIT"
-mv "$TMP"/remote-creation-compose.txt "$TMP"/remote-creation-expression.txt "$TMP"/foundation.txt "$TMP"/COMMIT "$OUT"/
-echo "reference/androidx-api now at androidx-main $SHA"
+# The newest androidx.dev snapshot build: what verify-androidx compiles the stories against.
+curl -sfL -o /dev/null -w "%{url_effective}" https://androidx.dev/snapshots/latest/artifacts/repository/ |
+  sed -nE 's#.*/builds/([0-9]+)/.*#\1#p' >"$TMP/SNAPSHOT_BUILD"
+[[ -s "$TMP/SNAPSHOT_BUILD" ]] || { echo "could not resolve the latest androidx.dev snapshot build" >&2; exit 1; }
+mv "$TMP"/remote-creation-compose.txt "$TMP"/remote-creation-expression.txt "$TMP"/foundation.txt \
+  "$TMP"/COMMIT "$TMP"/SNAPSHOT_BUILD "$OUT"/
+echo "reference/androidx-api now at androidx-main $SHA, snapshot build $(cat "$OUT/SNAPSHOT_BUILD")"

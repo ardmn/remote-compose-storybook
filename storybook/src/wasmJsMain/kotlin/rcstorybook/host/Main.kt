@@ -5,6 +5,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.size
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
@@ -20,7 +21,9 @@ import ee.schimke.composeai.rccreation.compose.layout.RemoteAlignment
 import ee.schimke.composeai.rccreation.compose.layout.RemoteBox
 import ee.schimke.composeai.rccreation.compose.modifier.RemoteModifier
 import ee.schimke.composeai.rccreation.compose.modifier.fillMaxSize as remoteFillMaxSize
+import ee.schimke.composeai.rcplayer.compose.RcManifestTypefaceLoader
 import ee.schimke.composeai.rcplayer.compose.RcPlayerTheme
+import ee.schimke.composeai.rcplayer.compose.RcTypefaceLoader
 import ee.schimke.composeai.rcplayer.embedded.RcEmbeddedPlayer
 import ee.schimke.composeai.rcplayer.protocol.RcDocument
 import ee.schimke.composeai.rcplayer.protocol.RcDocumentCodec
@@ -46,6 +49,12 @@ private data class StageConfig(
 
 private var selection by mutableStateOf<Selection?>(null)
 private var stageConfig by mutableStateOf(StageConfig())
+
+/**
+ * The faces the player draws text with, from `fonts/fonts.json` beside the page. The browser has no
+ * system fonts: until these load (and if they fail to) every family falls back to one bundled face.
+ */
+private var typefaces by mutableStateOf<RcTypefaceLoader>(RcTypefaceLoader.Default)
 
 /** The last document each story produced, for the Changes tab's structural diff. */
 private val lastDocuments = mutableMapOf<String, List<String>>()
@@ -75,7 +84,17 @@ fun main() {
                 )
         },
     )
-    ComposeViewport(viewportContainerId = "stage") { Stage() }
+    ComposeViewport(viewportContainerId = "stage") {
+        LaunchedEffect(Unit) {
+            typefaces =
+                runCatching { RcManifestTypefaceLoader(::fetchBytes).load("fonts/") }
+                    .getOrElse { error ->
+                        println("fonts: ${error.message}")
+                        RcTypefaceLoader.Default
+                    }
+        }
+        Stage()
+    }
 }
 
 /**
@@ -128,6 +147,7 @@ private fun Stage() {
                 Modifier.size(config.widthDp.dp, config.heightDp.dp)
                     .background(if (config.dark) Color(0xFF121316) else Color.White),
             theme = if (config.dark) RcPlayerTheme.Dark else RcPlayerTheme.Light,
+            typefaces = typefaces,
             encodePng = ::encodePng,
             onEvent = { event ->
                 emit("rcstorybook:event", toJson(describe(current.story.id, event)))

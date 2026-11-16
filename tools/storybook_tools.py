@@ -229,6 +229,17 @@ def cmd_sources(args):
                 "code": code.strip() + "\n",
                 "imports": used_imports,
             }
+    if args.verify_out:
+        os.makedirs(args.verify_out, exist_ok=True)
+        for f in os.listdir(args.verify_out):
+            if f.endswith(".kt"):
+                os.remove(os.path.join(args.verify_out, f))
+        for path in parsed:
+            text = rewrite(read_text(path)).replace(
+                "package rcstorybook.stories", "package rcstorybook.verify"
+            )
+            with open(os.path.join(args.verify_out, os.path.basename(path)), "w", encoding="utf-8") as fh:
+                fh.write(text)
     if errors:
         print("\n".join(errors), file=sys.stderr)
         return 1
@@ -549,6 +560,7 @@ def main():
     s.add_argument("--stories", required=True)
     s.add_argument("--out", required=True)
     s.add_argument("--api")
+    s.add_argument("--verify-out", help="also write each story file, rewritten, into this directory")
     a = sub.add_parser("api")
     a.add_argument("--api", required=True)
     a.add_argument("--out", required=True)

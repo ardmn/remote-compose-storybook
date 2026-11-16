@@ -628,7 +628,7 @@ dependencies {
       <p>The stories are compiled to WebAssembly with <a href="https://github.com/yschimke/rc-players" target="_blank" rel="noopener">rc-players</a>,
       a Compose Multiplatform port of AndroidX's creation API that differs from it only by package. Each story is composed live by
       <code>RcEmbeddedPlayer</code> and drawn by rc-players' Compose player. The source shown in the Code tab is rewritten to
-      <code>androidx.compose.remote.*</code>, and CI checks every name it imports against AndroidX's <code>api/current.txt</code>, so what you copy is AndroidX's public API.</p>`;
+      <code>androidx.compose.remote.*</code>, and CI compiles every story, exactly as shown, against AndroidX's own artifacts (an androidx.dev snapshot of androidx-main), so what you copy compiles.</p>`;
   }
 
   function renderCoverage() {

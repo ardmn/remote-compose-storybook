@@ -106,7 +106,7 @@ internal val contentComponents =
                         "remote-text--variation",
                         "Font variation",
                         "TextFontVariation",
-                        "Variable font axes (weight, width). The player applies them only when the font it resolves has those axes; the web player\'s default font does not.",
+                        "Variable font axes (weight, width), applied by the player when the resolved font has them: Roboto Flex, the default here, does.",
                         listOf(
                             float("weight", 700f, 100f, 1000f, step = 50f),
                             float("width", 100f, 25f, 150f, step = 5f),

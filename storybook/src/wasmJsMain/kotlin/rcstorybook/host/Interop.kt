@@ -23,3 +23,38 @@ internal fun jsProperty(obj: JsAny, key: String): String? =
 
 internal fun emit(type: String, detail: String): Unit =
     js("window.dispatchEvent(new CustomEvent(type, { detail: detail }))")
+
+/** `fetch(url)` as base64, so the bytes cross into Wasm as one string. */
+private fun fetchAsBase64(url: String): kotlin.js.Promise<JsString> =
+    js(
+        """fetch(url).then(function (response) {
+  if (!response.ok) throw new Error('HTTP ' + response.status + ' ' + url);
+  return response.arrayBuffer();
+}).then(function (buffer) {
+  var bytes = new Uint8Array(buffer), chunks = [], size = 0x8000;
+  for (var i = 0; i < bytes.length; i += size) chunks.push(String.fromCharCode.apply(null, bytes.subarray(i, i + size)));
+  return btoa(chunks.join(''));
+})""",
+    )
+
+@OptIn(kotlin.io.encoding.ExperimentalEncodingApi::class)
+internal suspend fun fetchBytes(url: String): ByteArray =
+    kotlinx.coroutines.suspendCancellableCoroutine { continuation ->
+        fetchAsBase64(url)
+            .then { encoded ->
+                if (continuation.isActive) {
+                    continuation.resumeWith(
+                        Result.success(kotlin.io.encoding.Base64.decode(encoded.toString())),
+                    )
+                }
+                null
+            }
+            .catch { failure ->
+                if (continuation.isActive) {
+                    continuation.resumeWith(
+                        Result.failure(IllegalStateException(failure.toString())),
+                    )
+                }
+                null
+            }
+    }

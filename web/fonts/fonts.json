@@ -1,0 +1,145 @@
+{
+  "version": 1,
+  "families": [
+    {
+      "name": "Roboto Flex",
+      "role": "default",
+      "fonts": [
+        {
+          "file": "RobotoFlex.ttf",
+          "weight": 100
+        },
+        {
+          "file": "RobotoFlex.ttf",
+          "weight": 200
+        },
+        {
+          "file": "RobotoFlex.ttf",
+          "weight": 300
+        },
+        {
+          "file": "RobotoFlex.ttf",
+          "weight": 400
+        },
+        {
+          "file": "RobotoFlex.ttf",
+          "weight": 500
+        },
+        {
+          "file": "RobotoFlex.ttf",
+          "weight": 600
+        },
+        {
+          "file": "RobotoFlex.ttf",
+          "weight": 700
+        },
+        {
+          "file": "RobotoFlex.ttf",
+          "weight": 800
+        },
+        {
+          "file": "RobotoFlex.ttf",
+          "weight": 900
+        }
+      ]
+    },
+    {
+      "name": "serif",
+      "role": "generic",
+      "fonts": [
+        {
+          "file": "NotoSerif-Variable.ttf",
+          "weight": 100
+        },
+        {
+          "file": "NotoSerif-Variable.ttf",
+          "weight": 200
+        },
+        {
+          "file": "NotoSerif-Variable.ttf",
+          "weight": 300
+        },
+        {
+          "file": "NotoSerif-Variable.ttf",
+          "weight": 400
+        },
+        {
+          "file": "NotoSerif-Variable.ttf",
+          "weight": 500
+        },
+        {
+          "file": "NotoSerif-Variable.ttf",
+          "weight": 600
+        },
+        {
+          "file": "NotoSerif-Variable.ttf",
+          "weight": 700
+        },
+        {
+          "file": "NotoSerif-Variable.ttf",
+          "weight": 800
+        },
+        {
+          "file": "NotoSerif-Variable.ttf",
+          "weight": 900
+        }
+      ]
+    },
+    {
+      "name": "monospace",
+      "role": "generic",
+      "fonts": [
+        {
+          "file": "NotoSansMono-Variable.ttf",
+          "weight": 100
+        },
+        {
+          "file": "NotoSansMono-Variable.ttf",
+          "weight": 200
+        },
+        {
+          "file": "NotoSansMono-Variable.ttf",
+          "weight": 300
+        },
+        {
+          "file": "NotoSansMono-Variable.ttf",
+          "weight": 400
+        },
+        {
+          "file": "NotoSansMono-Variable.ttf",
+          "weight": 500
+        },
+        {
+          "file": "NotoSansMono-Variable.ttf",
+          "weight": 600
+        },
+        {
+          "file": "NotoSansMono-Variable.ttf",
+          "weight": 700
+        },
+        {
+          "file": "NotoSansMono-Variable.ttf",
+          "weight": 800
+        },
+        {
+          "file": "NotoSansMono-Variable.ttf",
+          "weight": 900
+        }
+      ]
+    },
+    {
+      "name": "cursive",
+      "role": "generic",
+      "fonts": [
+        {
+          "file": "LobsterTwo-Regular.ttf",
+          "weight": 400
+        },
+        {
+          "file": "LobsterTwo-Bold.ttf",
+          "weight": 700
+        }
+      ]
+    }
+  ]
+}
