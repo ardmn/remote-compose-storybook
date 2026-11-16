@@ -198,6 +198,16 @@ for (const s of stories) {
       }
     }
   }
+  // Every tab can be opened, and the tab bar stays visible whichever is open.
+  if (s === stories.find((x) => !only || x.id.includes(only))) {
+    for (const tab of ["code", "docs", "document", "changes", "host", "actions", "controls"]) {
+      await page.click(`[data-tab="${tab}"]`);
+      // The tab bar itself: its buttons keep their height even when the bar is squeezed to nothing.
+      const bar = await page.evaluate(() => document.querySelector(".tabs").getBoundingClientRect().height);
+      const shown = await page.evaluate((t) => !document.querySelector(`[data-body="${t}"]`).hidden, tab);
+      if (bar < 30 || !shown) fail(`${s.id}: after opening "${tab}" the tab bar is ${bar.toFixed(0)}px high`);
+    }
+  }
   // Code tab: the story's source must be there.
   const code = await page.textContent("#code");
   if (!code.includes("fun " + s.function + "(")) fail(`${s.id}: Code tab lacks the source of ${s.function}`);

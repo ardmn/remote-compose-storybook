@@ -256,6 +256,10 @@ kbd {
   min-width: 0;
   overflow: auto;
 }
+/* The main column scrolls; its sections keep their natural height instead of shrinking to fit it. */
+.main > * {
+  flex-shrink: 0;
+}
 .story {
   padding: 20px 24px 0;
 }
@@ -399,6 +403,8 @@ input[type="number"] {
   min-height: 280px;
 }
 .tabs {
+  /* overflow-x makes its min-height 0: without this a long tab body squeezed the tab bar away. */
+  flex-shrink: 0;
   display: flex;
   gap: 2px;
   border-bottom: 1px solid var(--border);
