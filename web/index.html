@@ -166,8 +166,16 @@
       </main>
     </div>
     <div class="toast" id="toast" role="status" aria-live="polite"></div>
+    <div class="loading" id="loading" role="status" aria-live="polite">
+      <div class="loading-box">
+        <div class="brand-mark" aria-hidden="true"></div>
+        <p><b>Loading the Remote Compose player</b></p>
+        <div class="meter"><div id="loadingBar" style="width: 0%"></div></div>
+        <p class="loading-detail" id="loadingDetail">Starting…</p>
+      </div>
+    </div>
     <script src="highlight.js"></script>
     <script src="app.js"></script>
-    <script src="storybook.js"></script>
+    <!-- storybook.js (the Wasm player) is added by app.js once its .wasm files are downloaded. -->
   </body>
 </html>

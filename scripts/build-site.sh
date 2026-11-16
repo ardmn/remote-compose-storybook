@@ -32,6 +32,16 @@ else
 fi
 cp -R "$DIST"/. "$OUT"/
 cp -R web/. "$OUT"/
+# The page downloads the player's .wasm files itself to show progress: list them with their sizes.
+python3 - "$OUT" <<'PY'
+import json, os, sys
+
+out = sys.argv[1]
+wasm = sorted(f for f in os.listdir(out) if f.endswith(".wasm"))
+assets = {"wasm": [{"path": f, "bytes": os.path.getsize(os.path.join(out, f))} for f in wasm]}
+with open(os.path.join(out, "data", "assets.json"), "w", encoding="utf-8") as fh:
+    json.dump(assets, fh, indent=2)
+PY
 # GitHub Pages: serve files and directories that start with an underscore as they are.
 touch "$OUT/.nojekyll"
 

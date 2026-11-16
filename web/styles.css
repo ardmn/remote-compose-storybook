@@ -845,3 +845,32 @@ input[type="number"] {
   color: var(--muted);
   font-size: 13px;
 }
+
+.loading {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg);
+}
+.loading[hidden] {
+  display: none !important;
+}
+.loading-box {
+  width: min(360px, calc(100% - 32px));
+  text-align: center;
+}
+.loading-box .brand-mark {
+  margin: 0 auto 12px;
+  width: 36px;
+  height: 36px;
+}
+.loading-box .meter {
+  margin: 12px auto;
+}
+.loading-detail {
+  color: var(--muted);
+  font: 12px var(--mono);
+}

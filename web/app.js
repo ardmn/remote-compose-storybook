@@ -50,8 +50,64 @@
     }
   }
 
+  // The player is several MB of WebAssembly. Download it here, where progress can be shown, then add
+  // storybook.js; its fetches of the same files are answered from what was downloaded, so nothing
+  // is fetched twice whatever the server's cache headers say.
+  const preloaded = new Map();
+  const realFetch = window.fetch.bind(window);
+  window.fetch = (input, init) => {
+    const url = typeof input === "string" ? input : input && input.url;
+    if (url) {
+      for (const [file, blob] of preloaded) {
+        if (url.split("?")[0].endsWith("/" + file) || url === file) {
+          return Promise.resolve(new Response(blob, { headers: { "content-type": "application/wasm" } }));
+        }
+      }
+    }
+    return realFetch(input, init);
+  };
+
+  async function loadPlayer() {
+    const files = (await fetchJson("data/assets.json", { wasm: [] })).wasm;
+    const total = files.reduce((n, f) => n + f.bytes, 0);
+    let done = 0;
+    const show = () => {
+      const pct = total ? Math.round((100 * done) / total) : 0;
+      $("loadingBar").style.width = pct + "%";
+      $("loadingDetail").textContent = `${(done / 1e6).toFixed(1)} of ${(total / 1e6).toFixed(1)} MB · ${pct}%`;
+    };
+    show();
+    await Promise.all(
+      files.map(async (f) => {
+        try {
+          const res = await realFetch(f.path);
+          const reader = res.body.getReader();
+          const chunks = [];
+          for (;;) {
+            const { done: end, value } = await reader.read();
+            if (end) break;
+            chunks.push(value);
+            done += value.length;
+            show();
+          }
+          preloaded.set(f.path, new Blob(chunks, { type: "application/wasm" }));
+        } catch (e) {
+          console.warn("Could not preload", f.path, e);
+        }
+      }),
+    );
+    $("loadingDetail").textContent = "Starting the player…";
+    const script = document.createElement("script");
+    script.src = "storybook.js";
+    script.onerror = () => {
+      $("loadingDetail").textContent = "The player could not be loaded. Reload the page to try again.";
+    };
+    document.body.appendChild(script);
+  }
+
   async function boot() {
     initTheme();
+    loadPlayer();
     const [sources, api, coverage, meta] = await Promise.all([
       fetchJson("data/sources.json", {}),
       fetchJson("data/api.json", {}),
@@ -64,6 +120,7 @@
       $("versionBadge").textContent = "androidx-main@" + meta.androidxCommit.slice(0, 9);
     }
     await ready;
+    $("loading").hidden = true;
     state.catalog = JSON.parse(window.rcStorybook.catalog());
     state.components = state.catalog.components;
     for (const c of state.components) {
