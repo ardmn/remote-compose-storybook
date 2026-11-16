@@ -712,7 +712,7 @@ dependencies {
     let html = `<h1>API coverage</h1>
       <p class="lede">Every public building block in AndroidX's <code>api/current.txt</code>
       (androidx-main <code>${esc((state.coverage.commit || "").slice(0, 9))}</code>) and the stories that use it.</p>
-      <p><b>${covered}</b> of <b>${blocks.length}</b> covered${pending ? `; <b>${pending}</b> are public on androidx-main but not yet in the web player` : ""}.</p>
+      <p><b>${covered}</b> of <b>${blocks.length}</b> covered${pending ? `; <b>${pending}</b> are public but cannot be demonstrated yet (reasons below)` : ""}.</p>
       <div class="meter"><div style="width:${((100 * covered) / Math.max(1, blocks.length)).toFixed(1)}%"></div></div>`;
     for (const [group, items] of groups) {
       const n = items.filter((b) => b.stories.length || b.inOptions).length;
@@ -723,7 +723,7 @@ dependencies {
         const links = [...direct, ...opts].map((s) => `<a href="#/story/${s.id}">${esc(s.name)}</a>`).join("");
         const note =
           b.pending && !links
-            ? `<span class="pill">not in the web player yet</span> <span class="empty">${esc(b.pending)}</span>`
+            ? `<span class="pill">cannot be shown yet</span> <span class="empty">${esc(b.pending)}</span>`
             : '<span class="empty">no story yet</span>';
         html += `<tr><td>${esc(b.name)}</td><td>${links || note}</td></tr>`;
       }

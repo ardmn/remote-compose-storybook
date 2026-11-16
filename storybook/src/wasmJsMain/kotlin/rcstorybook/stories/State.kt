@@ -28,6 +28,7 @@ import ee.schimke.composeai.rccreation.compose.shapes.RemoteRoundedCornerShape
 import ee.schimke.composeai.rccreation.compose.state.MutableRemoteBoolean
 import ee.schimke.composeai.rccreation.compose.state.MutableRemoteEnum
 import ee.schimke.composeai.rccreation.compose.state.MutableRemoteFloat
+import ee.schimke.composeai.rccreation.compose.state.MutableRemoteImageBitmap
 import ee.schimke.composeai.rccreation.compose.state.MutableRemoteInt
 import ee.schimke.composeai.rccreation.compose.state.MutableRemoteString
 import ee.schimke.composeai.rccreation.compose.state.RemoteColor
@@ -316,7 +317,7 @@ fun MutableValues(step: Float, label: String) {
 @RemoteComposable
 fun MutableImage(swap: Boolean) {
     // A mutable bitmap: the document declares an image that can be replaced while it plays.
-    val image =
+    val image: MutableRemoteImageBitmap =
         rememberMutableRemoteImageBitmap(
             solidBitmap(if (swap) Color(0xFFE53935) else Color(0xFF1E88E5)),
         )

@@ -21,7 +21,7 @@ The stage has a viewport size, a light or dark player theme and a centered or to
 Pages:
 
 - **Overview**: what Remote Compose is, how to depend on it, and every component.
-- **API coverage**: every public building block in the AndroidX API and the stories that cover it. The build fails when a public building block has no story. Blocks that are public on androidx-main but cannot run in the web player yet are listed with the reason (`NOT_IN_WEB_PLAYER` in `tools/storybook_tools.py`).
+- **API coverage**: every public building block in the AndroidX API and the stories that cover it. The build fails when a public building block has no story. Public blocks no story can demonstrate yet (an AndroidX limitation, or API newer than the fork) are listed with the reason (`CANNOT_DEMONSTRATE` in `tools/storybook_tools.py`).
 
 ## How it works
 
@@ -90,7 +90,7 @@ Story(
 ## Updating versions
 
 - AndroidX API: `scripts/update-androidx-api.sh [ref-or-sha]` refreshes `reference/androidx-api/*.txt` from `androidx-main` (or the given ref) and records the commit in `reference/androidx-api/COMMIT`. Rebuild afterwards: new public building blocks without a story fail the coverage check.
-- rc-players: change `rc-players` in `gradle/libs.versions.toml`, rebuild, and re-check `NOT_IN_WEB_PLAYER`.
+- rc-players: change `rc-players` in `gradle/libs.versions.toml`, rebuild, and re-check `CANNOT_DEMONSTRATE`.
 
 ## Deployment
 

@@ -391,18 +391,24 @@ NOT_BLOCKS = {
 }
 
 
-# Public on androidx-main but not yet in rc-players' fork, so no story can run them in the browser.
-# The coverage page lists them as pending rather than as missing stories. Re-check on every bump.
-NOT_IN_WEB_PLAYER = {
-    "measureFontMetrics": "not in rc-players' fork yet",
-    "measureMonospaceWidth": "not in rc-players' fork yet",
-    "measurePaintBounds": "not in rc-players' fork yet",
-    "measureSingleLine": "not in rc-players' fork yet",
-    "rememberRemoteTextMeasurer": "the fork has an older signature",
-    "drawTextOnCircle": "the web player's capture profile rejects operation 57",
-    "rememberNamedRemoteLong": "a dynamic RemoteLong cannot be read back as a value in the web player",
-    "MutableRemoteLong": "valueChangeAction does not support it in the web player",
-    "MutableRemoteImageBitmap": "valueChangeAction does not support it in the web player",
+# Public API no story can demonstrate yet, each with the reason (checked in AndroidX's and
+# rc-players' sources). The coverage page lists them as pending, not missing. Re-check on every bump.
+CANNOT_DEMONSTRATE = {
+    "measureFontMetrics": "on androidx-main after the commit rc-players' fork is pinned to; "
+    "arrives with its next refresh",
+    "measureMonospaceWidth": "on androidx-main after the commit rc-players' fork is pinned to; "
+    "arrives with its next refresh",
+    "measurePaintBounds": "on androidx-main after the commit rc-players' fork is pinned to; "
+    "arrives with its next refresh",
+    "measureSingleLine": "on androidx-main after the commit rc-players' fork is pinned to; "
+    "arrives with its next refresh",
+    "rememberRemoteTextMeasurer": "its androidx-main signature is newer than rc-players' fork",
+    "drawTextOnCircle": "AndroidX's own capture profiles do not list its operation (57), so a "
+    "capture refuses it (remote-core Operations.java)",
+    "rememberNamedRemoteLong": "AndroidX cannot yet turn a dynamic RemoteLong into anything a story "
+    "can show (RemoteLong.kt)",
+    "MutableRemoteLong": "AndroidX's valueChangeAction handles Int, Float and String state only "
+    "(ValueChangeAction.kt), and a dynamic long cannot be shown",
 }
 
 
@@ -528,7 +534,7 @@ def cmd_coverage(args):
         in_options = bool(
             (qualified and qualified in options_text) or (not qualified and block_used(member, options_text))
         )
-        pending = NOT_IN_WEB_PLAYER.get(name)
+        pending = CANNOT_DEMONSTRATE.get(name)
         uses.append(
             {
                 "group": group,
@@ -547,7 +553,7 @@ def cmd_coverage(args):
     covered = len(uses) - len(missing) - pending
     print(
         f"coverage: {covered}/{len(uses)} public building blocks used by a story, "
-        f"{pending} not in the web player yet -> {args.out}"
+        f"{pending} that cannot be demonstrated yet (reasons in coverage.json) -> {args.out}"
     )
     if missing:
         print("not covered by any story:\n  " + "\n  ".join(missing), file=sys.stderr)
