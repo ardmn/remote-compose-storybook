@@ -8,3 +8,4 @@ local.properties
 node_modules/
 /site/
 e2e/out/
+__pycache__/
