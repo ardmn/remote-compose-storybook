@@ -114,6 +114,8 @@ fun main() {
                         println("fonts: ${error.message}")
                         RcTypefaceLoader.Default
                     }
+            // Text drawn before this used the fallback face: tests wait for it.
+            emit("rcstorybook:fonts", "")
         }
         Stage()
     }

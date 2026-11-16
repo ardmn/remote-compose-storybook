@@ -86,6 +86,8 @@ page.on("console", (m) => {
 
 await page.goto(base);
 await page.waitForFunction(() => !!window.rcStorybook, null, { timeout: 60000 });
+// Text drawn before the fonts arrive uses a fallback face: nothing is compared until they have.
+await page.waitForFunction(() => document.body.dataset.fonts === "ready", null, { timeout: 60000 });
 const catalog = JSON.parse(await page.evaluate(() => window.rcStorybook.catalog()));
 const stories = catalog.components.flatMap((c) => c.stories.map((s) => ({ ...s, component: c })));
 console.log(`${catalog.components.length} components, ${stories.length} stories at ${base}`);
@@ -105,6 +107,43 @@ async function setLayout(value) {
     el.value = v;
     el.dispatchEvent(new Event("change"));
   }, value);
+}
+
+// The stage once it has stopped changing: two screenshots in a row that match. A document arriving
+// is not the same as its first frame being drawn, so a fixed pause would race the player.
+async function stableStage(timeoutMs = 10000) {
+  const frame = page.locator("#stageFrame");
+  let previous = await frame.screenshot();
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    await page.waitForTimeout(150);
+    const next = await frame.screenshot();
+    if (Buffer.compare(previous, next) === 0) return next;
+    previous = next;
+  }
+  return previous;
+}
+
+// Polls until the stage differs from `before`; returns whether it did within the timeout.
+async function stageChangesFrom(before, timeoutMs = 5000) {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    if (Buffer.compare(before, await page.locator("#stageFrame").screenshot()) !== 0) return true;
+    await page.waitForTimeout(100);
+  }
+  return false;
+}
+
+// Stories that load from the network get the copy this server serves, so the test needs none.
+function localArgs(s) {
+  const params = new URLSearchParams();
+  for (const a of s.args) {
+    if (a.type === "text" && /^https:\/\/raw\.githubusercontent\.com\/.*\/web\/(.*)$/.test(a.default)) {
+      params.set(a.name, base + a.default.replace(/^.*\/web\//, ""));
+    }
+  }
+  const q = params.toString();
+  return q ? "?" + q : "";
 }
 
 async function openStory(id, query = "") {
@@ -127,15 +166,15 @@ async function openStory(id, query = "") {
 for (const s of stories) {
   if (only && !s.id.includes(only)) continue;
   const errorsBefore = pageErrors.length;
-  const result = await openStory(s.id);
+  const result = await openStory(s.id, localArgs(s));
   if (result !== "ok") {
     const overlay = await page.textContent("#stageOverlay").catch(() => "");
     fail(`${s.id}: ${result} ${overlay.trim().slice(0, 300)}`);
   }
-  await page.waitForTimeout(400);
+  const settled = timeDriven(s.function) ? null : await stableStage();
   await page.locator("#stageWrap").screenshot({ path: path.join(outDir, s.id + ".png") });
-  if (!timeDriven(s.function)) {
-    const stage = await page.locator("#stageFrame").screenshot();
+  if (settled) {
+    const stage = settled;
     const baseline = path.join(baselinesDir, s.id + ".png");
     if (updateBaselines) {
       fs.mkdirSync(baselinesDir, { recursive: true });
@@ -194,13 +233,15 @@ if (!only) {
   await setLayout("topstart");
   // A tap on a host action reaches the Actions tab.
   await openStory("host-action--named");
-  await page.waitForTimeout(500);
+  await stableStage();
   const box = await page.locator("#stageFrame").boundingBox();
   await page.mouse.click(box.x + 40, box.y + 25);
-  await page.waitForTimeout(800);
-  const count = await page.textContent("#actionsCount");
-  if (!(Number(count) > 0)) fail("tapping hostAction raised no event in the Actions tab");
-  else console.log(`  ok host action (${count} event)`);
+  const raised = await page
+    .waitForFunction(() => Number(document.getElementById("actionsCount").textContent) > 0, null, { timeout: 5000 })
+    .then(() => true)
+    .catch(() => false);
+  if (!raised) fail("tapping hostAction raised no event in the Actions tab");
+  else console.log(`  ok host action (${await page.textContent("#actionsCount")} event)`);
   await page.click('[data-tab="actions"]');
   await page.screenshot({ path: path.join(outDir, "_actions.png") });
 
@@ -273,26 +314,22 @@ if (!only) {
   await setLayout("centered");
   await openStory("named-state--card");
   const statsBefore = await page.textContent("#docStats");
-  const cardBefore = await page.locator("#stageFrame").screenshot();
+  const cardBefore = await stableStage();
   await page.click('[data-tab="host"]');
   await page.fill('[data-host="USER:title"]', "Live from the host");
-  await page.waitForTimeout(800);
-  const cardAfter = await page.locator("#stageFrame").screenshot();
+  const cardChanged = await stageChangesFrom(cardBefore);
   const statsAfter = await page.textContent("#docStats");
-  if (Buffer.compare(cardBefore, cardAfter) === 0) fail("a host value changed nothing on the stage");
+  if (!cardChanged) fail("a host value changed nothing on the stage");
   else if (statsBefore !== statsAfter) fail(`a host value made a new document (${statsBefore} → ${statsAfter})`);
   else console.log("  ok host values replay the same document");
   await setLayout("topstart");
 
   // A tap on a valueChangeAction changes what is drawn.
   await openStory("clickable--counter");
-  await page.waitForTimeout(400);
+  const shotA = await stableStage();
   const c = await page.locator("#stageFrame").boundingBox();
-  const shotA = await page.locator("#stageFrame").screenshot();
   await page.mouse.click(c.x + 28, c.y + 28); // the "−" button at the row's start
-  await page.waitForTimeout(600);
-  const shotB = await page.locator("#stageFrame").screenshot();
-  if (Buffer.compare(shotA, shotB) === 0) fail("tapping the counter's − changed nothing on the stage");
+  if (!(await stageChangesFrom(shotA))) fail("tapping the counter's − changed nothing on the stage");
   else console.log("  ok valueChangeAction redraws");
 }
 

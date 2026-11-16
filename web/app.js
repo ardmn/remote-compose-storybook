@@ -972,6 +972,10 @@ dependencies {
     });
   }
 
+  window.addEventListener("rcstorybook:fonts", () => {
+    document.body.dataset.fonts = "ready";
+  });
+
   // A crash inside the Wasm player leaves its canvas dead: say so rather than showing a blank stage.
   window.addEventListener("error", (e) => {
     // Only errors from the Wasm bundle; the shell's own errors are not the player's.
