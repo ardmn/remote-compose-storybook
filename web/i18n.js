@@ -40,6 +40,7 @@
     "tab.actions": "Actions",
     "plain.what": "What it is",
     "plain.use": "Use it for",
+    "how.title": "How it works",
     "stage.rendering": "Rendering…",
     "stage.loading": "Loading the player…",
     "stage.failed": "This story failed to compose:\n{message}",
@@ -154,6 +155,7 @@
     "tab.actions": "События",
     "plain.what": "Что это",
     "plain.use": "Для чего",
+    "how.title": "Как это устроено",
     "stage.rendering": "Рисуем…",
     "stage.loading": "Загружаем плеер…",
     "stage.failed": "Эта story не собралась:\n{message}",
@@ -418,6 +420,47 @@
     ],
   };
 
+  // "How it works": what the API does under the hood, for components where that is not obvious.
+  // Checked against AndroidX's sources (remote-creation-compose RemoteStateLayout.kt, RemoteEnum.kt).
+  const howEn = {
+    "remote-state-layout": `
+      <p>The state type exists only in your Kotlin, while the document is captured. The device gets an
+      integer and every variant of the screen at once.</p>
+      <ol>
+        <li><code>MutableRemoteEnum(Screen.Loading)</code> is a <code>MutableRemoteInt</code> holding the
+        <code>ordinal</code>; the enum entries stay in Kotlin. The player never sees <code>Screen</code> or its names.</li>
+        <li><code>RemoteStateLayout</code> calls your lambda <b>once per state</b> at capture time. Each call becomes
+        one branch of a <code>StateLayout</code> operation that points at that integer, with its colours, texts and
+        your <code>when</code> already resolved to constants (see the Document tab).</li>
+        <li><code>valueChangeAction(screen, RemoteEnum(next))</code> is written as “set the integer to N”.</li>
+        <li>On the device the player shows the branch for the current value; a tap changes the value and the
+        branch switches at once, offline, with no server and no Kotlin.</li>
+      </ol>
+      <p><b>So:</b> switching is instant, but every state adds a branch to the document; logic in the lambda runs
+      once on the server, not on each tap. With <code>rememberNamedRemoteEnum("screen", …)</code> the integer gets a
+      name (<code>USER:screen</code>) and the host app can switch the screen too (Host values tab).</p>`,
+  };
+
+  const howRu = {
+    "remote-state-layout": `
+      <p>Тип состояния существует только в вашем Kotlin, пока собирается документ. На устройство приходят целое
+      число и сразу все варианты экрана.</p>
+      <ol>
+        <li><code>MutableRemoteEnum(Screen.Loading)</code> — это <code>MutableRemoteInt</code> с <code>ordinal</code>;
+        список значений enum остаётся в Kotlin. Плеер не видит ни <code>Screen</code>, ни имён его значений.</li>
+        <li><code>RemoteStateLayout</code> при сборке вызывает вашу лямбду <b>по разу на каждое состояние</b>.
+        Каждый вызов становится веткой операции <code>StateLayout</code>, которая ссылается на это число; цвета,
+        тексты и ваш <code>when</code> в ветке уже посчитаны в константы (видно во вкладке «Документ»).</li>
+        <li><code>valueChangeAction(screen, RemoteEnum(next))</code> записывается как «присвой числу N».</li>
+        <li>На устройстве плеер показывает ветку для текущего значения; тап меняет число, и ветка переключается
+        мгновенно, офлайн, без сервера и без Kotlin.</li>
+      </ol>
+      <p><b>Итого:</b> переключение мгновенное, но каждое состояние добавляет в документ ветку; логика в лямбде
+      выполняется один раз на сервере, а не при каждом тапе. С <code>rememberNamedRemoteEnum("screen", …)</code>
+      у числа появляется имя (<code>USER:screen</code>), и экран может переключать и приложение (вкладка
+      «Значения приложения»).</p>`,
+  };
+
   function pick() {
     let saved = null;
     try {
@@ -447,6 +490,10 @@
         return { what, useWhen };
       }
       return component.plain;
+    },
+    // The component's "how it works" explanation in the current language, or null.
+    how(component) {
+      return (I18n.lang === "ru" ? howRu : howEn)[component.id] || null;
     },
     set(lang) {
       I18n.lang = lang;

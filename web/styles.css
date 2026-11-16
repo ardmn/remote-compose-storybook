@@ -893,3 +893,23 @@ input[type="number"] {
   padding: 0 10px;
   font-size: 13px;
 }
+
+.how {
+  max-width: 980px;
+  margin: 0 0 12px;
+  padding: 8px 14px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface);
+  font-size: 13px;
+}
+.how summary {
+  cursor: pointer;
+  font-weight: 600;
+}
+.how ol {
+  padding-left: 20px;
+}
+.how li {
+  margin: 4px 0;
+}

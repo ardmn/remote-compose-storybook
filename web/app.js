@@ -360,6 +360,9 @@
       ? `<div><b>${t("plain.what")}</b>${esc(plain.what)}</div>
       <div><b>${t("plain.use")}</b><ul>${plain.useWhen.map((u) => `<li>${esc(u)}</li>`).join("")}</ul></div>`
       : "";
+    const how = I18n.how(component);
+    $("storyHow").hidden = !how;
+    $("storyHow").innerHTML = how ? `<summary>${t("how.title")}</summary>${how}` : "";
     document.title = component.title + " · " + story.name + " — Remote Compose Storybook";
     sizeStage();
     // Stage and story go to the player together, so it never re-renders the previous story at the
@@ -583,6 +586,8 @@
   function renderDocs() {
     const { component } = state.current;
     let html = `<div class="docs"><p>${esc(component.description)}</p>`;
+    const how = I18n.how(component);
+    if (how) html += `<h3>${t("how.title")}</h3>${how}`;
     for (const sym of component.symbols) {
       const sigs = state.api[sym];
       const short = sym.replace(/^androidx\.compose\.remote\./, "");
