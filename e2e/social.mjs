@@ -1,0 +1,238 @@
+// Link previews (Telegram, LinkedIn, Slack, X, ...). Their crawlers read Open Graph tags from the
+// HTML the server returns: they run no JavaScript and never send the part of a URL after "#", so
+// every "#/story/..." link would show the same site card. For each story this writes
+//   s/<story-id>/index.html  its own title, description and image; a browser is sent on to the story
+//   s/<story-id>/card.jpg    1200x630: the component, what it is for, and the story's stage
+// plus the site card (social.jpg) and Open Graph tags in index.html, and sets "sharePages" in
+// data/meta.json so "Copy link" hands out the s/<id>/ address.
+//
+//   node e2e/social.mjs [--site build/site]
+// Absolute URLs (crawlers need them) use SITE_URL, or the GitHub Pages address of the repository.
+import { chromium } from "playwright";
+import fs from "node:fs";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+import { serveSite, stageTools } from "./lib.mjs";
+
+const here = path.dirname(fileURLToPath(import.meta.url));
+const args = process.argv.slice(2);
+const i = args.indexOf("--site");
+const site = path.resolve(here, "..", i >= 0 ? args[i + 1] : "build/site");
+const metaFile = path.join(site, "data", "meta.json");
+const meta = JSON.parse(fs.readFileSync(metaFile, "utf8"));
+
+function pagesUrl(repository) {
+  const m = /^https:\/\/github\.com\/([^/]+)\/([^/]+?)\/?$/.exec(repository || "");
+  return m ? `https://${m[1].toLowerCase()}.github.io/${m[2]}/` : "";
+}
+const siteUrl = (process.env.SITE_URL || pagesUrl(meta.repository)).replace(/\/?$/, "/");
+if (siteUrl === "/") {
+  console.error("social: set SITE_URL, or build from a GitHub checkout so meta.json names the repository");
+  process.exit(1);
+}
+// Crawlers cache an image by its URL: a new build gets new image URLs (Pages ignores the query).
+const version = encodeURIComponent(meta.builtFrom || Date.now().toString(36));
+const SITE_NAME = "Remote Compose Storybook";
+
+const esc = (s) =>
+  String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
+
+function ogTags({ title, description, url, image, alt }) {
+  return [
+    `<meta property="og:type" content="website" />`,
+    `<meta property="og:site_name" content="${SITE_NAME}" />`,
+    `<meta property="og:title" content="${esc(title)}" />`,
+    `<meta property="og:description" content="${esc(description)}" />`,
+    `<meta property="og:url" content="${esc(url)}" />`,
+    `<meta property="og:image" content="${esc(image)}" />`,
+    `<meta property="og:image:type" content="image/jpeg" />`,
+    `<meta property="og:image:width" content="1200" />`,
+    `<meta property="og:image:height" content="630" />`,
+    `<meta property="og:image:alt" content="${esc(alt)}" />`,
+    `<meta name="twitter:card" content="summary_large_image" />`,
+    `<meta name="twitter:title" content="${esc(title)}" />`,
+    `<meta name="twitter:description" content="${esc(description)}" />`,
+    `<meta name="twitter:image" content="${esc(image)}" />`,
+  ].join("\n    ");
+}
+
+// No <meta http-equiv="refresh">: some crawlers follow it and would read index.html's tags instead.
+function sharePage({ id, title, description, image, alt }) {
+  const url = `${siteUrl}s/${id}/`;
+  const target = `../../#/story/${id}`;
+  return `<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>${esc(title)} · ${SITE_NAME}</title>
+    <meta name="description" content="${esc(description)}" />
+    <link rel="canonical" href="${esc(url)}" />
+    <link rel="icon" type="image/svg+xml" href="../../icon.svg" />
+    ${ogTags({ title, description, url, image, alt })}
+    <script>
+      location.replace(${JSON.stringify(target)} + location.search);
+    </script>
+  </head>
+  <body>
+    <p><a href="${target}">${esc(title)} · ${SITE_NAME}</a></p>
+  </body>
+</html>
+`;
+}
+
+const CARD_STYLE = `
+  @font-face { font-family: "Roboto Flex"; src: url("fonts/RobotoFlex.ttf"); font-weight: 100 1000; }
+  @font-face { font-family: "Noto Sans Mono"; src: url("fonts/NotoSansMono-Variable.ttf"); font-weight: 100 900; }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; width: 1200px; height: 630px; overflow: hidden; }
+  body { font-family: "Roboto Flex", sans-serif; background: #f6f7f9; color: #1b1f24;
+         display: flex; gap: 48px; padding: 56px 56px 56px 64px; }
+  .text { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+  .brand { display: flex; align-items: center; gap: 14px; font-size: 26px; color: #3d4652; }
+  .brand img { width: 40px; height: 40px; }
+  .brand b { color: #1b1f24; }
+  .crumb { margin-top: 44px; font-size: 22px; color: #5f6873; }
+  h1 { margin: 6px 0 0; font-size: 56px; line-height: 1.05; font-weight: 750; letter-spacing: -0.01em;
+       overflow-wrap: anywhere; }
+  h2 { margin: 6px 0 0; font-size: 32px; font-weight: 500; color: #2a5bc4; }
+  p { margin: 24px 0 0; font-size: 25px; line-height: 1.4; color: #3d4652;
+      display: -webkit-box; -webkit-line-clamp: 4; -webkit-box-orient: vertical; overflow: hidden; }
+  .foot { margin-top: auto; font-size: 20px; color: #5f6873; }
+  .foot code { font: 600 20px "Noto Sans Mono", monospace; color: #2a5bc4; }
+  .stage { width: 470px; flex: none; border-radius: 22px; border: 1px solid #dde1e6;
+           background: #fff repeating-conic-gradient(#f0f2f5 0 25%, #fff 0 50%) 0 0 / 24px 24px;
+           display: flex; align-items: center; justify-content: center; padding: 26px; }
+  .stage img { max-width: 100%; max-height: 100%; object-fit: contain; border-radius: 6px;
+               box-shadow: 0 6px 24px rgba(20, 30, 50, 0.14); }
+  .grid { width: 520px; flex: none; display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .grid .stage { width: auto; padding: 14px; border-radius: 16px; }
+`;
+
+function storyCard({ crumb, title, subtitle, description, shot }) {
+  return `<!doctype html><html><head><meta charset="utf-8"><style>${CARD_STYLE}</style></head><body>
+    <div class="text">
+      <div class="brand"><img src="icon.svg" alt="" /><span>Remote Compose <b>Storybook</b></span></div>
+      <div class="crumb">${esc(crumb)}</div>
+      <h1>${esc(title)}</h1>
+      ${subtitle ? `<h2>${esc(subtitle)}</h2>` : ""}
+      <p>${esc(description)}</p>
+      <div class="foot">Live demo, code and docs for <code>@RemoteComposable</code></div>
+    </div>
+    <div class="stage"><img src="data:image/png;base64,${shot.toString("base64")}" alt="" /></div>
+  </body></html>`;
+}
+
+function siteCard({ description, shots, stats }) {
+  return `<!doctype html><html><head><meta charset="utf-8"><style>${CARD_STYLE}
+    h1 { font-size: 64px; margin-top: 56px; } .crumb { margin-top: 18px; }</style></head><body>
+    <div class="text">
+      <div class="brand"><img src="icon.svg" alt="" /><span>Jetpack Remote Compose</span></div>
+      <h1>Remote Compose Storybook</h1>
+      <p>${esc(description)}</p>
+      <div class="foot">${esc(stats)}</div>
+    </div>
+    <div class="grid">${shots
+      .map((s) => `<div class="stage"><img src="data:image/png;base64,${s.toString("base64")}" alt="" /></div>`)
+      .join("")}</div>
+  </body></html>`;
+}
+
+const { base, close } = await serveSite(site);
+const browser = await chromium.launch();
+// Twice the pixels: a 360px stage is drawn larger than that on the card.
+const appContext = await browser.newContext({ viewport: { width: 1360, height: 1000 }, deviceScaleFactor: 2 });
+const page = await appContext.newPage();
+const cardPage = await browser.newPage({ viewport: { width: 1200, height: 630 } });
+const { stableStage, localArgs, openStory } = stageTools(page, base);
+
+await page.goto(base);
+await page.waitForFunction(() => !!window.rcStorybook, null, { timeout: 60000 });
+await page.waitForFunction(() => document.body.dataset.fonts === "ready", null, { timeout: 60000 });
+const catalog = JSON.parse(await page.evaluate(() => window.rcStorybook.catalog()));
+
+// The card is served from the site's own origin, so it loads the site's font and icon.
+let cardHtml = "";
+await cardPage.route(base + "_card.html", (route) => route.fulfill({ contentType: "text/html", body: cardHtml }));
+async function renderCard(html, file) {
+  cardHtml = html;
+  await cardPage.goto(base + "_card.html", { waitUntil: "load" });
+  await cardPage.evaluate(() => document.fonts.ready);
+  await cardPage.screenshot({ path: file, type: "jpeg", quality: 88 });
+}
+
+const failures = [];
+const recipeShots = [];
+let written = 0;
+for (const component of catalog.components) {
+  for (const story of component.stories) {
+    const result = await openStory(story.id, localArgs(story));
+    if (result !== "ok") {
+      failures.push(`${story.id}: ${result}`);
+      continue;
+    }
+    const shot = await stableStage(4000);
+    if (story.id.startsWith("recipe-") && recipeShots.length < 4 && story === component.stories[0]) {
+      recipeShots.push(shot);
+    }
+    const what = component.plain?.what || story.description || "";
+    const multiple = component.stories.length > 1;
+    const title = multiple ? `${component.title} · ${story.name}` : component.title;
+    const dir = path.join(site, "s", story.id);
+    fs.mkdirSync(dir, { recursive: true });
+    await renderCard(
+      storyCard({
+        crumb: component.category,
+        title: component.title,
+        subtitle: multiple ? story.name : "",
+        description: what,
+        shot,
+      }),
+      path.join(dir, "card.jpg"),
+    );
+    fs.writeFileSync(
+      path.join(dir, "index.html"),
+      sharePage({
+        id: story.id,
+        title,
+        description: story.description && story.description !== what ? `${what} ${story.description}` : what,
+        image: `${siteUrl}s/${story.id}/card.jpg?v=${version}`,
+        alt: `${title}: a live Remote Compose document`,
+      }),
+    );
+    written++;
+  }
+}
+
+const storyCount = catalog.components.reduce((n, c) => n + c.stories.length, 0);
+const description =
+  "Every public @RemoteComposable building block of Jetpack Remote Compose: live, with its code, docs and the document it produces.";
+await renderCard(
+  siteCard({
+    description,
+    shots: recipeShots,
+    stats: `${catalog.components.length} components · ${storyCount} stories`,
+  }),
+  path.join(site, "social.jpg"),
+);
+const indexFile = path.join(site, "index.html");
+const tags = ogTags({
+  title: SITE_NAME,
+  description,
+  url: siteUrl,
+  image: `${siteUrl}social.jpg?v=${version}`,
+  alt: "Remote Compose Storybook: recipes built from Remote Compose blocks",
+});
+const index = fs
+  .readFileSync(indexFile, "utf8")
+  .replace(/\n {4}<!-- og -->[\s\S]*<!-- \/og -->/, "")
+  .replace("</head>", `    <!-- og -->\n    ${tags}\n    <!-- /og -->\n  </head>`);
+fs.writeFileSync(indexFile, index);
+fs.writeFileSync(metaFile, JSON.stringify({ ...meta, sharePages: true }, null, 2));
+
+await browser.close();
+close();
+console.log(`${written} share pages with preview cards, and the site card, for ${siteUrl}`);
+if (failures.length) {
+  console.log(failures.map((f) => "  FAIL " + f).join("\n"));
+  process.exit(1);
+}

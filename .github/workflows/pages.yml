@@ -106,14 +106,22 @@ jobs:
       - name: Build the site
         run: scripts/build-site.sh
 
+      - name: Install the test browser
+        working-directory: e2e
+        run: |
+          npm ci
+          npx playwright install --with-deps chromium
+
+      # A page and a preview card per story, for links shared in chats and social networks.
+      - name: Link previews
+        working-directory: e2e
+        run: node social.mjs
+
       - name: End-to-end test
         working-directory: e2e
         env:
           UPDATE_BASELINES: ${{ inputs.update_baselines && '--update-baselines' || '' }}
-        run: |
-          npm ci
-          npx playwright install --with-deps chromium
-          node run.mjs ${UPDATE_BASELINES:+"$UPDATE_BASELINES"}
+        run: node run.mjs ${UPDATE_BASELINES:+"$UPDATE_BASELINES"}
 
       - name: Upload new visual baselines
         if: inputs.update_baselines

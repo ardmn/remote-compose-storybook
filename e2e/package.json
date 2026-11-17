@@ -4,8 +4,9 @@
   "type": "module",
   "scripts": {
     "test": "node run.mjs",
-    "lint": "cd .. && eslint web e2e/run.mjs eslint.config.mjs && prettier --check web e2e/run.mjs e2e/package.json eslint.config.mjs .github",
-    "format": "cd .. && prettier --write web e2e/run.mjs e2e/package.json eslint.config.mjs .github"
+    "social": "node social.mjs",
+    "lint": "cd .. && eslint web e2e/*.mjs eslint.config.mjs && prettier --check web e2e/*.mjs e2e/package.json eslint.config.mjs .github",
+    "format": "cd .. && prettier --write web e2e/*.mjs e2e/package.json eslint.config.mjs .github"
   },
   "devDependencies": {
     "@axe-core/playwright": "^4.14.0",

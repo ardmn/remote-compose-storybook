@@ -419,6 +419,16 @@
     }, 250);
   }
 
+  // The link to hand out. A published build has a page per story (s/<id>/) that carries the
+  // story's link preview and sends a browser on to it; the "#/story/..." address cannot have one.
+  function shareUrl() {
+    const { path, params } = parseHash();
+    const m = path.match(/^\/story\/([\w-]+)$/);
+    if (!state.meta.sharePages || !m) return location.href;
+    const q = params.toString();
+    return new URL("s/" + m[1] + "/" + (q ? "?" + q : ""), location.href.split("#")[0]).href;
+  }
+
   function overlay(text, isError) {
     const el = $("stageOverlay");
     if (text == null) {
@@ -927,7 +937,7 @@ dependencies {
     });
     $("copyLink").addEventListener("click", () => {
       syncUrl();
-      setTimeout(() => copyText(location.href), 300);
+      setTimeout(() => copyText(shareUrl()), 300);
     });
     $("downloadRc").addEventListener("click", () => {
       const doc = state.lastDocument;

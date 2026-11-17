@@ -9,13 +9,13 @@
 //
 //   node e2e/run.mjs [--site build/site] [--only <story-id-substring>]
 import { chromium } from "playwright";
-import http from "node:http";
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import pixelmatch from "pixelmatch";
 import { PNG } from "pngjs";
 import AxeBuilder from "@axe-core/playwright";
+import { serveSite, stageTools } from "./lib.mjs";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const args = process.argv.slice(2);
@@ -37,36 +37,7 @@ const timeDriven = (fn) =>
   /RemoteTimeVariables|continuousSeconds|animateRemote|remoteSpring/.test(sources[fn]?.code ?? "");
 fs.mkdirSync(outDir, { recursive: true });
 
-const types = {
-  ".html": "text/html",
-  ".js": "text/javascript",
-  ".mjs": "text/javascript",
-  ".css": "text/css",
-  ".json": "application/json",
-  ".wasm": "application/wasm",
-  ".png": "image/png",
-  ".svg": "image/svg+xml",
-};
-const server = http.createServer((req, res) => {
-  let url;
-  try {
-    url = decodeURIComponent(req.url.split("?")[0]);
-  } catch {
-    res.writeHead(400);
-    res.end("bad request");
-    return;
-  }
-  let file = path.join(site, url === "/" ? "index.html" : url);
-  if (!file.startsWith(site) || !fs.existsSync(file) || fs.statSync(file).isDirectory()) {
-    res.writeHead(404);
-    res.end("not found");
-    return;
-  }
-  res.writeHead(200, { "content-type": types[path.extname(file)] || "application/octet-stream" });
-  fs.createReadStream(file).pipe(res);
-});
-await new Promise((r) => server.listen(0, "127.0.0.1", r));
-const base = `http://127.0.0.1:${server.address().port}/`;
+const { base, close: closeServer } = await serveSite(site);
 
 const failures = [];
 let compared = 0;
@@ -110,74 +81,7 @@ async function setLayout(value) {
   }, value);
 }
 
-// The stage once it has stopped changing: two screenshots in a row that match. A document arriving
-// is not the same as its first frame being drawn, so a fixed pause would race the player.
-// The stage as pixels: its own size, at whole-pixel coordinates. An element screenshot rounds a
-// fractional position into a 1px taller image (a block above the stage moved it by half a pixel).
-async function stageShot() {
-  const clip = await page.evaluate(() => {
-    const frame = document.getElementById("stageFrame");
-    const r = frame.getBoundingClientRect();
-    return {
-      x: Math.round(r.left + window.scrollX),
-      y: Math.round(r.top + window.scrollY),
-      width: parseInt(frame.style.width, 10),
-      height: parseInt(frame.style.height, 10),
-    };
-  });
-  return page.screenshot({ clip, fullPage: true });
-}
-
-async function stableStage(timeoutMs = 10000) {
-  let previous = await stageShot();
-  const deadline = Date.now() + timeoutMs;
-  while (Date.now() < deadline) {
-    await page.waitForTimeout(150);
-    const next = await stageShot();
-    if (Buffer.compare(previous, next) === 0) return next;
-    previous = next;
-  }
-  return previous;
-}
-
-// Polls until the stage differs from `before`; returns whether it did within the timeout.
-async function stageChangesFrom(before, timeoutMs = 5000) {
-  const deadline = Date.now() + timeoutMs;
-  while (Date.now() < deadline) {
-    if (Buffer.compare(before, await stageShot()) !== 0) return true;
-    await page.waitForTimeout(100);
-  }
-  return false;
-}
-
-// Stories that load from the network get the copy this server serves, so the test needs none.
-function localArgs(s) {
-  const params = new URLSearchParams();
-  for (const a of s.args) {
-    if (a.type === "text" && /^https:\/\/raw\.githubusercontent\.com\/.*\/web\/(.*)$/.test(a.default)) {
-      params.set(a.name, base + a.default.replace(/^.*\/web\//, ""));
-    }
-  }
-  const q = params.toString();
-  return q ? "?" + q : "";
-}
-
-async function openStory(id, query = "") {
-  await page.evaluate(() => {
-    delete document.body.dataset.rendered;
-    delete document.body.dataset.failed;
-  });
-  await page.goto(base + "#/story/" + id + query);
-  const result = await page
-    .waitForFunction(
-      (sid) => (document.body.dataset.rendered === sid ? "ok" : document.body.dataset.failed === sid ? "failed" : null),
-      id,
-      { timeout: 20000 },
-    )
-    .then((h) => h.jsonValue())
-    .catch(() => "timeout");
-  return result;
-}
+const { stableStage, stageChangesFrom, localArgs, openStory } = stageTools(page, base);
 
 for (const s of stories) {
   if (only && !s.id.includes(only)) continue;
@@ -360,8 +264,83 @@ if (!only) {
   else console.log("  ok valueChangeAction redraws");
 }
 
+// Link previews, written by social.mjs: a page per story whose Open Graph tags name its own card,
+// and which sends a browser on to the story with the link's args.
+function jpegSize(buf) {
+  for (let i = 2; i + 9 < buf.length;) {
+    if (buf[i] !== 0xff) return null;
+    const marker = buf[i + 1];
+    if (marker >= 0xc0 && marker <= 0xc2) return { height: buf.readUInt16BE(i + 5), width: buf.readUInt16BE(i + 7) };
+    i += 2 + buf.readUInt16BE(i + 2);
+  }
+  return null;
+}
+const shareDir = path.join(site, "s");
+if (only) {
+  // A partial run checks stories only.
+} else if (!fs.existsSync(shareDir)) {
+  if (process.env.CI) fail("no link previews: run social.mjs before the test");
+  else console.log("  link previews not generated (node social.mjs)");
+} else {
+  const meta = (html, prop) => {
+    const m = new RegExp(`<meta (?:property|name)="${prop}" content="([^"]*)"`).exec(html);
+    return m ? m[1].replace(/&amp;/g, "&") : null;
+  };
+  const cardOf = (html) => {
+    const image = meta(html, "og:image");
+    const m = image && /^https?:\/\/[^/]+\/(?:[^?]*?\/)?((?:s\/[\w-]+\/card|social)\.jpg)\?v=/.exec(image);
+    return m ? path.join(site, m[1]) : null;
+  };
+  const bad = [];
+  for (const s of stories) {
+    const file = path.join(shareDir, s.id, "index.html");
+    if (!fs.existsSync(file)) {
+      bad.push(`${s.id}: no page`);
+      continue;
+    }
+    const html = fs.readFileSync(file, "utf8");
+    const card = cardOf(html);
+    const size = card && fs.existsSync(card) ? jpegSize(fs.readFileSync(card)) : null;
+    if (!meta(html, "og:title")?.includes(s.component.title) || !meta(html, "og:description")) {
+      bad.push(`${s.id}: title or description missing`);
+    } else if (meta(html, "twitter:card") !== "summary_large_image") bad.push(`${s.id}: no large-image card`);
+    else if (!size || size.width !== 1200 || size.height !== 630) bad.push(`${s.id}: card ${JSON.stringify(size)}`);
+    else if (/http-equiv="refresh"/.test(html)) bad.push(`${s.id}: a meta refresh would take crawlers to index.html`);
+  }
+  const index = fs.readFileSync(path.join(site, "index.html"), "utf8");
+  const siteCard = cardOf(index);
+  if (!siteCard || !fs.existsSync(siteCard)) bad.push("index.html: no site card");
+  if (bad.length) fail(`link previews: ${bad.slice(0, 5).join("; ")}${bad.length > 5 ? ` (+${bad.length - 5})` : ""}`);
+  else console.log(`  ok ${stories.length} share pages with their own 1200x630 preview card`);
+
+  // The share link opens the story with its args, and "Copy link" hands it out.
+  const s = stories.find((x) => x.args.some((a) => a.type === "boolean"));
+  const a = s.args.find((x) => x.type === "boolean");
+  const value = a.default === "true" ? "false" : "true";
+  await page.goto(`${base}s/${s.id}/?${a.name}=${value}`);
+  const landed = await page
+    .waitForFunction((sid) => document.body.dataset.rendered === sid, s.id, { timeout: 20000 })
+    .then(() => true)
+    .catch(() => false);
+  const hash = await page.evaluate(() => location.hash);
+  if (!landed || hash !== `#/story/${s.id}?${a.name}=${value}`) fail(`share page led to ${hash}`);
+  else console.log("  ok a share link opens its story with the link's args");
+  await page.evaluate(() => {
+    navigator.clipboard.writeText = async (t) => {
+      window.copied = t;
+    };
+  });
+  await page.click("#copyLink");
+  const copied = await page
+    .waitForFunction(() => window.copied, null, { timeout: 5000 })
+    .then((h) => h.jsonValue())
+    .catch(() => null);
+  if (copied !== `${base}s/${s.id}/?${a.name}=${value}`) fail(`"Copy link" copied ${copied}`);
+  else console.log('  ok "Copy link" hands out the share page');
+}
+
 await browser.close();
-server.close();
+closeServer();
 console.log(
   compareBaselines
     ? `\n${compared} stories compared with their visual baselines`

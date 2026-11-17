@@ -30,6 +30,7 @@ Pages:
 - Gradle compiles the storybook to Wasm. `web/` holds the plain HTML/JS page shell.
 - `scripts/build-site.sh` assembles everything into `build/site`.
 - `e2e/run.mjs` (Playwright) opens every story in Chromium and checks that it renders, that its Code and Docs tabs are populated, that changing a control produces a structural diff, and that host actions reach the Actions tab. Screenshots go to `e2e/out/`.
+- `e2e/social.mjs` writes link previews: for every story a page `s/<story-id>/` with its own Open Graph tags and a 1200×630 card (`card.jpg`, the component, what it is for and the story's stage), plus the site card. Chat apps and social networks never see the `#/story/...` part of a link, so "Copy link" hands out the `s/<story-id>/` address, which opens the story with the same args. Absolute URLs use `SITE_URL`, or the GitHub Pages address of the repository.
 
 ## Versions
 
@@ -50,7 +51,7 @@ python3 -m http.server 8080 -d build/site
 End-to-end test (needs a built `build/site`):
 
 ```sh
-cd e2e && npm ci && npx playwright install --with-deps chromium && node run.mjs
+cd e2e && npm ci && npx playwright install --with-deps chromium && node social.mjs && node run.mjs
 # node run.mjs --only <story-id-substring> runs a subset
 ```
 
