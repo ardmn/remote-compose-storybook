@@ -3,3 +3,5 @@ build/
 e2e/out/
 kotlin-js-store/
 reference/
+# Search engines compare site-verification files byte for byte.
+web/google*.html
