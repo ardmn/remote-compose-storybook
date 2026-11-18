@@ -3,10 +3,10 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Remote Compose Storybook</title>
+    <title>Remote Compose Storybook — live catalog of Jetpack Remote Compose components</title>
     <meta
       name="description"
-      content="Live catalog of the public Jetpack Remote Compose creation API: every @RemoteComposable building block, how to use it, and how its document changes."
+      content="Live catalog of the public Jetpack Remote Compose (androidx.compose.remote) creation API: every @RemoteComposable building block with an interactive demo, Kotlin code, API signatures and the remote document it produces."
     />
     <link rel="icon" type="image/svg+xml" href="icon.svg" />
     <link rel="stylesheet" href="styles.css" />
@@ -66,8 +66,9 @@
       <div class="scrim mobile-only" id="scrim"></div>
 
       <main class="main" id="main">
-        <!-- Pages (overview, coverage) render here; the story view below is shown for stories. -->
-        <section class="page" id="page" hidden></section>
+        <!-- Pages (overview, coverage) render here; the story view below is shown for stories. The
+             published build puts a static list of every component here for crawlers (e2e/social.mjs). -->
+        <section class="page" id="page"></section>
 
         <section class="story" id="storyView" hidden>
           <div class="story-head">

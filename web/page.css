@@ -1,0 +1,118 @@
+/* The static page of a story (s/<id>/): read without the app, by people and by search engines.
+   Colours, code blocks and cards come from styles.css. */
+.static-page {
+  height: auto;
+  font-size: 16px;
+  line-height: 1.6;
+}
+.static-top {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  max-width: 960px;
+  margin: 0 auto;
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--border);
+}
+.static-spacer {
+  flex: 1;
+}
+.static-main,
+.static-foot {
+  max-width: 960px;
+  margin: 0 auto;
+  padding: 0 16px;
+}
+.static-crumbs {
+  margin-top: 24px;
+  font-size: 14px;
+  color: var(--muted);
+}
+.static-main h1 {
+  margin: 6px 0 0;
+  font-size: 34px;
+  line-height: 1.15;
+  overflow-wrap: anywhere;
+}
+.static-sub {
+  font-weight: 500;
+  color: var(--muted);
+}
+.static-main h2 {
+  margin: 36px 0 10px;
+  font-size: 22px;
+}
+.static-main h3 {
+  margin: 20px 0 8px;
+  font-size: 16px;
+}
+.static-lede {
+  margin: 10px 0 0;
+  color: var(--muted);
+}
+.static-hero {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 24px;
+  margin-top: 24px;
+}
+.static-stage {
+  margin: 0;
+  flex: 0 1 360px;
+  min-width: 0;
+  padding: 16px;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: var(--surface) repeating-conic-gradient(var(--stage-checker) 0 25%, transparent 0 50%) 0 0 / 20px 20px;
+  text-align: center;
+}
+.static-stage img {
+  max-width: 100%;
+  height: auto;
+}
+.static-cta {
+  flex: 1 1 260px;
+}
+.static-cta p {
+  color: var(--muted);
+}
+.static-live {
+  height: auto;
+  padding: 12px 18px;
+  font-size: 16px;
+  white-space: normal;
+  text-decoration: none;
+}
+.static-plain {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 16px;
+  margin-top: 28px;
+}
+.static-plain h2 {
+  margin: 0 0 6px;
+  font-size: 16px;
+}
+.static-note {
+  color: var(--muted);
+  font-size: 14px;
+}
+.static-page .code-block pre {
+  overflow-x: auto;
+}
+.links {
+  padding-left: 20px;
+}
+.static-foot {
+  margin-top: 48px;
+  padding-top: 16px;
+  padding-bottom: 32px;
+  border-top: 1px solid var(--border);
+  font-size: 14px;
+  color: var(--muted);
+}
+/* Long qualified names in running text wrap instead of widening the page on phones. */
+.static-page :not(pre) > code {
+  overflow-wrap: anywhere;
+}

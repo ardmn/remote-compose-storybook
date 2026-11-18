@@ -4,7 +4,8 @@
 //   s/<story-id>/index.html  its own title, description and image; a browser is sent on to the story
 //   s/<story-id>/card.jpg    1200x630: the component, what it is for, and the story's stage
 // plus the site card (social.jpg) and Open Graph tags in index.html, and sets "sharePages" in
-// data/meta.json so "Copy link" hands out the s/<id>/ address.
+// data/meta.json so "Copy link" hands out the s/<id>/ address. The share page is also the story's
+// static page for search engines (pages.mjs): s/<id>/ and s/<id>/ru/, with sitemap.xml and llms.txt.
 //
 //   node e2e/social.mjs [--site build/site]
 // Absolute URLs (crawlers need them) use SITE_URL, or the GitHub Pages address of the repository.
@@ -13,6 +14,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { serveSite, stageTools } from "./lib.mjs";
+import { SITE_NAME, esc, llmsTxt, pagePath, sitemap, staticCatalog, storyPage } from "./pages.mjs";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const args = process.argv.slice(2);
@@ -32,14 +34,14 @@ if (siteUrl === "/") {
 }
 // Crawlers cache an image by its URL: a new build gets new image URLs (Pages ignores the query).
 const version = encodeURIComponent(meta.builtFrom || Date.now().toString(36));
-const SITE_NAME = "Remote Compose Storybook";
+const today = new Date().toISOString().slice(0, 10);
+const sources = JSON.parse(fs.readFileSync(path.join(site, "data", "sources.json"), "utf8"));
+const api = JSON.parse(fs.readFileSync(path.join(site, "data", "api.json"), "utf8"));
 
-const esc = (s) =>
-  String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
-
-function ogTags({ title, description, url, image, alt }) {
+function ogTags({ title, description, url, image, alt, locale = "en_US" }) {
   return [
     `<meta property="og:type" content="website" />`,
+    `<meta property="og:locale" content="${locale}" />`,
     `<meta property="og:site_name" content="${SITE_NAME}" />`,
     `<meta property="og:title" content="${esc(title)}" />`,
     `<meta property="og:description" content="${esc(description)}" />`,
@@ -57,29 +59,7 @@ function ogTags({ title, description, url, image, alt }) {
 }
 
 // No <meta http-equiv="refresh">: some crawlers follow it and would read index.html's tags instead.
-function sharePage({ id, title, description, image, alt }) {
-  const url = `${siteUrl}s/${id}/`;
-  const target = `../../#/story/${id}`;
-  return `<!doctype html>
-<html lang="en">
-  <head>
-    <meta charset="utf-8" />
-    <title>${esc(title)} · ${SITE_NAME}</title>
-    <meta name="description" content="${esc(description)}" />
-    <link rel="canonical" href="${esc(url)}" />
-    <link rel="icon" type="image/svg+xml" href="../../icon.svg" />
-    ${ogTags({ title, description, url, image, alt })}
-    <script>
-      location.replace(${JSON.stringify(target)} + location.search);
-    </script>
-  </head>
-  <body>
-    <p><a href="${target}">${esc(title)} · ${SITE_NAME}</a></p>
-  </body>
-</html>
-`;
-}
-
+// The page (pages.mjs) sends a browser on to the live story only when the link carries a query.
 const CARD_STYLE = `
   @font-face { font-family: "Roboto Flex"; src: url("fonts/RobotoFlex.ttf"); font-weight: 100 1000; }
   @font-face { font-family: "Noto Sans Mono"; src: url("fonts/NotoSansMono-Variable.ttf"); font-weight: 100 900; }
@@ -149,6 +129,21 @@ await page.goto(base);
 await page.waitForFunction(() => !!window.rcStorybook, null, { timeout: 60000 });
 await page.waitForFunction(() => document.body.dataset.fonts === "ready", null, { timeout: 60000 });
 const catalog = JSON.parse(await page.evaluate(() => window.rcStorybook.catalog()));
+// The page's own Russian words for each component (the app switches them with its language).
+const russian = await page.evaluate((components) => {
+  const I18n = window.RcI18n;
+  const saved = I18n.lang;
+  I18n.lang = "ru";
+  const out = {};
+  for (const c of components)
+    out[c.id] = { plain: I18n.plain(c), how: I18n.how(c), category: I18n.category(c.category) };
+  I18n.lang = "en";
+  for (const c of components) out[c.id].howEn = I18n.how(c);
+  I18n.lang = saved;
+  return out;
+}, catalog.components);
+const highlight = (code) => page.evaluate((c) => window.RcHighlight.kotlin(c), code);
+const pngSize = (buf) => ({ width: buf.readUInt32BE(16), height: buf.readUInt32BE(20) });
 
 // The card is served from the site's own origin, so it loads the site's font and icon.
 let cardHtml = "";
@@ -189,15 +184,69 @@ for (const component of catalog.components) {
       }),
       path.join(dir, "card.jpg"),
     );
+    const description = story.description && story.description !== what ? `${what} ${story.description}` : what;
+    // The stage at its size in CSS pixels: the shot has twice the pixels.
+    fs.writeFileSync(path.join(dir, "stage.png"), shot);
+    const px = pngSize(shot);
+    const src = sources[story.function];
+    const code = src ? src.code : "";
+    const common = {
+      id: story.id,
+      siteUrl,
+      repository: meta.repository,
+      title,
+      storyName: story.name,
+      multiple,
+      componentTitle: component.title,
+      description: story.description || "",
+      code,
+      codeHtml: await highlight(code),
+      signatures: component.symbols.map((sym) => ({
+        symbol: sym.replace(/^androidx\.compose\.remote\./, ""),
+        lines: api[sym] || [],
+      })),
+      packages: [...new Set(component.symbols.map((x) => x.replace(/\.[^.]+$/, "")))],
+      siblings: component.stories.filter((x) => x !== story).map((x) => ({ id: x.id, name: x.name })),
+      related: catalog.components
+        .filter((c) => c.category === component.category && c !== component && c.stories.length)
+        .map((c) => ({ id: c.stories[0].id, title: c.title })),
+      image: `${siteUrl}s/${story.id}/stage.png`,
+      card: `${siteUrl}s/${story.id}/card.jpg?v=${version}`,
+      imageSize: { width: Math.round(px.width / 2), height: Math.round(px.height / 2) },
+      dateModified: today,
+    };
+    const tags = (lang) =>
+      ogTags({
+        title,
+        description,
+        url: siteUrl + pagePath(story.id, lang),
+        image: common.card,
+        alt: `${title}: a live Remote Compose document`,
+        locale: lang === "ru" ? "ru_RU" : "en_US",
+      });
     fs.writeFileSync(
       path.join(dir, "index.html"),
-      sharePage({
-        id: story.id,
-        title,
-        description: story.description && story.description !== what ? `${what} ${story.description}` : what,
-        image: `${siteUrl}s/${story.id}/card.jpg?v=${version}`,
-        alt: `${title}: a live Remote Compose document`,
+      storyPage({
+        ...common,
+        lang: "en",
+        category: component.category,
+        plain: component.plain || { what, useWhen: [] },
+        how: russian[component.id].howEn,
+        ogTags: tags("en"),
       }),
+    );
+    const ru = russian[component.id];
+    fs.mkdirSync(path.join(dir, "ru"), { recursive: true });
+    fs.writeFileSync(
+      path.join(dir, "ru", "index.html"),
+      storyPage({
+        ...common,
+        lang: "ru",
+        category: ru.category,
+        plain: ru.plain || component.plain || { what, useWhen: [] },
+        how: ru.how,
+        ogTags: tags("ru"),
+      }).replace(/src="stage\.png"/, 'src="../stage.png"'),
     );
     written++;
   }
@@ -222,16 +271,50 @@ const tags = ogTags({
   image: `${siteUrl}social.jpg?v=${version}`,
   alt: "Remote Compose Storybook: recipes built from Remote Compose blocks",
 });
+// Site ownership for Google Search Console, Bing Webmaster Tools and Yandex Webmaster: repository
+// variables (Settings → Secrets and variables → Actions → Variables), set only once each is created.
+const verification = [
+  ["google-site-verification", process.env.GOOGLE_SITE_VERIFICATION],
+  ["msvalidate.01", process.env.BING_SITE_VERIFICATION],
+  ["yandex-verification", process.env.YANDEX_VERIFICATION],
+]
+  .filter(([, v]) => v)
+  .map(([name, v]) => `<meta name="${name}" content="${esc(v)}" />`);
+const statics = staticCatalog({ components: catalog.components, description, siteUrl });
+const head = [
+  ...verification,
+  tags,
+  `<link rel="canonical" href="${esc(siteUrl)}" />`,
+  `<link rel="sitemap" type="application/xml" href="sitemap.xml" />`,
+  statics.jsonLd,
+];
 const index = fs
   .readFileSync(indexFile, "utf8")
   .replace(/\n {4}<!-- og -->[\s\S]*<!-- \/og -->/, "")
-  .replace("</head>", `    <!-- og -->\n    ${tags}\n    <!-- /og -->\n  </head>`);
+  .replace("</head>", `    <!-- og -->\n    ${head.join("\n    ")}\n    <!-- /og -->\n  </head>`)
+  // Crawlers that do not run the app still find every component; the app replaces this on start.
+  .replace(
+    /(<section class="page" id="page">)[\s\S]*?(<\/section>)/,
+    (_, open, end) => `${open}\n          ${statics.html}\n        ${end}`,
+  );
+if (!index.includes(statics.html)) {
+  console.error('social: index.html has no <section class="page" id="page"> for the static catalog');
+  process.exit(1);
+}
 fs.writeFileSync(indexFile, index);
+const ids = catalog.components.flatMap((c) => c.stories.map((x) => x.id));
+fs.writeFileSync(path.join(site, "sitemap.xml"), sitemap({ siteUrl, ids, date: today }));
+fs.writeFileSync(
+  path.join(site, "llms.txt"),
+  llmsTxt({ siteUrl, repository: meta.repository, components: catalog.components, description }),
+);
 fs.writeFileSync(metaFile, JSON.stringify({ ...meta, sharePages: true }, null, 2));
 
 await browser.close();
 close();
-console.log(`${written} share pages with preview cards, and the site card, for ${siteUrl}`);
+console.log(
+  `${written} story pages (English and Russian) with preview cards, the site card, sitemap.xml and llms.txt for ${siteUrl}`,
+);
 if (failures.length) {
   console.log(failures.map((f) => "  FAIL " + f).join("\n"));
   process.exit(1);

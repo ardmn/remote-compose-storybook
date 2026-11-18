@@ -4,7 +4,8 @@
 //  3. every story's Code tab has its source;
 //  4. changing a control produces a new document and a structural diff;
 //  5. tapping a host-action story reaches the Actions tab;
-//  6. pages (overview, coverage) render.
+//  6. pages (overview, coverage) render;
+//  7. each story's static page for search engines (s/<id>/, s/<id>/ru/), sitemap.xml and llms.txt.
 // Screenshots of every story land in e2e/out/ for review.
 //
 //   node e2e/run.mjs [--site build/site] [--only <story-id-substring>]
@@ -337,6 +338,68 @@ if (only) {
     .catch(() => null);
   if (copied !== `${base}s/${s.id}/?${a.name}=${value}`) fail(`"Copy link" copied ${copied}`);
   else console.log('  ok "Copy link" hands out the share page');
+
+  // Static pages for search engines: real content, structured data, both languages, no redirect.
+  const siteUrl = new URL(meta(index, "og:url") || "https://example.invalid/");
+  const absolute = (p) => new URL(p, siteUrl).href;
+  const seo = [];
+  for (const st of stories) {
+    for (const lang of ["en", "ru"]) {
+      const rel = `s/${st.id}/${lang === "ru" ? "ru/" : ""}`;
+      const file = path.join(site, rel, "index.html");
+      if (!fs.existsSync(file)) {
+        seo.push(`${rel}: no page`);
+        continue;
+      }
+      const html = fs.readFileSync(file, "utf8");
+      const canonical = /<link rel="canonical" href="([^"]+)"/.exec(html)?.[1];
+      const lds = [...html.matchAll(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/g)];
+      let ld = null;
+      try {
+        ld = JSON.parse(lds[0]?.[1] ?? "null");
+      } catch {
+        // reported below
+      }
+      if (!html.startsWith("<!doctype html>") || !html.includes(`<html lang="${lang}">`)) seo.push(`${rel}: lang`);
+      else if (canonical !== absolute(rel)) seo.push(`${rel}: canonical ${canonical}`);
+      else if (!/hreflang="ru"/.test(html) || !/hreflang="x-default"/.test(html)) seo.push(`${rel}: hreflang`);
+      else if (!/<h1>/.test(html) || !html.includes(st.component.title)) seo.push(`${rel}: no h1 with the title`);
+      else if (!/<pre><code>[\s\S]*@RemoteComposable/.test(html)) seo.push(`${rel}: no code`);
+      else if (!Array.isArray(ld) || ld[0]["@type"] !== "TechArticle" || ld[1]["@type"] !== "BreadcrumbList")
+        seo.push(`${rel}: structured data`);
+      else if (!fs.existsSync(path.join(site, "s", st.id, "stage.png"))) seo.push(`${rel}: no stage image`);
+    }
+  }
+  const sitemapXml = fs.readFileSync(path.join(site, "sitemap.xml"), "utf8");
+  const locs = [...sitemapXml.matchAll(/<loc>([^<]+)<\/loc>/g)].map((m) => m[1]);
+  if (locs.length !== 1 + stories.length * 2) seo.push(`sitemap.xml: ${locs.length} URLs`);
+  if (locs.some((l) => !l.startsWith(siteUrl.href))) seo.push("sitemap.xml: a URL outside the site");
+  const llms = fs.readFileSync(path.join(site, "llms.txt"), "utf8");
+  if (!llms.startsWith("# ") || stories.some((st) => !llms.includes(absolute(`s/${st.id}/`)))) {
+    seo.push("llms.txt: a story is missing");
+  }
+  if (!index.includes(`href="s/${stories[0].id}/"`) || !/application\/ld\+json/.test(index)) {
+    seo.push("index.html: no static catalog or structured data");
+  }
+  if (seo.length) fail(`static pages: ${seo.slice(0, 5).join("; ")}${seo.length > 5 ? ` (+${seo.length - 5})` : ""}`);
+  else console.log(`  ok ${stories.length * 2} static pages (English, Russian), sitemap.xml and llms.txt`);
+
+  // Without a query the page stays (search engines that run JavaScript index it); "play" opens the
+  // story, and the Russian page opens it in Russian.
+  await page.goto(`${base}s/${s.id}/`);
+  await page.waitForTimeout(500);
+  if (!page.url().endsWith(`/s/${s.id}/`)) fail(`the static page went on to ${page.url()}`);
+  else console.log("  ok the static page stays a page");
+  const audit = await new AxeBuilder({ page }).analyze();
+  const badA11y = audit.violations.filter((v) => v.impact === "serious" || v.impact === "critical");
+  if (badA11y.length) fail(`s/${s.id}/: ${badA11y.map((v) => `${v.id} (${v.nodes.length})`).join(", ")}`);
+  else console.log("  ok accessibility of a static page");
+  await page.goto(`${base}s/${s.id}/ru/?play`);
+  await page.waitForURL(/#\/story\//, { timeout: 10000 }).catch(() => {});
+  const ru = await page.evaluate(() => [location.search, location.hash, document.documentElement.lang]);
+  if (ru[0] !== "?lang=ru" || ru[1] !== `#/story/${s.id}` || ru[2] !== "ru") fail(`?play led to ${ru.join(" ")}`);
+  else console.log("  ok ?play opens the story, in the page's language");
+  await page.evaluate(() => localStorage.removeItem("rcsb-lang"));
 }
 
 await browser.close();

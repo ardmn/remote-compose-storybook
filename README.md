@@ -43,6 +43,7 @@ Pages:
 - `scripts/build-site.sh` assembles everything into `build/site`.
 - `e2e/run.mjs` (Playwright) opens every story in Chromium and checks that it renders, that its Code and Docs tabs are populated, that changing a control produces a structural diff, and that host actions reach the Actions tab. Screenshots go to `e2e/out/`.
 - `e2e/social.mjs` writes link previews: for every story a page `s/<story-id>/` with its own Open Graph tags and a 1200×630 card (`card.jpg`, the component, what it is for and the story's stage), plus the site card. Chat apps and social networks never see the `#/story/...` part of a link, so "Copy link" hands out the `s/<story-id>/` address, which opens the story with the same args. Absolute URLs use `SITE_URL`, or the GitHub Pages address of the repository.
+- The same `s/<story-id>/` page (and `s/<story-id>/ru/` in Russian) is the story's static page for search engines: its explanation, a picture of its stage, its code and API signatures, structured data and links to its neighbours (`e2e/pages.mjs`). It sends a browser on to the live story only when the link has a query (the args, or `?play`, which "Copy link" adds). `social.mjs` also writes `sitemap.xml`, `llms.txt` and a static list of every component in `index.html`. After a deploy, the workflow tells IndexNow engines (Bing, Yandex) about the pages; the repository variables `GOOGLE_SITE_VERIFICATION`, `BING_SITE_VERIFICATION` and `YANDEX_VERIFICATION` add the webmaster tools' ownership tags.
 
 ## Versions
 

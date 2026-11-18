@@ -462,6 +462,16 @@
   };
 
   function pick() {
+    // ?lang= from a link (the Russian static pages link here with ?lang=ru) wins and is remembered.
+    const asked = new URLSearchParams(location.search).get("lang");
+    if (asked === "ru" || asked === "en") {
+      try {
+        localStorage.setItem("rcsb-lang", asked);
+      } catch {
+        // Not remembered when storage is blocked; the language still applies to this page.
+      }
+      return asked;
+    }
     let saved = null;
     try {
       saved = localStorage.getItem("rcsb-lang");

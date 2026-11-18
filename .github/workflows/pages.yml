@@ -115,6 +115,11 @@ jobs:
       # A page and a preview card per story, for links shared in chats and social networks.
       - name: Link previews
         working-directory: e2e
+        env:
+          # Site ownership for the search engines' webmaster tools, once each is set up (repository variables).
+          GOOGLE_SITE_VERIFICATION: ${{ vars.GOOGLE_SITE_VERIFICATION }}
+          BING_SITE_VERIFICATION: ${{ vars.BING_SITE_VERIFICATION }}
+          YANDEX_VERIFICATION: ${{ vars.YANDEX_VERIFICATION }}
         run: node social.mjs
 
       - name: End-to-end test
@@ -159,3 +164,20 @@ jobs:
     steps:
       - id: deployment
         uses: actions/deploy-pages@v5
+
+      # Tells Bing, Yandex and the other IndexNow engines which pages exist (the key is web/<key>.txt).
+      # Never fails the deploy: the site is already live.
+      - name: Notify search engines (IndexNow)
+        continue-on-error: true
+        env:
+          PAGE_URL: ${{ steps.deployment.outputs.page_url }}
+          INDEXNOW_KEY: 22c69bedae44bc992d3d730320522f22
+        run: |
+          site="${PAGE_URL%/}/"
+          host=$(echo "$site" | sed -E 's#^https?://([^/]+)/.*#\1#')
+          curl -sSf --retry 5 --retry-delay 10 --retry-all-errors "${site}sitemap.xml" \
+            | grep -o '<loc>[^<]*' | sed 's/<loc>//' \
+            | jq -R . | jq -s --arg host "$host" --arg key "$INDEXNOW_KEY" --arg loc "${site}${INDEXNOW_KEY}.txt" \
+              '{host: $host, key: $key, keyLocation: $loc, urlList: .}' \
+            | curl -sS -o /dev/null -w "IndexNow: HTTP %{http_code}\n" \
+              -H 'content-type: application/json; charset=utf-8' --data @- https://api.indexnow.org/indexnow

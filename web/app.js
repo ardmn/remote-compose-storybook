@@ -317,7 +317,7 @@
     $("stageWrap").classList.add("offstage");
     $("panel").hidden = true;
     $("main").scrollTop = 0;
-    document.title = "Remote Compose Storybook";
+    document.title = "Remote Compose Storybook — live catalog of Jetpack Remote Compose components";
   }
 
   // ------------------------------------------------------------------------------------------
@@ -420,13 +420,15 @@
   }
 
   // The link to hand out. A published build has a page per story (s/<id>/) that carries the
-  // story's link preview and sends a browser on to it; the "#/story/..." address cannot have one.
+  // story's link preview; the "#/story/..." address cannot have one. That page sends a browser on
+  // to the story only when the link has a query (the args, or "play"): without one it is the
+  // story's static page for search engines.
   function shareUrl() {
     const { path, params } = parseHash();
     const m = path.match(/^\/story\/([\w-]+)$/);
     if (!state.meta.sharePages || !m) return location.href;
-    const q = params.toString();
-    return new URL("s/" + m[1] + "/" + (q ? "?" + q : ""), location.href.split("#")[0]).href;
+    const q = params.toString() || "play";
+    return new URL("s/" + m[1] + "/?" + q, location.href.split("#")[0].split("?")[0]).href;
   }
 
   function overlay(text, isError) {
