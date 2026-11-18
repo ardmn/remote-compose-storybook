@@ -1,6 +1,18 @@
 # Remote Compose Storybook
 
+[![Build, test and deploy](https://github.com/ardmn/remote-compose-storybook/actions/workflows/pages.yml/badge.svg)](https://github.com/ardmn/remote-compose-storybook/actions/workflows/pages.yml)
+[![Live site](https://img.shields.io/badge/live-ardmn.github.io%2Fremote--compose--storybook-2a5bc4)](https://ardmn.github.io/remote-compose-storybook/)
+[![License](https://img.shields.io/github/license/ardmn/remote-compose-storybook)](LICENSE)
+
+**Every Jetpack Remote Compose component, live in your browser: an interactive demo, the Kotlin code and the API for each one.**
+
 **Live site: https://ardmn.github.io/remote-compose-storybook/**
+
+[![Remote Compose Storybook: Jetpack Remote Compose components with live demos](docs/preview.jpg)](https://ardmn.github.io/remote-compose-storybook/)
+
+Remote Compose (`androidx.compose.remote`) is Jetpack's server-driven UI: a server describes a piece of Android UI as a small document and the app plays it, with no app release. This catalog shows what you can build with it, for developers, designers and product managers.
+
+Playing Remote Compose in a React Native app? See [react-native-remote-compose](https://github.com/ardmn/react-native-remote-compose).
 
 A Storybook-like static site for the public `@RemoteComposable` creation API of Jetpack Remote Compose (`androidx.compose.remote.*`). Every building block has one or more stories: Kotlin `@RemoteComposable` functions compiled to Kotlin/Wasm against [rc-players](https://github.com/yschimke/rc-players) (a Compose Multiplatform port of AndroidX's creation API, package `ee.schimke.composeai.rccreation`) and played live in the browser by rc-players' `RcEmbeddedPlayer`.
 
