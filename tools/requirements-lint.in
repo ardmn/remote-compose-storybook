@@ -1,4 +1,6 @@
 # Python lint tools, pinned. Regenerate the locked, hashed tools/requirements-lint.txt with:
-#   uv pip compile tools/requirements-lint.in --python-version 3.12 --generate-hashes --exclude-newer <a date a week back> -o tools/requirements-lint.txt
+#   uv pip compile tools/requirements-lint.in --universal --python-version 3.12 --generate-hashes --exclude-newer <a date a week back> -o tools/requirements-lint.txt
+# --universal resolves for every platform (with markers), so a lock made on macOS installs on the
+# Linux CI runner too; CI runs Python 3.12.
 ruff==0.15.8
 mypy==2.4.1
