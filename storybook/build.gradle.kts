@@ -39,6 +39,7 @@ kotlin {
             languageSettings.optIn("androidx.compose.ui.ExperimentalComposeUiApi")
         }
         wasmJsMain.dependencies {
+            implementation(project.dependencies.platform(libs.rc.players.bom))
             implementation(libs.rc.creation.compose)
             implementation(libs.rc.creation.foundation)
             implementation(libs.rc.player.compose)
