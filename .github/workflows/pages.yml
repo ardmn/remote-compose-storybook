@@ -4,6 +4,9 @@ on:
   push:
     branches: [main]
   pull_request:
+  # Weekly, for advisories published since the last push: only the security job runs.
+  schedule:
+    - cron: "17 5 * * 1"
   workflow_dispatch:
     inputs:
       update_baselines:
@@ -16,6 +19,7 @@ permissions:
 
 jobs:
   lint:
+    if: github.event_name != 'schedule'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -54,11 +58,16 @@ jobs:
         run: shellcheck scripts/*.sh
 
       - name: Workflows (actionlint)
+        env:
+          VERSION: 1.7.12
+          SHA256: 8aca8db96f1b94770f1b0d72b6dddcb1ebb8123cb3712530b08cc387b349a3d8
         run: |
-          bash <(curl -sSfL https://raw.githubusercontent.com/rhysd/actionlint/v1.7.12/scripts/download-actionlint.bash) 1.7.12
-          ./actionlint -color
+          curl -sSfL --retry 3 --retry-all-errors -o "$RUNNER_TEMP/actionlint.tar.gz" "https://github.com/rhysd/actionlint/releases/download/v$VERSION/actionlint_${VERSION}_linux_amd64.tar.gz"
+          echo "$SHA256  $RUNNER_TEMP/actionlint.tar.gz" | sha256sum -c -
+          tar -xzf "$RUNNER_TEMP/actionlint.tar.gz" -C "$RUNNER_TEMP" actionlint
+          "$RUNNER_TEMP/actionlint" -color
 
-      # ESLint findings that predate a rule are counted in eslint-suppressions.json.
+      # Reviewed HTML sinks carry an eslint-disable-next-line comment with the reason.
       - name: JavaScript, CSS, HTML (eslint, prettier, knip)
         working-directory: e2e
         run: |
@@ -66,7 +75,8 @@ jobs:
           npm run lint
 
   security:
-    # Not a dependency of the build: a newly published advisory must not block a deploy of main.
+    # Not a dependency of the build: a newly published advisory must not block a deploy of main. It
+    # also runs alone every week (the schedule above).
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -74,13 +84,14 @@ jobs:
           # gitleaks scans every commit.
           fetch-depth: 0
 
-      # Every lockfile in the repository; reviewed advisories are in osv-scanner.toml.
+      # The npm, Yarn and pip lockfiles (e2e/, kotlin-js-store/, tools/); reviewed advisories are in
+      # osv-scanner.toml. Gradle dependencies are not scanned: there is no Gradle lockfile.
       - name: Dependencies (OSV-Scanner)
         env:
           VERSION: 2.7.1
           SHA256: fb7dab19a8bd9bbe5c3189f09d4b7ee1820c9553a23bac202648a56efd2f6ee8
         run: |
-          curl -sSfLo "$RUNNER_TEMP/osv-scanner" "https://github.com/google/osv-scanner/releases/download/v$VERSION/osv-scanner_linux_amd64"
+          curl -sSfL --retry 3 --retry-all-errors -o "$RUNNER_TEMP/osv-scanner" "https://github.com/google/osv-scanner/releases/download/v$VERSION/osv-scanner_linux_amd64"
           echo "$SHA256  $RUNNER_TEMP/osv-scanner" | sha256sum -c -
           chmod +x "$RUNNER_TEMP/osv-scanner"
           "$RUNNER_TEMP/osv-scanner" scan source --config osv-scanner.toml -r .
@@ -90,13 +101,14 @@ jobs:
           VERSION: 8.30.1
           SHA256: 551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb
         run: |
-          curl -sSfLo "$RUNNER_TEMP/gitleaks.tar.gz" "https://github.com/gitleaks/gitleaks/releases/download/v$VERSION/gitleaks_${VERSION}_linux_x64.tar.gz"
+          curl -sSfL --retry 3 --retry-all-errors -o "$RUNNER_TEMP/gitleaks.tar.gz" "https://github.com/gitleaks/gitleaks/releases/download/v$VERSION/gitleaks_${VERSION}_linux_x64.tar.gz"
           echo "$SHA256  $RUNNER_TEMP/gitleaks.tar.gz" | sha256sum -c -
           tar -xzf "$RUNNER_TEMP/gitleaks.tar.gz" -C "$RUNNER_TEMP" gitleaks
           "$RUNNER_TEMP/gitleaks" git --redact --no-banner --verbose .
 
   verify-androidx:
     # The stories, as the Code tab shows them, compiled against AndroidX's own artifacts.
+    if: github.event_name != 'schedule'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -117,6 +129,7 @@ jobs:
 
   build:
     needs: [lint, verify-androidx]
+    if: github.event_name != 'schedule'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
