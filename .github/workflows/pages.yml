@@ -30,6 +30,8 @@ jobs:
       - uses: actions/setup-python@v7
         with:
           python-version: "3.12"
+          cache: pip
+          cache-dependency-path: tools/requirements-lint.txt
 
       - uses: actions/setup-node@v7
         with:
@@ -37,14 +39,16 @@ jobs:
           cache: npm
           cache-dependency-path: e2e/package-lock.json
 
-      - name: Kotlin (ktfmt, kotlinlang style)
-        run: ./gradlew --console=plain :storybook:ktfmtCheck
+      # detekt findings that predate it are in storybook/detekt-baseline-wasmJsMainSourceSet.xml.
+      - name: Kotlin (ktfmt, kotlinlang style; detekt)
+        run: ./gradlew --console=plain :storybook:ktfmtCheck :storybook:detektWasmJsMainSourceSet
 
-      - name: Python (ruff)
+      - name: Python (ruff, mypy)
         run: |
-          pip install ruff==0.15.8
+          pip install --require-hashes -r tools/requirements-lint.txt
           ruff check tools
           ruff format --check tools
+          mypy
 
       - name: Shell (shellcheck)
         run: shellcheck scripts/*.sh
@@ -54,11 +58,42 @@ jobs:
           bash <(curl -sSfL https://raw.githubusercontent.com/rhysd/actionlint/v1.7.12/scripts/download-actionlint.bash) 1.7.12
           ./actionlint -color
 
-      - name: JavaScript, CSS, HTML (eslint, prettier)
+      # ESLint's reviewed findings are in eslint-suppressions.json.
+      - name: JavaScript, CSS, HTML (eslint, prettier, knip)
         working-directory: e2e
         run: |
           npm ci
           npm run lint
+
+  security:
+    # Not a dependency of the build: a newly published advisory must not block a deploy of main.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          # gitleaks scans every commit.
+          fetch-depth: 0
+
+      # Every lockfile in the repository; reviewed advisories are in osv-scanner.toml.
+      - name: Dependencies (OSV-Scanner)
+        env:
+          VERSION: 2.7.1
+          SHA256: fb7dab19a8bd9bbe5c3189f09d4b7ee1820c9553a23bac202648a56efd2f6ee8
+        run: |
+          curl -sSfLo "$RUNNER_TEMP/osv-scanner" "https://github.com/google/osv-scanner/releases/download/v$VERSION/osv-scanner_linux_amd64"
+          echo "$SHA256  $RUNNER_TEMP/osv-scanner" | sha256sum -c -
+          chmod +x "$RUNNER_TEMP/osv-scanner"
+          "$RUNNER_TEMP/osv-scanner" scan source --config osv-scanner.toml -r .
+
+      - name: Secrets in the history (gitleaks)
+        env:
+          VERSION: 8.30.1
+          SHA256: 551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb
+        run: |
+          curl -sSfLo "$RUNNER_TEMP/gitleaks.tar.gz" "https://github.com/gitleaks/gitleaks/releases/download/v$VERSION/gitleaks_${VERSION}_linux_x64.tar.gz"
+          echo "$SHA256  $RUNNER_TEMP/gitleaks.tar.gz" | sha256sum -c -
+          tar -xzf "$RUNNER_TEMP/gitleaks.tar.gz" -C "$RUNNER_TEMP" gitleaks
+          "$RUNNER_TEMP/gitleaks" git --redact --no-banner --verbose .
 
   verify-androidx:
     # The stories, as the Code tab shows them, compiled against AndroidX's own artifacts.
