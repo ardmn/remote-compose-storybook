@@ -112,6 +112,16 @@ Story(
 
 One-time setup: in the repository, Settings → Pages → Source: GitHub Actions.
 
+## Static analysis
+
+The workflow's `lint` job (the build waits for it) runs ktfmt and detekt (Kotlin), ruff and mypy (`tools/`), shellcheck, actionlint, and ESLint, Prettier and knip (`cd e2e && npm run lint`). The `security` job runs OSV-Scanner on every lockfile and gitleaks on the whole history; the build does not wait for it, so a new advisory cannot block a deploy. Every tool fails on findings that are not in its baseline:
+
+- detekt: `storybook/detekt-baseline-wasmJsMainSourceSet.xml`, rewritten by `./gradlew :storybook:detektBaselineWasmJsMainSourceSet`; config in `config/detekt/detekt.yml`.
+- ESLint: `eslint-suppressions.json` (counts per file and rule); `--prune-suppressions` drops fixed ones.
+- OSV-Scanner: reviewed advisories with a reason and an `ignoreUntil` date in `osv-scanner.toml`.
+
+Python lint tools are pinned with hashes in `tools/requirements-lint.txt` (from `tools/requirements-lint.in`).
+
 ## License
 
 Apache-2.0 (see `LICENSE`), as AndroidX and rc-players are. The page uses no web fonts. The sample image (`web/assets/sample.png`) is generated.

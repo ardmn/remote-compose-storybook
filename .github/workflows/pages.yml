@@ -58,7 +58,7 @@ jobs:
           bash <(curl -sSfL https://raw.githubusercontent.com/rhysd/actionlint/v1.7.12/scripts/download-actionlint.bash) 1.7.12
           ./actionlint -color
 
-      # ESLint's reviewed findings are in eslint-suppressions.json.
+      # ESLint findings that predate a rule are counted in eslint-suppressions.json.
       - name: JavaScript, CSS, HTML (eslint, prettier, knip)
         working-directory: e2e
         run: |

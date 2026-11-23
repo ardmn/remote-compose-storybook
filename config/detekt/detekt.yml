@@ -1,5 +1,6 @@
 # detekt on top of its default config (buildUponDefaultConfig). Only what differs from the defaults
-# for this project is here; existing findings that are not fixed yet are in detekt-baseline.xml.
+# for this project is here; existing findings that are not fixed yet are in
+# storybook/detekt-baseline-wasmJsMainSourceSet.xml.
 
 naming:
   FunctionNaming:

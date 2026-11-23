@@ -13,8 +13,8 @@ export default [
     rules: { "no-unused-vars": ["error", { args: "none" }], eqeqeq: ["error", "smart"] },
   },
   // The page builds HTML from story data and translations: every innerHTML, insertAdjacentHTML or
-  // document.write with a non-literal value is an XSS sink to review. The reviewed ones are in
-  // eslint-suppressions.json.
+  // document.write with a non-literal value is an XSS sink to review. The ones that predate the
+  // rule are counted in eslint-suppressions.json; a new one fails the lint.
   { files: ["web/**/*.js"], ...noUnsanitized.configs.recommended },
   {
     files: ["e2e/**/*.mjs", "eslint.config.mjs"],
