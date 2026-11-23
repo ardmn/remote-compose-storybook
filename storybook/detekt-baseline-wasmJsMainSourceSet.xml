@@ -1,0 +1,35 @@
+<?xml version="1.0" ?>
+<SmellBaseline>
+  <ManuallySuppressedIssues/>
+  <CurrentIssues>
+    <ID>CyclomaticComplexMethod:DocumentText.kt:internal fun unifiedDiff: String</ID>
+    <ID>CyclomaticComplexMethod:Json.kt:private fun StringBuilder.appendJson</ID>
+    <ID>CyclomaticComplexMethod:Math.kt:fun remoteFunction: RemoteFloat</ID>
+    <ID>CyclomaticComplexMethod:MoreOptions.kt:More$private fun blendMode: RemoteBlendMode</ID>
+    <ID>LongMethod:Main.kt:@Composable private fun Stage</ID>
+    <ID>LongMethod:Recipes.kt:@Composable @RemoteComposable fun MediaPlayer</ID>
+    <ID>LongMethod:Recipes.kt:@Composable @RemoteComposable fun Onboarding</ID>
+    <ID>LongMethod:Recipes.kt:@Composable @RemoteComposable fun ProductCard</ID>
+    <ID>MagicNumber:DocumentText.kt:6_000_000L</ID>
+    <ID>MagicNumber:Json.kt:16</ID>
+    <ID>MagicNumber:Json.kt:4</ID>
+    <ID>MagicNumber:Main.kt:0xFF121316</ID>
+    <ID>MagicNumber:Main.kt:16</ID>
+    <ID>MagicNumber:Main.kt:4000</ID>
+    <ID>MagicNumber:Model.kt:16</ID>
+    <ID>MagicNumber:Model.kt:8</ID>
+    <ID>MatchingDeclarationName:MoreOptions.kt:More</ID>
+    <ID>MatchingDeclarationName:PlainLanguage.kt:Plain</ID>
+    <ID>MatchingDeclarationName:State.kt:Screen</ID>
+    <ID>ReturnCount:DocumentText.kt:internal fun unifiedDiff: String</ID>
+    <ID>TooManyFunctions:Canvas.kt:rcstorybook.stories.Canvas.kt</ID>
+    <ID>TooManyFunctions:Layout.kt:rcstorybook.stories.Layout.kt</ID>
+    <ID>TooManyFunctions:Modifiers.kt:rcstorybook.stories.Modifiers.kt</ID>
+    <ID>TooManyFunctions:State.kt:rcstorybook.stories.State.kt</ID>
+    <ID>WildcardImport:Catalog.kt:import rcstorybook.stories.*</ID>
+    <ID>WildcardImport:ContentCatalog.kt:import rcstorybook.stories.*</ID>
+    <ID>WildcardImport:LayoutCatalog.kt:import rcstorybook.stories.*</ID>
+    <ID>WildcardImport:ModifierCatalog.kt:import rcstorybook.stories.*</ID>
+    <ID>WildcardImport:RecipeCatalog.kt:import rcstorybook.stories.*</ID>
+  </CurrentIssues>
+</SmellBaseline>

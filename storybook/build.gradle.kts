@@ -3,10 +3,19 @@ plugins {
     alias(libs.plugins.compose.compiler)
     alias(libs.plugins.compose.multiplatform)
     alias(libs.plugins.ktfmt)
+    alias(libs.plugins.detekt)
 }
 
 // AndroidX's own style: the stories are shown to users as AndroidX code.
 ktfmt { kotlinLangStyle() }
+
+// Static analysis without type resolution: detekt resolves types only for JVM and Android
+// targets, and the storybook is Kotlin/Wasm only. CI runs :storybook:detektWasmJsMainSourceSet;
+// findings that existed when detekt was added are in detekt-baseline-wasmJsMainSourceSet.xml.
+detekt {
+    buildUponDefaultConfig = true
+    config.setFrom(rootProject.file("config/detekt/detekt.yml"))
+}
 
 kotlin {
     compilerOptions { allWarningsAsErrors.set(true) }

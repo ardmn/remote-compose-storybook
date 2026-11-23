@@ -1,3 +1,6 @@
+// The parameters are used by the JavaScript inside js("..."), which detekt does not see.
+@file:Suppress("UnusedParameter")
+
 package rcstorybook.host
 
 /** The page side of the bridge: `window.rcStorybook`, and events back to the page. */
