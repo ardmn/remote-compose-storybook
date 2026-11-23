@@ -281,7 +281,7 @@ internal val modifierComponents =
                         "transform-modifiers--compositing",
                         "Compositing strategy",
                         "GraphicsLayerCompositing",
-                        "A faded layer of two overlapping boxes, with each RemoteCompositingStrategy.",
+                        "A faded layer of two overlapping boxes, with each RemoteCompositingStrategy. Below alpha 1, Auto also renders offscreen, so it looks like Offscreen.",
                         listOf(
                             float("alpha", 0.5f, 0f, 1f, step = 0.05f),
                             choice("compositingStrategy", More.compositingStrategies, default = 2),

@@ -47,9 +47,12 @@ print(f"remote-creation-compose={compose}\nfoundation={foundation}")' "$RELEASE"
   exit 0
 fi
 # The newest androidx.dev snapshot build: what verify-androidx compiles the stories against.
-curl -sfL -o /dev/null -w "%{url_effective}" https://androidx.dev/snapshots/latest/artifacts/repository/ |
-  sed -nE 's#.*/builds/([0-9]+)/.*#\1#p' >"$TMP/SNAPSHOT_BUILD"
+# Only the redirect matters (it names the build); the redirect target itself can 404, so no -f here.
+curl -sL -o /dev/null -w "%{url_effective}" https://androidx.dev/snapshots/latest/artifacts/repository/ |
+  sed -nE 's#.*/builds/([0-9]+)/.*#\1#p' >"$TMP/SNAPSHOT_BUILD" || true
 [[ -s "$TMP/SNAPSHOT_BUILD" ]] || { echo "could not resolve the latest androidx.dev snapshot build" >&2; exit 1; }
+curl -sfI "https://androidx.dev/snapshots/builds/$(cat "$TMP/SNAPSHOT_BUILD")/artifacts/repository/androidx/compose/remote/remote-creation-compose/maven-metadata.xml" >/dev/null ||
+  { echo "androidx.dev build $(cat "$TMP/SNAPSHOT_BUILD") has no remote-creation-compose" >&2; exit 1; }
 mv "$TMP"/remote-creation-compose.txt "$TMP"/remote-creation-expression.txt "$TMP"/foundation.txt \
   "$TMP"/COMMIT "$TMP"/SNAPSHOT_BUILD "$OUT"/
 rm -f "$OUT/RELEASE"

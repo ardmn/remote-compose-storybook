@@ -29,6 +29,7 @@ import ee.schimke.composeai.rcplayer.compose.RcTypefaceLoader
 import ee.schimke.composeai.rcplayer.embedded.RcEmbeddedPlayer
 import ee.schimke.composeai.rcplayer.protocol.RcDocument
 import ee.schimke.composeai.rcplayer.protocol.RcDocumentCodec
+import ee.schimke.composeai.rcplayer.protocol.RcHostMetadataAction
 import ee.schimke.composeai.rcplayer.protocol.RcHostNamedAction
 import ee.schimke.composeai.rcplayer.protocol.RcNamedVariable
 import ee.schimke.composeai.rcplayer.protocol.RcTextData
@@ -277,10 +278,13 @@ private fun report(story: Story, document: RcDocument) {
     emit("rcstorybook:document", report)
 }
 
-/** The document's constant texts a reader would see; action names are wiring, not text. */
+/**
+ * The document's constant texts a reader would see; action names and metadata are wiring, not text.
+ */
 private fun screenReaderTexts(document: RcDocument): List<String> {
     val actionNames =
-        document.operations.filterIsInstance<RcHostNamedAction>().map { it.nameTextId }.toSet()
+        document.operations.filterIsInstance<RcHostNamedAction>().map { it.nameTextId }.toSet() +
+            document.operations.filterIsInstance<RcHostMetadataAction>().map { it.metadataTextId }
     return document.operations
         .filterIsInstance<RcTextData>()
         .filter { it.id !in actionNames && it.text.isNotBlank() }

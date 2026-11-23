@@ -47,7 +47,7 @@ Pages:
 
 ## Versions
 
-The catalog shows the API of the newest AndroidX release that rc-players' fork is cut from: `reference/androidx-api` is AndroidX's `api/current.txt` at the commit `1.0.0-alpha24` was cut from (`COMMIT`; the released versions are in `RELEASE`), and the stories run on the newest rc-players release (3.12.1, whose creation fork, 3.10.0, is that same commit). `scripts/verify-androidx.sh` compiles every story against the released artifacts on Google Maven, and the Overview page shows the Gradle setup for them. What changed in the API since the previous release is in [`docs/alpha24-api-diff.md`](docs/alpha24-api-diff.md).
+The catalog shows the API of the newest AndroidX release that rc-players' fork is cut from: `reference/androidx-api` is AndroidX's `api/current.txt` at the commit `1.0.0-alpha24` was cut from (`COMMIT`; the released versions are in `RELEASE`), and the stories run on the newest rc-players release (3.12.1, whose creation fork, 3.10.0, is cut from `cb8e6388acf` (one merge before alpha24's `a9dc564e55c`; the API files are identical)). `scripts/verify-androidx.sh` compiles every story against the released artifacts on Google Maven, and the Overview page shows the Gradle setup for them. What changed in the API since the previous release is in [`docs/alpha24-api-diff.md`](docs/alpha24-api-diff.md).
 
 ## Local development
 
