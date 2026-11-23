@@ -1,0 +1,6 @@
+{
+  "$schema": "https://unpkg.com/knip@6.45.1/schema.json",
+  // ../eslint.config.mjs (outside this package) imports these by path from e2e/node_modules,
+  // which knip does not follow.
+  "ignoreDependencies": ["@eslint/js", "globals", "eslint-plugin-no-unsanitized"],
+}
