@@ -50,6 +50,7 @@ import ee.schimke.composeai.rccreation.compose.painter.painterRemoteImageBitmap
 import ee.schimke.composeai.rccreation.compose.shapes.RemoteCornerSize
 import ee.schimke.composeai.rccreation.compose.shapes.RemoteRoundedCornerShape
 import ee.schimke.composeai.rccreation.compose.shapes.RemoteShape
+import ee.schimke.composeai.rccreation.compose.state.RemoteCompositingStrategy
 import ee.schimke.composeai.rccreation.compose.state.RemoteImageBitmap
 import ee.schimke.composeai.rccreation.compose.state.RemoteInt
 import ee.schimke.composeai.rccreation.compose.state.rc
@@ -394,4 +395,29 @@ fun AlignByBaseline(smallSize: Int, largeSize: Int) {
 @RemoteComposable
 fun Shapes(shape: RemoteShape) {
     RemoteBox(RemoteModifier.size(140.rdp).clip(shape).background(Color(0xFFFF7043).rc))
+}
+
+@Composable
+@RemoteComposable
+fun GraphicsLayerCompositing(alpha: Float, compositingStrategy: RemoteCompositingStrategy) {
+    // With an alpha below 1, Offscreen fades the layer as one image; ModulateAlpha fades each draw
+    // on its own, so the overlap shows through. Auto also goes offscreen when alpha is below 1, so
+    // it
+    // looks like Offscreen here; the two differ only with blend modes at alpha 1.
+    RemoteBox(
+        RemoteModifier.graphicsLayer(alpha = alpha.rf, compositingStrategy = compositingStrategy)
+            .size(220.rdp, 140.rdp),
+    ) {
+        RemoteBox(RemoteModifier.size(140.rdp).background(Color(0xFF3949AB).rc))
+        // Padding, not offset, moves the second box. In Remote Compose padding before size is
+        // inside
+        // the component's width, so both boxes stay inside the 220x140 layer; with offset,
+        // Offscreen
+        // would also clip the part outside the layer, a second difference unrelated to alpha.
+        RemoteBox(
+            RemoteModifier.padding(start = 80.rdp)
+                .size(220.rdp, 140.rdp)
+                .background(Color(0xFFE53935).rc),
+        )
+    }
 }

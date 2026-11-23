@@ -47,10 +47,10 @@ touch "$OUT/.nojekyll"
 
 # What the page shows about versions. Written with json.dump, so nothing here needs escaping.
 REPO_URL="${STORYBOOK_REPOSITORY:-$(git remote get-url origin 2>/dev/null | sed -E 's#git@github.com:#https://github.com/#; s#\.git$##' || true)}"
-REPO_URL="$REPO_URL" BUILT_FROM="$(git rev-parse --short HEAD 2>/dev/null || echo local)" python3 - "$API/COMMIT" "$OUT/data/meta.json" <<'PY'
+REPO_URL="$REPO_URL" BUILT_FROM="$(git rev-parse --short HEAD 2>/dev/null || echo local)" python3 - "$API/COMMIT" "$OUT/data/meta.json" "$API/RELEASE" <<'PY'
 import json, os, re, sys, urllib.request
 
-commit_file, out = sys.argv[1:3]
+commit_file, out, release_file = sys.argv[1:4]
 release = ""
 try:
     index = urllib.request.urlopen(
@@ -65,8 +65,14 @@ with open(commit_file, encoding="utf-8") as fh:
     commit = fh.read().strip()
 with open("gradle/libs.versions.toml", encoding="utf-8") as fh:
     rc_players = re.search(r'^rc-players = "([^"]+)"', fh.read(), re.M).group(1)
+# The AndroidX release the API reference is pinned to ({artifact: version}); empty for androidx-main.
+api_release = {}
+if os.path.isfile(release_file):
+    with open(release_file, encoding="utf-8") as fh:
+        api_release = dict(line.strip().split("=", 1) for line in fh if "=" in line)
 meta = {
     "androidxCommit": commit,
+    "androidxApi": api_release,
     "androidxRelease": release,
     "rcPlayersVersion": rc_players,
     "repository": os.environ.get("REPO_URL", ""),

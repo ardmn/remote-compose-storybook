@@ -16,9 +16,26 @@ android.sourceSets.named("main") {
     kotlin.directories.add("build/generated/snippets")
 }
 
+// The released versions in ../reference/androidx-api/RELEASE (`artifact=version` lines), or the
+// androidx.dev snapshot's 1.0.0-SNAPSHOT when there is no RELEASE file.
+val release =
+    rootProject
+        .file("../reference/androidx-api/RELEASE")
+        .takeIf { it.isFile }
+        ?.readLines()
+        .orEmpty()
+        .filter { "=" in it }
+        .associate { it.substringBefore("=").trim() to it.substringAfter("=").trim() }
+
 dependencies {
-    implementation("androidx.compose.remote:remote-creation-compose:1.0.0-SNAPSHOT")
-    implementation("androidx.compose.remote.foundation:foundation:1.0.0-SNAPSHOT")
+    implementation(
+        "androidx.compose.remote:remote-creation-compose:" +
+            release.getOrDefault("remote-creation-compose", "1.0.0-SNAPSHOT")
+    )
+    implementation(
+        "androidx.compose.remote.foundation:foundation:" +
+            release.getOrDefault("foundation", "1.0.0-SNAPSHOT")
+    )
     implementation("androidx.compose.runtime:runtime:1.11.0")
     implementation("androidx.compose.ui:ui-graphics:1.11.0")
 }

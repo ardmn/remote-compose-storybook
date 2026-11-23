@@ -277,6 +277,18 @@ internal val modifierComponents =
                             it.float("alpha"),
                         )
                     },
+                    Story(
+                        "transform-modifiers--compositing",
+                        "Compositing strategy",
+                        "GraphicsLayerCompositing",
+                        "A faded layer of two overlapping boxes, with each RemoteCompositingStrategy. Below alpha 1, Auto also renders offscreen, so it looks like Offscreen.",
+                        listOf(
+                            float("alpha", 0.5f, 0f, 1f, step = 0.05f),
+                            choice("compositingStrategy", More.compositingStrategies, default = 2),
+                        ),
+                    ) {
+                        GraphicsLayerCompositing(it.float("alpha"), it["compositingStrategy"])
+                    },
                 ),
         ),
         Component(
@@ -411,6 +423,19 @@ internal val interactionComponents =
                         listOf(text("actionName", "open_details")),
                     ) {
                         HostActions(it.text("actionName"))
+                    },
+                    Story(
+                        "host-action--by-id",
+                        "Action by id, or none",
+                        "HostActionById",
+                        "hostAction with a numeric id and text metadata; RemoteAction.None when disabled.",
+                        listOf(
+                            int("id", 7, 0, 99),
+                            text("metadata", "item-42"),
+                            bool("enabled", true),
+                        ),
+                    ) {
+                        HostActionById(it.int("id"), it.text("metadata"), it.bool("enabled"))
                     },
                     Story(
                         "host-action--combined",
@@ -707,6 +732,15 @@ internal val stateComponents =
                         listOf(choice("initial", More.screens, default = 1)),
                     ) {
                         NamedEnum(it["initial"])
+                    },
+                    Story(
+                        "named-state--domain",
+                        "Domains",
+                        "NamedDomain",
+                        "The same named value in the user domain, unprefixed, or in an app's own namespace.",
+                        listOf(choice("domain", More.domains), text("city", "Yerevan")),
+                    ) {
+                        NamedDomain(it["domain"], it.text("city"))
                     },
                 ),
         ),

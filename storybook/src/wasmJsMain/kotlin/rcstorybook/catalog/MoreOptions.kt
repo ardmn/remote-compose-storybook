@@ -8,8 +8,11 @@ import ee.schimke.composeai.rccreation.compose.shapes.RemoteRectangleShape
 import ee.schimke.composeai.rccreation.compose.shapes.RemoteRoundedCornerShape
 import ee.schimke.composeai.rccreation.compose.shapes.RemoteShape
 import ee.schimke.composeai.rccreation.compose.state.RemoteBlendMode
+import ee.schimke.composeai.rccreation.compose.state.RemoteCompositingStrategy
 import ee.schimke.composeai.rccreation.compose.state.RemoteEasing
 import ee.schimke.composeai.rccreation.compose.state.RemotePaintingStyle
+import ee.schimke.composeai.rccreation.compose.state.RemotePathFillType
+import ee.schimke.composeai.rccreation.compose.state.RemoteState
 import ee.schimke.composeai.rccreation.compose.state.RemoteStrokeCap
 import ee.schimke.composeai.rccreation.compose.state.RemoteStrokeJoin
 import ee.schimke.composeai.rccreation.compose.state.RemoteTileMode
@@ -256,6 +259,16 @@ internal object More {
             option("Overshoot", "RemoteEasing.Overshoot", RemoteEasing.Overshoot),
             option("Bounce", "RemoteEasing.Bounce", RemoteEasing.Bounce),
             option("Elastic", "RemoteEasing.Elastic", RemoteEasing.Elastic),
+            option(
+                "Cubic",
+                "RemoteEasing.cubic(0.2f, 0f, 0f, 1f)",
+                RemoteEasing.cubic(0.2f, 0f, 0f, 1f),
+            ),
+            option(
+                "Spline",
+                "RemoteEasing.spline(floatArrayOf(0f, 0.8f, 0.6f, 1f))",
+                RemoteEasing.spline(floatArrayOf(0f, 0.8f, 0.6f, 1f)),
+            ),
         )
     val screens = Screen.entries.map { option(it.name, "Screen.${it.name}", it) }
     val functions =
@@ -296,6 +309,31 @@ internal object More {
             option("Serif", "RemoteTypeface.Serif", RemoteTypeface.Serif),
             option("Monospace", "RemoteTypeface.Monospace", RemoteTypeface.Monospace),
         )
+    val compositingStrategies =
+        listOf(
+            option("Auto", "RemoteCompositingStrategy.Auto", RemoteCompositingStrategy.Auto),
+            option(
+                "Offscreen",
+                "RemoteCompositingStrategy.Offscreen",
+                RemoteCompositingStrategy.Offscreen,
+            ),
+            option(
+                "ModulateAlpha",
+                "RemoteCompositingStrategy.ModulateAlpha",
+                RemoteCompositingStrategy.ModulateAlpha,
+            ),
+        )
+    val pathFillTypes =
+        listOf(
+            option("NonZero", "RemotePathFillType.NonZero", RemotePathFillType.NonZero),
+            option("EvenOdd", "RemotePathFillType.EvenOdd", RemotePathFillType.EvenOdd),
+        )
+    val domains =
+        listOf<Option<RemoteState.Domain>>(
+            option("User", "RemoteState.Domain.User", RemoteState.Domain.User),
+            option("None", "RemoteState.Domain.None", RemoteState.Domain.None),
+            option("weather", "RemoteState.Domain(\"weather\")", RemoteState.Domain("weather")),
+        )
     val tileModes =
         listOf(
             option("Repeated", "RemoteTileMode.Repeated", RemoteTileMode.Repeated),
@@ -304,7 +342,7 @@ internal object More {
             option("Decal", "RemoteTileMode.Decal", RemoteTileMode.Decal),
         )
     val gradients =
-        listOf("linear", "horizontal", "vertical", "radial", "sweep").map {
+        listOf("linear", "horizontal", "stops", "vertical", "radial", "sweep").map {
             option(it, "\"$it\"", it)
         }
     val wrapModes = listOf("size", "width", "height").map { option(it, "\"$it\"", it) }

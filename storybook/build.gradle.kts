@@ -11,7 +11,8 @@ ktfmt { kotlinLangStyle() }
 
 // Static analysis without type resolution: detekt resolves types only for JVM and Android
 // targets, and the storybook is Kotlin/Wasm only. CI runs :storybook:detektWasmJsMainSourceSet;
-// findings that existed when detekt was added are in detekt-baseline-wasmJsMainSourceSet.xml.
+// baselined findings are in detekt-baseline-wasmJsMainSourceSet.xml (pre-existing ones, plus
+// TooManyFunctions on the story files, which hold one function per story by design).
 detekt {
     buildUponDefaultConfig = true
     config.setFrom(rootProject.file("config/detekt/detekt.yml"))
@@ -39,6 +40,7 @@ kotlin {
             languageSettings.optIn("androidx.compose.ui.ExperimentalComposeUiApi")
         }
         wasmJsMain.dependencies {
+            implementation(project.dependencies.platform(libs.rc.players.bom))
             implementation(libs.rc.creation.compose)
             implementation(libs.rc.creation.foundation)
             implementation(libs.rc.player.compose)

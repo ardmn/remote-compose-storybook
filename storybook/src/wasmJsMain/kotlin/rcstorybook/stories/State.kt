@@ -34,6 +34,7 @@ import ee.schimke.composeai.rccreation.compose.state.MutableRemoteString
 import ee.schimke.composeai.rccreation.compose.state.RemoteColor
 import ee.schimke.composeai.rccreation.compose.state.RemoteConfiguration
 import ee.schimke.composeai.rccreation.compose.state.RemoteEnum
+import ee.schimke.composeai.rccreation.compose.state.RemoteState
 import ee.schimke.composeai.rccreation.compose.state.RemoteTimeVariables
 import ee.schimke.composeai.rccreation.compose.state.lerp
 import ee.schimke.composeai.rccreation.compose.state.rb
@@ -329,4 +330,15 @@ fun solidBitmap(color: Color): ImageBitmap {
     val bitmap = ImageBitmap(32, 32)
     Canvas(bitmap).drawRect(0f, 0f, 32f, 32f, Paint().apply { this.color = color })
     return bitmap
+}
+
+@Composable
+@RemoteComposable
+fun NamedDomain(domain: RemoteState.Domain, city: String) {
+    // The domain is the namespace of a named value: the host sets it by the prefixed name.
+    val name = rememberNamedRemoteString("city", city, domain)
+    RemoteColumn(verticalArrangement = RemoteArrangement.spacedBy(6.rdp)) {
+        RemoteText(name, fontSize = 22.rsp)
+        RemoteText("host sets: ${domain.prefixed("city")}".rs, fontSize = 14.rsp)
+    }
 }

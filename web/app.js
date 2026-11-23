@@ -165,7 +165,9 @@
     ]);
     Object.assign(state, { sources, api, coverage, meta });
     if (meta.repository) $("repoLink").href = meta.repository;
-    if (meta.androidxCommit) {
+    if (meta.androidxApi && meta.androidxApi["remote-creation-compose"]) {
+      $("versionBadge").textContent = "AndroidX " + meta.androidxApi["remote-creation-compose"];
+    } else if (meta.androidxCommit) {
       $("versionBadge").textContent = "androidx-main@" + meta.androidxCommit.slice(0, 9);
     }
     await ready;
@@ -735,7 +737,24 @@
 
   // Pages ------------------------------------------------------------------------------------
 
+  // The AndroidX release the API reference is pinned to ({artifact: version}), or null when it
+  // follows androidx-main.
+  function pinnedRelease() {
+    const api = state.meta.androidxApi;
+    return api && api["remote-creation-compose"] ? api : null;
+  }
+
+  // Where the API reference comes from, as HTML for the Coverage page.
+  function apiSource() {
+    const commit = esc((state.coverage.commit || "").slice(0, 9));
+    const pinned = pinnedRelease();
+    return pinned
+      ? `<code>${esc(pinned["remote-creation-compose"])}</code>, androidx <code>${commit}</code>`
+      : `androidx-main <code>${commit}</code>`;
+  }
+
   function renderOverview() {
+    const pinned = pinnedRelease();
     const total = state.components.reduce((n, c) => n + c.stories.length, 0);
     const cov = state.coverage ? state.coverage.blocks : [];
     const covered = cov.filter((b) => b.stories.length || b.inOptions).length;
@@ -760,10 +779,22 @@
       <p>${t("ov.read")}</p>
 
       <h2>${t("ov.use.title")}</h2>
-      <p>${t("ov.use", { release: esc(state.meta.androidxRelease || "Google Maven") })}</p>
+      ${pinned ? `<p>${t("ov.useRelease", { release: esc(pinned["remote-creation-compose"]) })}</p>` : `<p>${t("ov.use", { release: esc(state.meta.androidxRelease || "Google Maven") })}</p>`}
       ${codeBlock(
         "build.gradle.kts",
-        `repositories {
+        pinned
+          ? `repositories {
+    google()
+}
+
+dependencies {
+    // Author documents (the API in this catalog)
+    implementation("androidx.compose.remote:remote-creation-compose:${pinned["remote-creation-compose"]}")
+    implementation("androidx.compose.remote.foundation:foundation:${pinned.foundation}")
+    // Play documents on Android
+    implementation("androidx.compose.remote:remote-player-compose:${pinned["remote-creation-compose"]}")
+}`
+          : `repositories {
     google()
     // Snapshots of androidx-main: https://androidx.dev
     maven("https://androidx.dev/snapshots/latest/artifacts/repository")
@@ -831,7 +862,7 @@ dependencies {
       groups.get(b.group).push(b);
     }
     let html = `<h1>${t("cov.title")}</h1>
-      <p class="lede">${t("cov.lede", { commit: esc((state.coverage.commit || "").slice(0, 9)) })}</p>
+      <p class="lede">${t("cov.lede", { source: apiSource() })}</p>
       <p>${t("cov.summary", { covered, total: blocks.length, pending: pending ? t("cov.pendingSummary", { n: pending }) : "" })}</p>
       <div class="meter"><div style="width:${((100 * covered) / Math.max(1, blocks.length)).toFixed(1)}%"></div></div>`;
     for (const [group, items] of groups) {

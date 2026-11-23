@@ -122,8 +122,20 @@ internal val plainLanguage: Map<String, Plain> =
             ),
         "remote-component" to
             Plain(
-                "Lets an element know its parent's real size on the device, so it can size itself as a fraction of it.",
-                listOf("Bars and fills that are a percentage of their container"),
+                "Lets an element know its parent's real size and its own position on the device, so it can size itself as a fraction of it or react to where it ended up.",
+                listOf(
+                    "Bars and fills that are a percentage of their container",
+                    "Decorations that line up with where an element was placed",
+                ),
+            ),
+        "remote-text-measurer" to
+            Plain(
+                "Measures text on the device, with the device's own fonts, so a drawing can fit around it: how wide and tall a line is, where its baseline is and which pixels the letters cover.",
+                listOf(
+                    "Badges and pills that fit their label",
+                    "Labels and underlines drawn on charts",
+                    "Counters that keep the same width while their digits change",
+                ),
             ),
         "size-modifiers" to
             Plain(
