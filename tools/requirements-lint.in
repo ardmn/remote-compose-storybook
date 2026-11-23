@@ -1,0 +1,4 @@
+# Python lint tools, pinned. Regenerate the locked, hashed tools/requirements-lint.txt with:
+#   uv pip compile tools/requirements-lint.in --python-version 3.12 --generate-hashes --exclude-newer <a date a week back> -o tools/requirements-lint.txt
+ruff==0.15.8
+mypy==2.4.1

@@ -103,11 +103,10 @@ def parse_kotlin(path):
                 if lines[i].strip() == "" and not lines[i].startswith(" "):
                     break
                 i += 1
-            if i >= len(lines) or not DECL_RE.match(lines[i]):
+            m = DECL_RE.match(lines[i]) if i < len(lines) else None
+            if m is None:
                 i = start + 1
                 continue
-            header = lines[i]
-            m = DECL_RE.match(header)
             name = m.group(1)
             # The sources are ktfmt-formatted, so a top-level declaration runs until the next line
             # that starts in column 0 with anything but a closing bracket: the next declaration.
@@ -354,7 +353,7 @@ def parse_api(api_dir):
 def cmd_api(args):
     """Every class and top-level function name, keyed `package.Name`, with its signatures."""
     entries = parse_api(args.api)
-    out = {}
+    out: dict[str, list[str]] = {}
     for e in entries:
         pkg = e["package"]
         if e["kind"] == "class":
@@ -419,7 +418,7 @@ CANNOT_DEMONSTRATE = {
 
 def building_blocks(entries):
     """The public names a storybook user builds with, grouped as the Coverage page lists them."""
-    blocks = {}
+    blocks: dict[tuple[str, str], set[str]] = {}
 
     def add(group, name, pkg):
         if name in NOT_BLOCKS:
@@ -554,11 +553,11 @@ def cmd_coverage(args):
             missing.append(f"{group}: {name}")
     commit = read_text(os.path.join(args.api, "COMMIT")).strip()
     write_json({"commit": commit, "blocks": uses}, args.out)
-    pending = sum(1 for u in uses if u["pending"] and not u["stories"])
-    covered = len(uses) - len(missing) - pending
+    pending_count = sum(1 for u in uses if u["pending"] and not u["stories"])
+    covered = len(uses) - len(missing) - pending_count
     print(
         f"coverage: {covered}/{len(uses)} public building blocks used by a story, "
-        f"{pending} that cannot be demonstrated yet (reasons in coverage.json) -> {args.out}"
+        f"{pending_count} that cannot be demonstrated yet (reasons in coverage.json) -> {args.out}"
     )
     if missing:
         print("not covered by any story:\n  " + "\n  ".join(missing), file=sys.stderr)

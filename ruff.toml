@@ -1,3 +1,4 @@
 line-length = 110
 [lint]
-select = ["E", "F", "W", "B", "UP", "SIM", "I"]
+# S: flake8-bandit security checks (subprocess, eval, unsafe deserialization, no timeouts...).
+select = ["E", "F", "W", "B", "UP", "SIM", "I", "S"]
