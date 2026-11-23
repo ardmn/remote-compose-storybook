@@ -51,7 +51,7 @@ The catalog follows the newest API: `reference/androidx-api` is AndroidX's `api/
 
 ## Local development
 
-Requirements: JDK 17, Python 3, Node `^20.19.0 || >=22.12.0` (what knip, in the lint, requires).
+Requirements: JDK 17, Python 3.12+ (the hashed lint lock is compiled for 3.12), Node `>=22.12.0` (what `@axe-core/playwright` in `e2e/` requires).
 
 ```sh
 scripts/build-site.sh --dev            # fast, unoptimized build into build/site
@@ -114,11 +114,11 @@ One-time setup: in the repository, Settings → Pages → Source: GitHub Actions
 
 ## Static analysis
 
-The workflow's `lint` job (the build waits for it) runs ktfmt and detekt (Kotlin), ruff and mypy (`tools/`), shellcheck, actionlint, and ESLint, Prettier and knip (`cd e2e && npm run lint`). The `security` job runs OSV-Scanner on the npm, Yarn and pip lockfiles (`e2e/package-lock.json`, `kotlin-js-store/wasm/yarn.lock`, `tools/requirements-lint.txt`) and gitleaks on the whole history, on every run and weekly; the build does not wait for it, so a new advisory cannot block a deploy. Gradle and Maven dependencies are not scanned by OSV-Scanner: the project has no Gradle lockfile. Every tool fails on findings that are not reviewed:
+The workflow's `lint` job (the build waits for it) runs ktfmt and detekt (Kotlin), ruff and mypy (`tools/`), shellcheck, actionlint, and ESLint, Prettier and knip (`cd e2e && npm run lint`). The `security` job runs OSV-Scanner on the npm, Yarn and pip lockfiles (`e2e/package-lock.json`, `kotlin-js-store/wasm/yarn.lock`, `tools/requirements-lint.txt`) on every run and weekly; the build does not wait for it, so a new advisory cannot block a deploy. The `secrets` job runs gitleaks on the whole history; the build waits for it, so a committed secret is never deployed. GitHub disables the weekly schedule after 60 days without repository activity. Gradle and Maven dependencies are not scanned by OSV-Scanner: the project has no Gradle lockfile. Every tool fails on findings that are not reviewed:
 
 - detekt: `./gradlew :storybook:detektWasmJsMainSourceSet` (`:storybook:detekt` and `check` run it too). Existing findings are in `storybook/detekt-baseline-wasmJsMainSourceSet.xml`, rewritten by `./gradlew :storybook:detektBaselineWasmJsMainSourceSet`; config in `config/detekt/detekt.yml`. Baseline entries match by rule, file name and signature (the function, or the literal for MagicNumber), not by line: a new finding with the same signature in the same file is hidden by the old entry.
-- ESLint: each reviewed HTML sink in `web/` has an `eslint-disable-next-line no-unsanitized/property -- <why it is safe>` comment on the line before it. A disable comment that no longer suppresses anything fails the lint; `cd e2e && npm run lint:prune-directives` removes those.
-- OSV-Scanner: prefer fixing the version (for `kotlin-js-store/wasm/yarn.lock`, a Yarn resolution in `build.gradle.kts`). An advisory that does not apply goes into `osv-scanner.toml` as a `PackageOverrides` entry for that package and version, with a reason and an `effectiveUntil` date.
+- ESLint: each reviewed HTML sink in `web/` has an `eslint-disable-next-line no-unsanitized/property -- <why it is safe>` comment on the line before it (`no-unsanitized/method` for `insertAdjacentHTML` and `document.write`). A disable comment that no longer suppresses anything fails the lint; `cd e2e && npm run lint:prune-directives` removes those and reformats.
+- OSV-Scanner: prefer fixing the version (for `kotlin-js-store/wasm/yarn.lock`, a Yarn resolution in `build.gradle.kts`). An advisory that does not apply goes into `osv-scanner.toml` as an `IgnoredVulns` entry for that one advisory ID, with a reason and an `effectiveUntil` date (not a `PackageOverrides` ignore, which would hide later advisories too).
 - gitleaks: to accept a finding (a false positive, or a secret already revoked), add its `Fingerprint` line from the gitleaks output (`<commit>:<file>:<rule>:<line>`) to `.gitleaksignore` in the repository root, with a comment saying why.
 
 Python lint tools are pinned with hashes in `tools/requirements-lint.txt` (from `tools/requirements-lint.in`, which has the command to regenerate it).
