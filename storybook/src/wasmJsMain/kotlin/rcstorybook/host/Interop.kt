@@ -1,6 +1,10 @@
 package rcstorybook.host
 
+// Each js("...") bridge below suppresses UnusedParameter: its parameters are used by the JavaScript
+// inside js("..."), which detekt does not see.
+
 /** The page side of the bridge: `window.rcStorybook`, and events back to the page. */
+@Suppress("UnusedParameter")
 internal fun installApi(
     catalog: () -> JsString,
     show: (JsString, JsAny, Boolean) -> JsString,
@@ -22,13 +26,16 @@ internal fun installApi(
     )
 
 /** `obj[key]` as a string, or null when absent. */
+@Suppress("UnusedParameter")
 internal fun jsProperty(obj: JsAny, key: String): String? =
     js("(obj[key] === undefined || obj[key] === null) ? null : String(obj[key])")
 
+@Suppress("UnusedParameter")
 internal fun emit(type: String, detail: String): Unit =
     js("window.dispatchEvent(new CustomEvent(type, { detail: detail }))")
 
 /** `fetch(url)` as base64, so the bytes cross into Wasm as one string. */
+@Suppress("UnusedParameter")
 private fun fetchAsBase64(url: String): kotlin.js.Promise<JsString> =
     js(
         """fetch(url).then(function (response) {

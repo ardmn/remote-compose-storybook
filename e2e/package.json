@@ -5,18 +5,21 @@
   "scripts": {
     "test": "node run.mjs",
     "social": "node social.mjs",
-    "lint": "cd .. && eslint web e2e/*.mjs eslint.config.mjs && prettier --check web e2e/*.mjs e2e/package.json eslint.config.mjs .github",
+    "lint": "cd .. && eslint web e2e/*.mjs eslint.config.mjs && prettier --check web e2e/*.mjs e2e/package.json eslint.config.mjs .github && cd e2e && knip",
+    "lint:prune-directives": "cd .. && eslint --fix --fix-type directive web e2e/*.mjs eslint.config.mjs && prettier --write web e2e/*.mjs eslint.config.mjs",
     "format": "cd .. && prettier --write web e2e/*.mjs e2e/package.json eslint.config.mjs .github"
   },
   "devDependencies": {
-    "@axe-core/playwright": "^4.14.0",
-    "@eslint/js": "^9.39.5",
-    "eslint": "^9.39.5",
-    "globals": "^17.14.0",
-    "pixelmatch": "^7.2.0",
-    "playwright": "^1.56.0",
-    "pngjs": "^7.0.0",
-    "prettier": "^3.10.1"
+    "@axe-core/playwright": "4.14.0",
+    "@eslint/js": "9.39.5",
+    "eslint": "9.39.5",
+    "eslint-plugin-no-unsanitized": "4.1.5",
+    "globals": "17.14.0",
+    "knip": "6.45.1",
+    "pixelmatch": "7.2.0",
+    "playwright": "1.65.1",
+    "pngjs": "7.0.0",
+    "prettier": "3.10.1"
   },
-  "description": "Tooling for the storybook: the end-to-end test, ESLint and Prettier."
+  "description": "Tooling for the storybook: the end-to-end test, ESLint, Prettier and knip."
 }

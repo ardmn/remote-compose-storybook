@@ -1,0 +1,12 @@
+# OSV-Scanner: known vulnerabilities that are reviewed and do not apply. None at the moment.
+#
+# Prefer fixing the version (for the Kotlin Wasm yarn.lock, a resolution in build.gradle.kts). When
+# an advisory really does not apply, ignore that one advisory ID, with a reason and an effectiveUntil
+# date after which CI fails again and the entry is re-checked. Never use a PackageOverrides
+# `vulnerability.ignore`: it hides every advisory for the package, including ones published later.
+# (OSV-Scanner prints each ignored ID as "filtered out" and still reports all others.)
+#
+# [[IgnoredVulns]]
+# id = "GHSA-xxxx-xxxx-xxxx"
+# effectiveUntil = 2027-01-01
+# reason = "<why this advisory cannot affect this project>"

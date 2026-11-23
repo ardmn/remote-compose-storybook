@@ -51,7 +51,7 @@ The catalog follows the newest API: `reference/androidx-api` is AndroidX's `api/
 
 ## Local development
 
-Requirements: JDK 17, Python 3, Node 20+.
+Requirements: JDK 17, Python 3.12+ (the hashed lint lock is compiled for 3.12), Node `>=22.12.0` (what `@axe-core/playwright` in `e2e/` requires).
 
 ```sh
 scripts/build-site.sh --dev            # fast, unoptimized build into build/site
@@ -108,9 +108,20 @@ Story(
 
 ## Deployment
 
-`.github/workflows/pages.yml` builds the site and runs the e2e test on every push to `main`, on pull requests and on manual dispatch. Pull requests only build and test. Pushes to `main` also deploy `build/site` to GitHub Pages.
+`.github/workflows/pages.yml` builds the site and runs the e2e test on every push to `main`, on pull requests and on manual dispatch. Pull requests only build and test. Pushes to `main` also deploy `build/site` to GitHub Pages. Dependency advisories are checked in a separate workflow, `security.yml` (below).
 
 One-time setup: in the repository, Settings → Pages → Source: GitHub Actions.
+
+## Static analysis
+
+The workflow's `lint` job (the build waits for it) runs ktfmt and detekt (Kotlin), ruff and mypy (`tools/`), shellcheck, actionlint, and ESLint, Prettier and knip (`cd e2e && npm run lint`). The `secrets` job runs gitleaks on every commit reachable from the checked-out HEAD (not on other branches or tags); the deploy waits for it, so a committed secret is never deployed, while pull requests still get their build and e2e result. The separate `security.yml` workflow runs OSV-Scanner on the npm, Yarn and pip lockfiles (`e2e/package-lock.json`, `kotlin-js-store/wasm/yarn.lock`, `tools/requirements-lint.txt`) on pushes, pull requests and weekly; nothing waits for it, so a new advisory cannot block a deploy. GitHub disables the weekly schedule after 60 days without repository activity. Gradle and Maven dependencies are not scanned by OSV-Scanner: the project has no Gradle lockfile. Every tool fails on findings that are not reviewed:
+
+- detekt: `./gradlew :storybook:detektWasmJsMainSourceSet` (`:storybook:detekt` and `check` run it too). Existing findings are in `storybook/detekt-baseline-wasmJsMainSourceSet.xml`, rewritten by `./gradlew :storybook:detektBaselineWasmJsMainSourceSet`; config in `config/detekt/detekt.yml`. Baseline entries match by rule, file name and signature (the function, or the literal for MagicNumber), not by line: a new finding with the same signature in the same file is hidden by the old entry.
+- ESLint: each reviewed HTML sink in `web/` has an `eslint-disable-next-line no-unsanitized/property -- <why it is safe>` comment on the line before it (`no-unsanitized/method` for `insertAdjacentHTML` and `document.write`). A disable comment that no longer suppresses anything fails the lint; `cd e2e && npm run lint:prune-directives` removes those and reformats.
+- OSV-Scanner: prefer fixing the version (for `kotlin-js-store/wasm/yarn.lock`, a Yarn resolution in `build.gradle.kts`). An advisory that does not apply goes into `osv-scanner.toml` as an `IgnoredVulns` entry for that one advisory ID, with a reason and an `effectiveUntil` date (not a `PackageOverrides` ignore, which would hide later advisories too).
+- gitleaks: to accept a finding (a false positive, or a secret already revoked), add it to `.gitleaksignore` in the repository root as `<file>:<rule>:<line>` (the `Fingerprint` from the gitleaks output without its leading `<commit>:`), with a comment saying why. Keep the commit out: a squash or rebase merge gives the commit a new SHA on `main`, the entry stops matching there, and the `secrets` job then blocks the deploy.
+
+Python lint tools are pinned with hashes in `tools/requirements-lint.txt` (from `tools/requirements-lint.in`, which has the command to regenerate it).
 
 ## License
 

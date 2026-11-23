@@ -12,7 +12,7 @@
 // demo, so search engines that run JavaScript index the page instead of following a redirect.
 
 export const SITE_NAME = "Remote Compose Storybook";
-export const AUTHOR = { "@type": "Person", name: "ardmn", url: "https://github.com/ardmn" };
+const AUTHOR = { "@type": "Person", name: "ardmn", url: "https://github.com/ardmn" };
 
 export const esc = (s) =>
   String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
@@ -67,7 +67,7 @@ const WORDS = {
   },
 };
 
-export const RN_URL = "https://github.com/ardmn/react-native-remote-compose";
+const RN_URL = "https://github.com/ardmn/react-native-remote-compose";
 
 /** The address of a story's page: s/<id>/ or s/<id>/ru/. */
 export const pagePath = (id, lang) => `s/${id}/${lang === "ru" ? "ru/" : ""}`;
