@@ -17,6 +17,10 @@ detekt {
     config.setFrom(rootProject.file("config/detekt/detekt.yml"))
 }
 
+// The plain `detekt` task (and so `check`) only sees the JVM-style src/main/kotlin, which this
+// project does not have, and ends NO-SOURCE: make it run the Wasm source set's analysis.
+tasks.named("detekt") { dependsOn("detektWasmJsMainSourceSet") }
+
 kotlin {
     compilerOptions { allWarningsAsErrors.set(true) }
     @OptIn(org.jetbrains.kotlin.gradle.ExperimentalWasmDsl::class)
