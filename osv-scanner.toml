@@ -1,9 +1,13 @@
-# OSV-Scanner: known vulnerabilities that are reviewed and do not apply. Each entry needs a reason
-# and an ignoreUntil date, after which CI fails again and the entry is re-checked.
-
-[[IgnoredVulns]]
-id = "GHSA-96hv-2xvq-fx4p"
-ignoreUntil = 2027-02-23
-reason = """ws 8.20.1 in kotlin-js-store/wasm/yarn.lock (memory exhaustion in a ws server): the Kotlin \
-Gradle plugin's Node tooling for wasmJs, not part of the browser bundle; the site runs no WebSocket \
-server. Goes away with the Kotlin plugin's next ws bump."""
+# OSV-Scanner: known vulnerabilities that are reviewed and do not apply. None at the moment.
+#
+# Prefer fixing the version (for the Kotlin Wasm yarn.lock, a resolution in build.gradle.kts). When
+# an advisory really does not apply, ignore it for the one package it is about, with a reason and an
+# effectiveUntil date after which CI fails again and the entry is re-checked:
+#
+# [[PackageOverrides]]
+# name = "<package>"
+# ecosystem = "npm"
+# version = "<the affected version>"
+# vulnerability.ignore = true
+# effectiveUntil = 2027-01-01
+# reason = "<why this advisory cannot affect this project>"
