@@ -1,6 +1,7 @@
-# detekt on top of its default config (buildUponDefaultConfig). Only what differs from the defaults
-# for this project is here; existing findings that are not fixed yet are in
-# storybook/detekt-baseline-wasmJsMainSourceSet.xml.
+# detekt on top of its default config (buildUponDefaultConfig): only the rules this project changes
+# are here. A key set here replaces the default value as a whole (lists are not merged), so a list
+# such as MagicNumber's excludes repeats the defaults it keeps. Existing findings that are not fixed
+# yet are in storybook/detekt-baseline-wasmJsMainSourceSet.xml.
 
 naming:
   FunctionNaming:
@@ -9,8 +10,20 @@ naming:
 
 style:
   MagicNumber:
-    # Stories are example code shown to users: their sizes, colors and durations are the point.
-    excludes: ['**/stories/**']
+    # Stories are example code shown to users: their sizes, colors and durations are the point. The
+    # rest of the list is detekt 2.0.0-alpha.6's default (default-detekt-config.yml); keep it in
+    # step when detekt is updated.
+    excludes:
+      - '**/stories/**'
+      - '**/test/**'
+      - '**/androidTest/**'
+      - '**/commonTest/**'
+      - '**/jvmTest/**'
+      - '**/androidUnitTest/**'
+      - '**/androidInstrumentedTest/**'
+      - '**/jsTest/**'
+      - '**/iosTest/**'
+      - '**/*.kts'
   MaxLineLength:
     # ktfmt (kotlinlang style) owns line length; what it leaves longer are prose string literals
     # (plain-language descriptions), which it cannot break.
