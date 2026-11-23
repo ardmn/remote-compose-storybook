@@ -47,7 +47,7 @@ Pages:
 
 ## Versions
 
-The catalog follows the newest API: `reference/androidx-api` is AndroidX's `api/current.txt` at androidx-main (commit in `COMMIT`), and the stories run on the newest rc-players release, whose fork of the creation API is pinned a few days behind androidx-main. The Overview page shows the Gradle setup for AndroidX snapshots, which have every block shown here.
+The catalog shows the API of the newest AndroidX release that rc-players' fork is cut from: `reference/androidx-api` is AndroidX's `api/current.txt` at the commit `1.0.0-alpha24` was cut from (`COMMIT`; the released versions are in `RELEASE`), and the stories run on the newest rc-players release (3.12.1, whose creation fork, 3.10.0, is that same commit). `scripts/verify-androidx.sh` compiles every story against the released artifacts on Google Maven, and the Overview page shows the Gradle setup for them.
 
 ## Local development
 
@@ -103,8 +103,8 @@ Story(
 
 ## Updating versions
 
-- AndroidX API: `scripts/update-androidx-api.sh [ref-or-sha]` refreshes `reference/androidx-api/*.txt` from `androidx-main` (or the given ref) and records the commit in `reference/androidx-api/COMMIT`. Rebuild afterwards: new public building blocks without a story fail the coverage check.
-- rc-players: change `rc-players` in `gradle/libs.versions.toml`, rebuild, and re-check `CANNOT_DEMONSTRATE`.
+- AndroidX API: `scripts/update-androidx-api.sh <sha> <release>` (for example `a9dc564e55c 1.0.0-alpha24`) refreshes `reference/androidx-api/*.txt` from the commit an AndroidX release was cut from, records it in `reference/androidx-api/COMMIT` and the released versions in `RELEASE`, which `verify-androidx` compiles against. The commit is the one whose `remote-*-sources.jar` files match the tree (the release notes' commit range can end earlier). Without arguments it follows `androidx-main` and the newest androidx.dev snapshot instead (`SNAPSHOT_BUILD`). Rebuild afterwards: new public building blocks without a story fail the coverage check.
+- rc-players: change `rc-players` in `gradle/libs.versions.toml` (the BOM's version; it pins each module, and a release republishes only the modules that changed), rebuild, and re-check `CANNOT_DEMONSTRATE`.
 
 ## Deployment
 

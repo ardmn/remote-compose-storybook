@@ -109,7 +109,7 @@ jobs:
         with:
           python-version: "3.12"
 
-      - name: Compile the stories against the AndroidX snapshot
+      - name: Compile the stories against AndroidX (the release in RELEASE, or the snapshot)
         run: scripts/verify-androidx.sh
 
   build:

@@ -85,7 +85,7 @@
     "cov.title": "API coverage",
     "cov.missing": "data/coverage.json is missing.",
     "cov.lede":
-      "Every public building block in AndroidX's <code>api/current.txt</code> (androidx-main <code>{commit}</code>) and the stories that use it.",
+      "Every public building block in AndroidX's <code>api/current.txt</code> ({source}) and the stories that use it.",
     "cov.summary": "<b>{covered}</b> of <b>{total}</b> covered{pending}.",
     "cov.pendingSummary": "; <b>{n}</b> are public but cannot be demonstrated yet (reasons below)",
     "cov.pending": "cannot be shown yet",
@@ -112,11 +112,13 @@
     "ov.use.title": "Use it in your project",
     "ov.use":
       "The catalog follows <b>androidx-main</b>: the newest public API, a step ahead of the latest release (<code>{release}</code>). Use the next release, or AndroidX snapshots, to get every block shown here.",
+    "ov.useRelease":
+      "The catalog shows the public API of AndroidX's release <code>{release}</code>, the version rc-players' fork is cut from: every block here is on Google Maven.",
     "ov.capture": "Capture a @RemoteComposable to bytes (Android)",
     "ov.components": "Components",
     "ov.how.title": "How this site works",
     "ov.how":
-      'The stories are compiled to WebAssembly with <a href="https://github.com/yschimke/rc-players" target="_blank" rel="noopener">rc-players</a>, a Compose Multiplatform port of AndroidX\'s creation API that differs from it only by package. Each story is composed live by <code>RcEmbeddedPlayer</code> and drawn by rc-players\' Compose player. The source shown in the Code tab is rewritten to <code>androidx.compose.remote.*</code>, and CI compiles every story, exactly as shown, against AndroidX\'s own artifacts (an androidx.dev snapshot of androidx-main), so what you copy compiles.',
+      'The stories are compiled to WebAssembly with <a href="https://github.com/yschimke/rc-players" target="_blank" rel="noopener">rc-players</a>, a Compose Multiplatform port of AndroidX\'s creation API that differs from it only by package. Each story is composed live by <code>RcEmbeddedPlayer</code> and drawn by rc-players\' Compose player. The source shown in the Code tab is rewritten to <code>androidx.compose.remote.*</code>, and CI compiles every story, exactly as shown, against AndroidX\'s own artifacts (the AndroidX version this catalog shows), so what you copy compiles.',
   };
 
   const ru = {
@@ -201,7 +203,7 @@
     "cov.title": "Покрытие API",
     "cov.missing": "Нет файла data/coverage.json.",
     "cov.lede":
-      "Каждый публичный строительный блок из <code>api/current.txt</code> AndroidX (androidx-main <code>{commit}</code>) и stories, которые его используют.",
+      "Каждый публичный строительный блок из <code>api/current.txt</code> AndroidX ({source}) и stories, которые его используют.",
     "cov.summary": "Покрыто <b>{covered}</b> из <b>{total}</b>{pending}.",
     "cov.pendingSummary": "; ещё <b>{n}</b> публичны, но пока их нельзя показать (причины ниже)",
     "cov.pending": "пока нельзя показать",
@@ -228,11 +230,13 @@
     "ov.use.title": "Как подключить в проект",
     "ov.use":
       "Каталог следует <b>androidx-main</b>: это самый новый публичный API, на шаг впереди последнего релиза (<code>{release}</code>). Чтобы получить все показанные блоки, используйте следующий релиз или снапшоты AndroidX.",
+    "ov.useRelease":
+      "Каталог показывает публичный API релиза AndroidX <code>{release}</code> — той версии, с которой снят форк rc-players: все блоки отсюда есть в Google Maven.",
     "ov.capture": "Собрать @RemoteComposable в байты (Android)",
     "ov.components": "Компоненты",
     "ov.how.title": "Как устроен сайт",
     "ov.how":
-      'Stories скомпилированы в WebAssembly с помощью <a href="https://github.com/yschimke/rc-players" target="_blank" rel="noopener">rc-players</a> — порта API создания AndroidX на Compose Multiplatform, который отличается от него только пакетом. Каждую story вживую собирает <code>RcEmbeddedPlayer</code>, а рисует Compose-плеер rc-players. Исходник во вкладке «Код» переписан на <code>androidx.compose.remote.*</code>, и CI компилирует каждую story ровно в таком виде против настоящих артефактов AndroidX (снапшот androidx-main с androidx.dev) — скопированный код компилируется.',
+      'Stories скомпилированы в WebAssembly с помощью <a href="https://github.com/yschimke/rc-players" target="_blank" rel="noopener">rc-players</a> — порта API создания AndroidX на Compose Multiplatform, который отличается от него только пакетом. Каждую story вживую собирает <code>RcEmbeddedPlayer</code>, а рисует Compose-плеер rc-players. Исходник во вкладке «Код» переписан на <code>androidx.compose.remote.*</code>, и CI компилирует каждую story ровно в таком виде против настоящих артефактов AndroidX (той версии, которую показывает каталог) — скопированный код компилируется.',
   };
 
   // Category names, and each component's plain-language description, in Russian.
