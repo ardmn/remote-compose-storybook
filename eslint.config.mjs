@@ -7,7 +7,9 @@ import noUnsanitized from "./e2e/node_modules/eslint-plugin-no-unsanitized/index
 export default [
   { ignores: ["build/**", "**/node_modules/**", "e2e/out/**"] },
   // An eslint-disable comment that no longer suppresses anything fails the lint (the default only
-  // warns), so a reviewed exception cannot outlive the code it was written for.
+  // warns). It does not re-check a reviewed sink: the disable covers the `innerHTML =` line only,
+  // while the HTML is built in the lines above it, so a change to that template (a new
+  // interpolation without esc()) still needs a reviewer's eye.
   { linterOptions: { reportUnusedDisableDirectives: "error" } },
   js.configs.recommended,
   {
