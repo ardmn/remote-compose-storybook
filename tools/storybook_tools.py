@@ -398,15 +398,6 @@ NOT_BLOCKS = {
 # Public API no story can demonstrate yet, each with the reason (checked in AndroidX's and
 # rc-players' sources). The coverage page lists them as pending, not missing. Re-check on every bump.
 CANNOT_DEMONSTRATE = {
-    "measureFontMetrics": "on androidx-main after the commit rc-players' fork is pinned to; "
-    "arrives with its next refresh",
-    "measureMonospaceWidth": "on androidx-main after the commit rc-players' fork is pinned to; "
-    "arrives with its next refresh",
-    "measurePaintBounds": "on androidx-main after the commit rc-players' fork is pinned to; "
-    "arrives with its next refresh",
-    "measureSingleLine": "on androidx-main after the commit rc-players' fork is pinned to; "
-    "arrives with its next refresh",
-    "rememberRemoteTextMeasurer": "its androidx-main signature is newer than rc-players' fork",
     "drawTextOnCircle": "AndroidX's own capture profiles do not list its operation (57), so a "
     "capture refuses it (remote-core Operations.java)",
     "rememberNamedRemoteLong": "AndroidX cannot yet turn a dynamic RemoteLong into anything a story "

@@ -26,7 +26,9 @@ import ee.schimke.composeai.rccreation.compose.modifier.size
 import ee.schimke.composeai.rccreation.compose.modifier.width
 import ee.schimke.composeai.rccreation.compose.shaders.RemoteBrush
 import ee.schimke.composeai.rccreation.compose.shaders.solidColor
+import ee.schimke.composeai.rccreation.compose.state.RemoteColor
 import ee.schimke.composeai.rccreation.compose.state.RemoteImageBitmap
+import ee.schimke.composeai.rccreation.compose.state.RemotePathFillType
 import ee.schimke.composeai.rccreation.compose.state.RemoteStrokeCap
 import ee.schimke.composeai.rccreation.compose.state.RemoteStrokeJoin
 import ee.schimke.composeai.rccreation.compose.state.rc
@@ -289,4 +291,37 @@ fun BasicIcon(tint: Color, size: Int, strokeWidth: Float) {
         )
         RemoteBox(contentAlignment = RemoteAlignment.Center) { RemoteText("RemoteBasicIcon".rs) }
     }
+}
+
+@Composable
+@RemoteComposable
+fun BasicIconFillType(fillType: RemotePathFillType, tint: Color) {
+    // Two squares drawn in the same direction: NonZero fills where they overlap, EvenOdd leaves a
+    // hole there.
+    val frame =
+        RemoteImageVector.Builder(
+                viewportWidth = 24f.rf,
+                viewportHeight = 24f.rf,
+                tintColor = RemoteColor.White,
+                name = "Frame",
+            )
+            .path(fill = RemoteBrush.solidColor(RemoteColor.White), pathFillType = fillType) {
+                moveTo(2f.rf, 2f.rf)
+                lineTo(22f.rf, 2f.rf)
+                lineTo(22f.rf, 22f.rf)
+                lineTo(2f.rf, 22f.rf)
+                close()
+                moveTo(7f.rf, 7f.rf)
+                lineTo(17f.rf, 7f.rf)
+                lineTo(17f.rf, 17f.rf)
+                lineTo(7f.rf, 17f.rf)
+                close()
+            }
+            .build()
+    RemoteBasicIcon(
+        imageVector = frame,
+        contentDescription = "Frame".rs,
+        modifier = RemoteModifier.size(120.rdp),
+        tint = tint.rc,
+    )
 }

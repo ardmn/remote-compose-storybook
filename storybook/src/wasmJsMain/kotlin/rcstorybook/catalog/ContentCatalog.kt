@@ -244,6 +244,18 @@ internal val contentComponents =
                     ) {
                         BasicIcon(it.color("tint"), it.int("size"), it.float("strokeWidth"))
                     },
+                    Story(
+                        "remote-basic-icon--fill-type",
+                        "Path fill type",
+                        "BasicIconFillType",
+                        "One path of two squares, filled with each RemotePathFillType.",
+                        listOf(
+                            choice("fillType", More.pathFillTypes, default = 1),
+                            color("tint", Color(0xFF3949AB)),
+                        ),
+                    ) {
+                        BasicIconFillType(it["fillType"], it.color("tint"))
+                    },
                 ),
         ),
     )
@@ -483,6 +495,60 @@ internal val canvasComponents =
                         ),
                     ) {
                         ComponentSizeExpression(it.float("fraction"), it.int("parentHeight"))
+                    },
+                    Story(
+                        "remote-component--position",
+                        "Position in parent and root",
+                        "ComponentPosition",
+                        "positionInParent and positionInRoot of a column, as the player placed it.",
+                        listOf(choice("contentAlignment", Options.alignments, default = 4)),
+                    ) {
+                        ComponentPosition(it["contentAlignment"])
+                    },
+                ),
+        ),
+        Component(
+            id = "remote-text-measurer",
+            title = "rememberRemoteTextMeasurer",
+            category = "Canvas",
+            symbols =
+                listOf(
+                    "$C.layout.rememberRemoteTextMeasurer",
+                    "$C.layout.RemoteTextMeasurer",
+                    "$C.layout.RemoteSingleLineTextBounds",
+                    "$C.layout.RemoteFontMetrics",
+                    "$C.layout.RemotePaintBounds",
+                ),
+            description =
+                "Text sizes as remote values, measured by the player with its own fonts: a line's box and baseline, " +
+                    "the font's ascent and descent, the inked bounds and a tabular width.",
+            stories =
+                listOf(
+                    Story(
+                        "remote-text-measurer--metrics",
+                        "Line, font and ink bounds",
+                        "TextMeasureMetrics",
+                        "measureSingleLine, measureFontMetrics and measurePaintBounds drawn around canvas text.",
+                        listOf(
+                            text("text", "Hello"),
+                            int("fontSize", 40, 12, 72, step = 2),
+                            bool("showInk", true),
+                        ),
+                    ) {
+                        TextMeasureMetrics(it.text("text"), it.int("fontSize"), it.bool("showInk"))
+                    },
+                    Story(
+                        "remote-text-measurer--badge",
+                        "Badge that fits its text",
+                        "TextMeasureBadge",
+                        "A pill sized by measureSingleLine, or by measureMonospaceWidth for steady digits.",
+                        listOf(
+                            text("text", "1,280"),
+                            int("fontSize", 28, 12, 56, step = 2),
+                            bool("tabular", false),
+                        ),
+                    ) {
+                        TextMeasureBadge(it.text("text"), it.int("fontSize"), it.bool("tabular"))
                     },
                 ),
         ),

@@ -23,6 +23,7 @@
     <ID>MatchingDeclarationName:State.kt:Screen</ID>
     <ID>ReturnCount:DocumentText.kt:internal fun unifiedDiff: String</ID>
     <ID>TooManyFunctions:Canvas.kt:rcstorybook.stories.Canvas.kt</ID>
+    <ID>TooManyFunctions:Content.kt:rcstorybook.stories.Content.kt</ID>
     <ID>TooManyFunctions:Layout.kt:rcstorybook.stories.Layout.kt</ID>
     <ID>TooManyFunctions:Modifiers.kt:rcstorybook.stories.Modifiers.kt</ID>
     <ID>TooManyFunctions:State.kt:rcstorybook.stories.State.kt</ID>

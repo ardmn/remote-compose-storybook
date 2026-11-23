@@ -15,12 +15,14 @@ import ee.schimke.composeai.rccreation.compose.layout.RemoteComposable
 import ee.schimke.composeai.rccreation.compose.layout.RemoteOffset
 import ee.schimke.composeai.rccreation.compose.layout.RemoteSize
 import ee.schimke.composeai.rccreation.compose.layout.RemoteText
+import ee.schimke.composeai.rccreation.compose.layout.rememberRemoteTextMeasurer
 import ee.schimke.composeai.rccreation.compose.layout.remoteComponent
 import ee.schimke.composeai.rccreation.compose.modifier.RemoteModifier
 import ee.schimke.composeai.rccreation.compose.modifier.background
 import ee.schimke.composeai.rccreation.compose.modifier.drawWithContent
 import ee.schimke.composeai.rccreation.compose.modifier.fillMaxWidth
 import ee.schimke.composeai.rccreation.compose.modifier.height
+import ee.schimke.composeai.rccreation.compose.modifier.padding
 import ee.schimke.composeai.rccreation.compose.modifier.size
 import ee.schimke.composeai.rccreation.compose.shaders.RemoteBrush
 import ee.schimke.composeai.rccreation.compose.shaders.RemoteShaderBrush
@@ -34,6 +36,7 @@ import ee.schimke.composeai.rccreation.compose.shapes.RemoteRoundedCornerShape
 import ee.schimke.composeai.rccreation.compose.shapes.clipOutline
 import ee.schimke.composeai.rccreation.compose.shapes.drawOutline
 import ee.schimke.composeai.rccreation.compose.state.RemoteBlendMode
+import ee.schimke.composeai.rccreation.compose.state.RemoteColor
 import ee.schimke.composeai.rccreation.compose.state.RemoteImageBitmap
 import ee.schimke.composeai.rccreation.compose.state.RemotePaint
 import ee.schimke.composeai.rccreation.compose.state.RemotePaintingStyle
@@ -46,8 +49,10 @@ import ee.schimke.composeai.rccreation.compose.state.rc
 import ee.schimke.composeai.rccreation.compose.state.rdp
 import ee.schimke.composeai.rccreation.compose.state.rf
 import ee.schimke.composeai.rccreation.compose.state.rs
+import ee.schimke.composeai.rccreation.compose.state.rsp
 import ee.schimke.composeai.rccreation.compose.state.sin
 import ee.schimke.composeai.rccreation.compose.state.toRemoteDp
+import ee.schimke.composeai.rccreation.compose.text.RemoteTextStyle
 import ee.schimke.composeai.rccreation.compose.text.RemoteTypeface
 
 @Composable
@@ -172,13 +177,16 @@ fun CanvasGradients(kind: String, first: Color, second: Color) {
         val colors = listOf(first.rc, second.rc)
         val brush: RemoteShaderBrush =
             when (kind) {
+                // RemoteOffset.Infinite as the end: the far corner of whatever is filled.
                 "linear" ->
                     RemoteBrush.linearGradient(
                         colors,
                         start = RemoteOffset.Zero,
-                        end = RemoteOffset(width, height),
+                        end = RemoteOffset.Infinite,
                     )
                 "horizontal" -> RemoteBrush.horizontalGradient(colors)
+                // Colour stops: each colour at a fraction of the way, here most of it the first.
+                "stops" -> RemoteBrush.horizontalGradient(0.6f.rf to first.rc, 1f.rf to second.rc)
                 "vertical" -> RemoteBrush.verticalGradient(colors)
                 "radial" ->
                     RemoteBrush.radialGradient(colors, center = center, radius = height / 2f.rf)
@@ -343,5 +351,117 @@ fun CanvasImageBrush(tileMode: RemoteTileMode) {
         val paint = RemotePaint()
         with(brush) { applyTo(paint, size) }
         drawRoundRect(paint, size = size, cornerRadius = RemoteOffset(24f.rf, 24f.rf))
+    }
+}
+
+@Composable
+@RemoteComposable
+fun TextMeasureMetrics(text: String, fontSize: Int, showInk: Boolean) {
+    // A text measurer records measuring operations: the player measures with its own fonts, so the
+    // boxes fit the text on every device.
+    val textStyle = RemoteTextStyle(fontSize = fontSize.rsp)
+    val measurer = rememberRemoteTextMeasurer(textStyle)
+    val line = measurer.measureSingleLine(text.rs)
+    val metrics = measurer.measureFontMetrics()
+    val ink = measurer.measurePaintBounds(text.rs)
+    RemoteCanvas(modifier = RemoteModifier.fillMaxWidth().height(200.rdp)) {
+        val x = 16f.rf
+        val baseline = 120f.rf
+        val guide = RemotePaint {
+            color = Color(0x66000000).rc
+            strokeWidth = 1f.rf
+        }
+        // measureFontMetrics: ascent (negative, above the baseline) and descent, for the font.
+        for (y in listOf(baseline + metrics.ascent, baseline, baseline + metrics.descent)) {
+            drawLine(guide, RemoteOffset(0f.rf, y), RemoteOffset(width, y))
+        }
+        // measureSingleLine: the line's layout box; its baseline is measured from the box's top.
+        drawRect(
+            RemotePaint {
+                color = Color(0xFF1E88E5).rc
+                style = RemotePaintingStyle.Stroke
+                strokeWidth = 2f.rf
+            },
+            topLeft = RemoteOffset(x, baseline - line.baseline),
+            size = line.size,
+        )
+        if (showInk) {
+            // measurePaintBounds: only the inked pixels, relative to the start of the baseline.
+            drawRect(
+                RemotePaint { color = Color(0x55E53935).rc },
+                topLeft = RemoteOffset(x + ink.left, baseline + ink.top),
+                size = RemoteSize(ink.width, ink.height),
+            )
+        }
+        drawText(
+            text.rs,
+            x,
+            baseline,
+            RemotePaint {
+                color = RemoteColor.Black
+                textSize = fontSize.rsp.toPx()
+            },
+        )
+    }
+}
+
+@Composable
+@RemoteComposable
+fun TextMeasureBadge(text: String, fontSize: Int, tabular: Boolean) {
+    val textStyle = RemoteTextStyle(fontSize = fontSize.rsp)
+    val measurer = rememberRemoteTextMeasurer(textStyle)
+    val line = measurer.measureSingleLine(text.rs)
+    // measureMonospaceWidth gives every character the width of a '0': a number that changes keeps
+    // the badge's width steady.
+    val textWidth = if (tabular) measurer.measureMonospaceWidth(text.rs) else line.size.width
+    val padding = 12f.rf
+    RemoteCanvas(modifier = RemoteModifier.fillMaxWidth().height(140.rdp)) {
+        val left = 16f.rf
+        val top = 24f.rf
+        val badgeHeight = line.size.height + padding
+        drawRoundRect(
+            RemotePaint { color = Color(0xFFE53935).rc },
+            topLeft = RemoteOffset(left, top),
+            size = RemoteSize(textWidth + padding * 2f.rf, badgeHeight),
+            cornerRadius = RemoteOffset(badgeHeight / 2f.rf, badgeHeight / 2f.rf),
+        )
+        drawText(
+            text.rs,
+            left + padding,
+            top + padding / 2f.rf + line.baseline,
+            RemotePaint {
+                color = RemoteColor.White
+                textSize = fontSize.rsp.toPx()
+            },
+        )
+    }
+}
+
+@Composable
+@RemoteComposable
+fun ComponentPosition(contentAlignment: RemoteAlignment) {
+    RemoteBox(
+        modifier = RemoteModifier.size(280.rdp, 200.rdp).background(Color(0xFFF1F3F4).rc),
+        contentAlignment = contentAlignment,
+    ) {
+        RemoteColumn(modifier = RemoteModifier.background(Color(0xFF1E88E5).rc).padding(8.rdp)) {
+            // remoteComponent() here is this column: where the player placed it, in pixels, in
+            // its parent box and in the whole document.
+            val me = remoteComponent()
+            RemoteText(
+                "in parent: ".rs +
+                    me.positionInParent.x.toRemoteInt().toRemoteString() +
+                    ", ".rs +
+                    me.positionInParent.y.toRemoteInt().toRemoteString(),
+                color = RemoteColor.White,
+            )
+            RemoteText(
+                "in root: ".rs +
+                    me.positionInRoot.x.toRemoteInt().toRemoteString() +
+                    ", ".rs +
+                    me.positionInRoot.y.toRemoteInt().toRemoteString(),
+                color = RemoteColor.White,
+            )
+        }
     }
 }

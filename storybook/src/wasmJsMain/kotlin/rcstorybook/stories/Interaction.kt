@@ -3,6 +3,7 @@ package rcstorybook.stories
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.graphics.Color
+import ee.schimke.composeai.rccreation.compose.action.RemoteAction
 import ee.schimke.composeai.rccreation.compose.action.combinedAction
 import ee.schimke.composeai.rccreation.compose.action.hostAction
 import ee.schimke.composeai.rccreation.compose.action.valueChangeAction
@@ -31,6 +32,7 @@ import ee.schimke.composeai.rccreation.compose.modifier.stateDescription
 import ee.schimke.composeai.rccreation.compose.shapes.RemoteRoundedCornerShape
 import ee.schimke.composeai.rccreation.compose.state.MutableRemoteBoolean
 import ee.schimke.composeai.rccreation.compose.state.MutableRemoteInt
+import ee.schimke.composeai.rccreation.compose.state.RemoteColor
 import ee.schimke.composeai.rccreation.compose.state.rb
 import ee.schimke.composeai.rccreation.compose.state.rc
 import ee.schimke.composeai.rccreation.compose.state.rdp
@@ -182,5 +184,24 @@ fun Semantics(description: String, state: String) {
         ) {
             RemoteText("cleared".rs, color = Color.White.rc)
         }
+    }
+}
+
+@Composable
+@RemoteComposable
+fun HostActionById(id: Int, metadata: String, enabled: Boolean) {
+    // A host action can be a number the app knows, with optional text; RemoteAction.None is the
+    // action that does nothing.
+    val action = if (enabled) hostAction(id, metadata.rs) else RemoteAction.None
+    RemoteBox(
+        RemoteModifier.clip(RemoteRoundedCornerShape(12.rdp))
+            .background(if (enabled) Color(0xFF1E88E5).rc else Color(0xFF9E9E9E).rc)
+            .clickable(action)
+            .padding(16.rdp),
+    ) {
+        RemoteText(
+            (if (enabled) "hostAction($id, \"$metadata\")" else "RemoteAction.None").rs,
+            color = RemoteColor.White,
+        )
     }
 }
