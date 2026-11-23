@@ -6,6 +6,9 @@ import noUnsanitized from "./e2e/node_modules/eslint-plugin-no-unsanitized/index
 
 export default [
   { ignores: ["build/**", "**/node_modules/**", "e2e/out/**"] },
+  // An eslint-disable comment that no longer suppresses anything fails the lint (the default only
+  // warns), so a reviewed exception cannot outlive the code it was written for.
+  { linterOptions: { reportUnusedDisableDirectives: "error" } },
   js.configs.recommended,
   {
     files: ["web/**/*.js"],
@@ -13,8 +16,9 @@ export default [
     rules: { "no-unused-vars": ["error", { args: "none" }], eqeqeq: ["error", "smart"] },
   },
   // The page builds HTML from story data and translations: every innerHTML, insertAdjacentHTML or
-  // document.write with a non-literal value is an XSS sink to review. The ones that predate the
-  // rule are counted in eslint-suppressions.json; a new one fails the lint.
+  // document.write with a non-literal value is an XSS sink to review. Each reviewed sink has a
+  // disable comment for this rule on the line before it, saying why it is safe; any other sink fails
+  // the lint.
   { files: ["web/**/*.js"], ...noUnsanitized.configs.recommended },
   {
     files: ["e2e/**/*.mjs", "eslint.config.mjs"],

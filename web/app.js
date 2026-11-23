@@ -264,7 +264,7 @@
       html += `<div class="nav-section"><div class="nav-heading">${esc(I18n.category(cat))}</div>`;
       for (const c of byCategory.get(cat)) {
         const open = q || state.expanded.has(c.id) || (state.current && state.current.component.id === c.id);
-        html += `<button class="nav-comp" data-comp="${c.id}" aria-expanded="${open ? "true" : "false"}">${esc(c.title)}</button>`;
+        html += `<button class="nav-comp" data-comp="${esc(c.id)}" aria-expanded="${open ? "true" : "false"}">${esc(c.title)}</button>`;
         if (open) {
           for (const s of c.stories) {
             if (
@@ -276,13 +276,14 @@
               )
             )
               continue;
-            html += `<a class="nav-link" href="#/story/${s.id}" ${s.id === currentId ? 'aria-current="page"' : ""}>${esc(s.name)}</a>`;
+            html += `<a class="nav-link" href="#/story/${esc(s.id)}" ${s.id === currentId ? 'aria-current="page"' : ""}>${esc(s.name)}</a>`;
           }
         }
       }
       html += `</div>`;
     }
     if (!cats.length) html += `<div class="nav-empty">${t("nav.empty", { q: esc(q) })}</div>`;
+    // eslint-disable-next-line no-unsanitized/property -- story/category names, ids and the search query go through esc(); the rest is bundled translations from i18n.js
     nav.innerHTML = html;
   }
 
@@ -311,6 +312,7 @@
 
   function showPage(html) {
     state.current = null;
+    // eslint-disable-next-line no-unsanitized/property -- html is renderOverview()/renderCoverage(): data strings go through esc(), counts are numbers, the rest is bundled translations from i18n.js
     $("page").innerHTML = html;
     $("page").hidden = false;
     $("storyView").hidden = true;
@@ -356,6 +358,7 @@
     $("storyTitle").textContent = story.name;
     $("storyDesc").textContent = story.description;
     const plain = I18n.plain(component);
+    // eslint-disable-next-line no-unsanitized/property -- plain.what and each useWhen go through esc(); headings are bundled translations from i18n.js
     $("storyPlain").innerHTML = plain
       ? `<section class="plain-card"><h2><span class="plain-icon" aria-hidden="true">i</span>${t("plain.what")}</h2>
           <p>${esc(plain.what)}</p></section>
@@ -364,6 +367,7 @@
       : "";
     const how = I18n.how(component);
     $("storyHow").hidden = !how;
+    // eslint-disable-next-line no-unsanitized/property -- `how` is the hand-written HTML for this component bundled in i18n.js, the title a bundled translation
     $("storyHow").innerHTML = how ? `<summary>${t("how.title")}</summary>${how}` : "";
     document.title = component.title + " · " + story.name + " — Remote Compose Storybook";
     sizeStage();
@@ -478,12 +482,14 @@
     const { story, values } = state.current;
     const body = $("controls");
     if (!story.args.length) {
+      // eslint-disable-next-line no-unsanitized/property -- a bundled translation, no data
       body.innerHTML = `<p class="empty">${t("controls.none")}</p>`;
       return;
     }
     let rows = "";
     for (const a of story.args)
       rows += `<tr><td class="name">${esc(a.name)}</td><td>${controlHtml(a, values[a.name])}</td><td class="doc">${esc(a.doc || "")}</td></tr>`;
+    // eslint-disable-next-line no-unsanitized/property -- arg names, docs, option labels and values (values also come from the URL) go through esc() in renderControls/controlHtml, colors are regex-checked, min/max/step are catalog numbers; headers are bundled translations from i18n.js
     body.innerHTML = `<table class="controls"><thead><tr><th>${t("controls.name")}</th><th>${t("controls.control")}</th><th>${t("controls.description")}</th></tr></thead><tbody>${rows}</tbody></table>`;
     body.querySelectorAll("[data-arg]").forEach((el) => {
       const name = el.dataset.arg;
@@ -592,6 +598,7 @@
     html += src
       ? codeBlock(t("code.source", { file: src.file }), src.code)
       : `<p class="empty">${t("code.missing", { fn: esc(story.function) })}</p>`;
+    // eslint-disable-next-line no-unsanitized/property -- codeBlock() escapes its title (file name included) and escapes or highlights the code (highlight.js escapes every token); the function name goes through esc()
     body.innerHTML = html;
   }
 
@@ -609,10 +616,11 @@
       if (sigs && sigs.length) html += codeBlock("", sigs.join("\n"), "plain");
       else html += `<p class="empty">${t("docs.noSignature")}</p>`;
     }
-    const otherStories = component.stories.map((s) => `<a href="#/story/${s.id}">${esc(s.name)}</a>`).join(" · ");
+    const otherStories = component.stories.map((s) => `<a href="#/story/${esc(s.id)}">${esc(s.name)}</a>`).join(" · ");
     html += `<h3>${t("docs.stories")}</h3><p>${otherStories}</p>`;
     const pkgs = [...new Set(component.symbols.map((s) => s.replace(/\.[^.]+$/, "")))];
-    html += `<h3>${t("docs.reference")}</h3><p>${pkgs.map((p) => `<a href="https://developer.android.com/reference/kotlin/${p.replace(/\./g, "/")}/package-summary" target="_blank" rel="noopener"><code>${esc(p)}</code></a>`).join("<br>")}</p></div>`;
+    html += `<h3>${t("docs.reference")}</h3><p>${pkgs.map((p) => `<a href="https://developer.android.com/reference/kotlin/${esc(p.replace(/\./g, "/"))}/package-summary" target="_blank" rel="noopener"><code>${esc(p)}</code></a>`).join("<br>")}</p></div>`;
+    // eslint-disable-next-line no-unsanitized/property -- descriptions, symbols, story names/ids and package names go through esc(); signatures through codeBlock(); the rest is bundled translations from i18n.js
     $("docs").innerHTML = html;
   }
 
@@ -622,9 +630,11 @@
     const doc = state.lastDocument;
     const body = $("document");
     if (!doc) {
+      // eslint-disable-next-line no-unsanitized/property -- a bundled translation, no data
       body.innerHTML = `<p class="empty">${t("doc.waiting")}</p>`;
       return;
     }
+    // eslint-disable-next-line no-unsanitized/property -- byte and operation counts are numbers, the structure text is escaped by codeBlock(..., "plain")
     body.innerHTML =
       `<p>${t("doc.summary", {
         bytes: doc.bytes.toLocaleString(),
@@ -637,9 +647,11 @@
     const doc = state.lastDocument;
     const body = $("changes");
     if (!doc || !doc.diff) {
+      // eslint-disable-next-line no-unsanitized/property -- a bundled translation, no data
       body.innerHTML = `<p class="empty">${t("changes.none")}</p>`;
       return;
     }
+    // eslint-disable-next-line no-unsanitized/property -- the diff goes through H.diff(), which escapes every line
     body.innerHTML = `<p>${t("changes.intro")}</p>` + codeBlock("", doc.diff, "diff");
   }
 
@@ -664,6 +676,7 @@
     const doc = state.lastDocument;
     const named = (doc && doc.named) || [];
     if (!named.length) {
+      // eslint-disable-next-line no-unsanitized/property -- a bundled translation, no data
       body.innerHTML = `<p class="empty">${t("host.none")}</p>`;
       return;
     }
@@ -674,6 +687,7 @@
         return `<tr><td class="name">${label}</td><td><code>${kind}</code></td><td><div class="control">${hostInput(v, label)}</div></td></tr>`;
       })
       .join("");
+    // eslint-disable-next-line no-unsanitized/property -- named-value names and kinds go through esc(), types are numbers, the rest is bundled translations from i18n.js
     body.innerHTML = `<p>${t("host.intro", { bytes: doc.bytes.toLocaleString() })}</p>
       <table class="controls"><thead><tr><th>${t("controls.name")}</th><th>${t("host.type")}</th><th>${t("host.value")}</th></tr></thead><tbody>${rows}</tbody></table>
       <p><button class="btn" id="hostReset">${t("host.reset")}</button></p>`;
@@ -701,13 +715,15 @@
   function renderActions() {
     const body = $("actions");
     if (!state.actions.length) {
+      // eslint-disable-next-line no-unsanitized/property -- a bundled translation, no data
       body.innerHTML = `<p class="empty">${t("actions.none")}</p>`;
       return;
     }
+    // eslint-disable-next-line no-unsanitized/property -- event time, type and detail go through esc(); the button label is a bundled translation
     body.innerHTML = `<ul class="action-log">${state.actions
       .slice()
       .reverse()
-      .map((a) => `<li><time>${a.time}</time><b>${esc(a.type)}</b><span>${esc(a.detail)}</span></li>`)
+      .map((a) => `<li><time>${esc(a.time)}</time><b>${esc(a.type)}</b><span>${esc(a.detail)}</span></li>`)
       .join("")}</ul>
       <p><button class="btn" id="clearActions">${t("actions.clear")}</button></p>`;
     $("clearActions").addEventListener("click", () => {
@@ -782,7 +798,7 @@ dependencies {
               .filter((c) => c.category === cat)
               .map((c) => {
                 const plain = I18n.plain(c);
-                return `<a class="card" href="${first(c)}"><b>${esc(c.title)}</b><span>${esc(plain ? plain.what : c.description)}</span></a>`;
+                return `<a class="card" href="${esc(first(c))}"><b>${esc(c.title)}</b><span>${esc(plain ? plain.what : c.description)}</span></a>`;
               })
               .join("")}</div>`,
         )
@@ -824,7 +840,7 @@ dependencies {
       for (const b of items) {
         const direct = b.stories.map((fn) => storyFor.get(fn)).filter(Boolean);
         const opts = b.inOptions ? viaOptions(b.name).filter((s) => !direct.includes(s)) : [];
-        const links = [...direct, ...opts].map((s) => `<a href="#/story/${s.id}">${esc(s.name)}</a>`).join("");
+        const links = [...direct, ...opts].map((s) => `<a href="#/story/${esc(s.id)}">${esc(s.name)}</a>`).join("");
         const note =
           b.pending && !links
             ? `<span class="pill">${t("cov.pending")}</span> <span class="empty">${esc(b.pending)}</span>`

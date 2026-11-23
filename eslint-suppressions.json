@@ -1,7 +1,0 @@
-{
-  "web/app.js": {
-    "no-unsanitized/property": {
-      "count": 16
-    }
-  }
-}
