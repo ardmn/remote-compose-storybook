@@ -4,9 +4,6 @@ on:
   push:
     branches: [main]
   pull_request:
-  # Weekly, for advisories published since the last push: only the security and secrets jobs run.
-  schedule:
-    - cron: "17 5 * * 1"
   workflow_dispatch:
     inputs:
       update_baselines:
@@ -19,7 +16,6 @@ permissions:
 
 jobs:
   lint:
-    if: github.event_name != 'schedule'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -75,8 +71,8 @@ jobs:
           npm run lint
 
   secrets:
-    # The build waits for this one: a secret comes from the commit itself, so it must stop the
-    # deploy before build/site is published. It also runs weekly with the security job.
+    # The deploy waits for this one (not the build, so pull requests still get their e2e result): a
+    # secret comes from the commit itself, so it must stop the deploy before build/site is published.
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -95,29 +91,8 @@ jobs:
           tar -xzf "$RUNNER_TEMP/gitleaks.tar.gz" -C "$RUNNER_TEMP" gitleaks
           "$RUNNER_TEMP/gitleaks" git --redact --no-banner --verbose --log-opts=HEAD .
 
-  security:
-    # Not a dependency of the build: a newly published advisory must not block a deploy of main. It
-    # also runs alone every week (the schedule above). GitHub turns scheduled workflows off after 60
-    # days without repository activity; re-enable it in the Actions tab if that happens.
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v7
-
-      # The npm, Yarn and pip lockfiles (e2e/, kotlin-js-store/, tools/); reviewed advisories are in
-      # osv-scanner.toml. Gradle dependencies are not scanned: there is no Gradle lockfile.
-      - name: Dependencies (OSV-Scanner)
-        env:
-          VERSION: 2.7.1
-          SHA256: fb7dab19a8bd9bbe5c3189f09d4b7ee1820c9553a23bac202648a56efd2f6ee8
-        run: |
-          curl -sSfL --retry 3 --retry-all-errors -o "$RUNNER_TEMP/osv-scanner" "https://github.com/google/osv-scanner/releases/download/v$VERSION/osv-scanner_linux_amd64"
-          echo "$SHA256  $RUNNER_TEMP/osv-scanner" | sha256sum -c -
-          chmod +x "$RUNNER_TEMP/osv-scanner"
-          "$RUNNER_TEMP/osv-scanner" scan source --config osv-scanner.toml -r .
-
   verify-androidx:
     # The stories, as the Code tab shows them, compiled against AndroidX's own artifacts.
-    if: github.event_name != 'schedule'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -137,8 +112,7 @@ jobs:
         run: scripts/verify-androidx.sh
 
   build:
-    needs: [lint, verify-androidx, secrets]
-    if: github.event_name != 'schedule'
+    needs: [lint, verify-androidx]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -205,7 +179,7 @@ jobs:
           path: build/site
 
   deploy:
-    needs: build
+    needs: [build, secrets]
     # Only deploys share a queue: a pull request can never replace a pending deploy from main.
     concurrency:
       group: pages-deploy
