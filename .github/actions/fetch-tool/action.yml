@@ -1,0 +1,32 @@
+name: Fetch a pinned tool
+description: >-
+  Downloads a release binary, checks its SHA-256 before anything else touches it, and puts it on
+  PATH for the job's later steps (ahead of any copy in the runner image). The caller names the
+  release URL and its SHA-256, so the pinned version stays visible in the workflow.
+
+inputs:
+  name:
+    description: The command name the tool is installed under.
+    required: true
+  url:
+    description: The release asset to download (a tar archive in any compression tar detects, or the binary itself).
+    required: true
+  sha256:
+    description: The SHA-256 of the downloaded file, from the official release.
+    required: true
+  archive-path:
+    description: The binary's path inside the archive; empty when the download is the binary itself.
+    required: false
+    default: ""
+
+runs:
+  using: composite
+  steps:
+    - name: Download, verify and install ${{ inputs.name }}
+      shell: bash
+      env:
+        NAME: ${{ inputs.name }}
+        URL: ${{ inputs.url }}
+        SHA256: ${{ inputs.sha256 }}
+        ARCHIVE_PATH: ${{ inputs.archive-path }}
+      run: '"$GITHUB_ACTION_PATH/fetch.sh"'
