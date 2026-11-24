@@ -10,14 +10,6 @@
     <ID>LongMethod:Recipes.kt:@Composable @RemoteComposable fun MediaPlayer</ID>
     <ID>LongMethod:Recipes.kt:@Composable @RemoteComposable fun Onboarding</ID>
     <ID>LongMethod:Recipes.kt:@Composable @RemoteComposable fun ProductCard</ID>
-    <ID>MagicNumber:DocumentText.kt:6_000_000L</ID>
-    <ID>MagicNumber:Json.kt:16</ID>
-    <ID>MagicNumber:Json.kt:4</ID>
-    <ID>MagicNumber:Main.kt:0xFF121316</ID>
-    <ID>MagicNumber:Main.kt:16</ID>
-    <ID>MagicNumber:Main.kt:4000</ID>
-    <ID>MagicNumber:Model.kt:16</ID>
-    <ID>MagicNumber:Model.kt:8</ID>
     <ID>MatchingDeclarationName:MoreOptions.kt:More</ID>
     <ID>MatchingDeclarationName:PlainLanguage.kt:Plain</ID>
     <ID>MatchingDeclarationName:State.kt:Screen</ID>
