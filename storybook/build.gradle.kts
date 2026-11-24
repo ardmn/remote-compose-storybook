@@ -22,6 +22,14 @@ detekt {
 // project does not have, and ends NO-SOURCE: make it run the Wasm source set's analysis.
 tasks.named("detekt") { dependsOn("detektWasmJsMainSourceSet") }
 
+// Lock what ships in storybook.wasm (the wasmJs configurations) in gradle.lockfile, so OSV-Scanner
+// (security.yml) scans the Kotlin and Compose libraries the site runs, and a resolved version can't
+// change unnoticed. Build tools (ktfmt, detekt) are not locked: they never reach the site.
+// After changing a dependency: ./gradlew :storybook:dependencies --write-locks
+configurations
+    .matching { it.name.startsWith("wasmJs") }
+    .configureEach { resolutionStrategy.activateDependencyLocking() }
+
 kotlin {
     compilerOptions { allWarningsAsErrors.set(true) }
     @OptIn(org.jetbrains.kotlin.gradle.ExperimentalWasmDsl::class)
