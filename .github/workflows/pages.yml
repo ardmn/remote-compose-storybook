@@ -161,10 +161,12 @@ jobs:
       - name: Build the site
         run: scripts/build-site.sh
 
+      # Only what social.mjs and run.mjs import (package.json "dependencies"); the lint tools are
+      # devDependencies and only the lint job installs them.
       - name: Install the test browser
         working-directory: e2e
         run: |
-          npm ci
+          npm ci --omit=dev
           npx playwright install --with-deps chromium
 
       # A page and a preview card per story, for links shared in chats and social networks.
