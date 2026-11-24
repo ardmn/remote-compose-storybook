@@ -49,7 +49,8 @@ const fail = (what) => {
 
 const browser = await chromium.launch();
 // A context, not browser.newPage(): the accessibility audit opens pages in it.
-const context = await browser.newContext({ viewport: { width: 1360, height: 1000 } });
+// English: the coverage check below reads the page's English summary.
+const context = await browser.newContext({ viewport: { width: 1360, height: 1000 }, locale: "en-US" });
 const page = await context.newPage();
 const pageErrors = [];
 page.on("pageerror", (e) => pageErrors.push(e.message));
@@ -71,6 +72,30 @@ if (!(await page.textContent("#page h1")).includes("Remote Compose Storybook")) 
 await page.screenshot({ path: path.join(outDir, "_overview.png") });
 await page.goto(base + "#/coverage");
 await page.waitForSelector(".cov-table");
+// The page shows the coverage the build decided: the same counts, and for every covered block a
+// story link (a block covered only through a control option links the stories offering it), or
+// the helper functions that use it when no story page does.
+{
+  const cov = await page.evaluate(() => fetch("data/coverage.json").then((r) => r.json()));
+  const shown = await page.evaluate(() => ({
+    summary: document.querySelector("#page .meter").previousElementSibling.textContent,
+    rows: [...document.querySelectorAll(".cov-table tr")].map((tr) => ({
+      name: tr.cells[0].textContent,
+      links: tr.cells[1].querySelectorAll("a, code").length,
+    })),
+  }));
+  const { covered, total } = cov.summary;
+  if (!shown.summary.includes(`${covered} of ${total}`))
+    fail(`coverage page summary "${shown.summary}" is not ${covered}/${total}`);
+  // The page lists the blocks in coverage.json's order (sorted by group, then name).
+  if (shown.rows.length !== cov.blocks.length)
+    fail(`coverage page lists ${shown.rows.length} of ${cov.blocks.length} blocks`);
+  cov.blocks.forEach((b, i) => {
+    const row = shown.rows[i] || { name: "", links: 0 };
+    if (row.name !== b.name || (b.status === "covered") !== row.links > 0)
+      fail(`coverage page row ${i}: ${row.name} with ${row.links} story links, coverage.json: ${b.name} ${b.status}`);
+  });
+}
 await page.screenshot({ path: path.join(outDir, "_coverage.png"), fullPage: true });
 
 // The stage layout for the next story; the control may be hidden (on a page without a stage).

@@ -7,8 +7,11 @@ Subcommands:
             androidx.compose.remote that AndroidX's api/current.txt does not declare public.
   api       Extract the public signatures of each component's symbols from AndroidX's
             api/current.txt files into api.json for the Docs tab.
-  coverage  List every public building block in AndroidX's current.txt and which stories use it;
-            write coverage.json and fail when a building block is used by no story.
+  coverage  List every public building block in AndroidX's current.txt, the stories and control
+            options that use it on its receiver, and its status (covered, pending, missing);
+            write coverage.json, which the site only displays, and fail when a building block is
+            missing or a CANNOT_DEMONSTRATE entry is stale.
+  uses      Print the stories that use given API members (`Owner.member`), by the same rule.
 
 The stories are written against rc-players' multiplatform fork of the creation API, which is
 AndroidX's source in another package. The only rewrite is the package: anything else from
@@ -20,6 +23,7 @@ import json
 import os
 import re
 import sys
+from typing import Any
 
 PACKAGE_REWRITES = [
     ("ee.schimke.composeai.rccreation.compose.", "androidx.compose.remote.creation.compose."),
@@ -129,15 +133,6 @@ def parse_kotlin(path):
     return imports, decls
 
 
-def block_used(name, text):
-    """Whether `text` uses a building block: a lowercase name (a function) only counts when
-    called, `name(` or `name {`, so a parameter or variable called `image` is not RemoteBrush.image;
-    a capitalised name (a class, a composable, a constant) counts wherever it appears."""
-    if name[:1].islower():
-        return re.search(r"(?<![\w])" + re.escape(name) + r"\s*[({]", text) is not None
-    return word_used(name, text)
-
-
 def word_used(name, text):
     return (
         re.search(r"(?<![\w.])" + re.escape(name) + r"(?!\w)", text) is not None
@@ -153,6 +148,25 @@ def import_used(name, text):
             continue
         return True
     return False
+
+
+def import_needed(fq, body, imports, entries, index):
+    """Whether `body` (with `imports`) needs the import `fq`. AndroidX remote API is checked with
+    the coverage rule (a parameter called `width` does not need `modifier.width`); anything else
+    with import_used."""
+    specs = []
+    if entries and fq.startswith("androidx.compose.remote."):
+        for e in entries:
+            if e["kind"] == "class" or (e["owner"] or "").endswith("Kt") or e.get("static"):
+                hit = e["package"] + "." + e["name"] == fq
+            else:
+                hit = e["package"] + "." + (e["owner"] or "") + "." + e["name"] == fq
+            if hit:
+                specs.append(use_specs(e))
+    if not specs:
+        return import_used(fq.rsplit(".", 1)[1], body)
+    code = strip_code(body)
+    return any(member_used(spec, code, set(imports), index) for spec in specs)
 
 
 def innermost_opener(text, index):
@@ -174,7 +188,9 @@ def story_files(stories_dir):
 def cmd_sources(args):
     out = {}
     errors = []
-    public = public_names(parse_api(args.api)) if args.api else None
+    entries = parse_api(args.api) if args.api else []
+    public = public_names(entries) if args.api else None
+    index = ApiIndex(entries)
     all_decls = {}
     parsed = {}
     for path in story_files(args.stories):
@@ -219,7 +235,10 @@ def cmd_sources(args):
             pool = set(imports)
             for h in helpers:
                 pool.update(parsed[all_decls[h.name][0]][0])
-            used_imports = sorted({rewrite(imp) for imp in pool if import_used(imp.rsplit(".", 1)[1], body)})
+            rewritten = [rewrite(imp) for imp in pool]
+            used_imports = sorted(
+                {imp for imp in rewritten if import_needed(imp, body, rewritten, entries, index)}
+            )
             code = "\n".join("import " + i for i in used_imports) + "\n\n" + rewrite(body)
             out[d.name] = {
                 "file": os.path.basename(path),
@@ -409,18 +428,15 @@ CANNOT_DEMONSTRATE = {
 
 def building_blocks(entries):
     """The public names a storybook user builds with, grouped as the Coverage page lists them."""
-    blocks: dict[tuple[str, str], set[str]] = {}
+    blocks: dict[tuple[str, str], list[dict[str, Any]]] = {}
 
-    def add(group, name, pkg):
+    def add(group, name, entry):
         if name in NOT_BLOCKS:
             return
-        blocks.setdefault((group, name), set()).add(pkg)
+        blocks.setdefault((group, name), []).append(entry)
 
     for e in entries:
         pkg = e["package"]
-        short = pkg.replace("androidx.compose.remote.creation.compose", "creation.compose").replace(
-            "androidx.compose.remote.foundation", "foundation"
-        )
         sig = e["signature"]
         if (
             e["kind"] == "method"
@@ -430,7 +446,7 @@ def building_blocks(entries):
             and "void " in sig
             and pkg.endswith((".layout", ".icon", ".image", ".text"))
         ):
-            add("Composables", e["name"], short)
+            add("Composables", e["name"], e)
         elif (
             e["kind"] == "method"
             and e["owner"]
@@ -446,15 +462,15 @@ def building_blocks(entries):
                 "RemoteCollapsibleColumnScope",
             )
         ):
-            add("Modifiers", e["name"], short)
+            add("Modifiers", e["name"], e)
         elif e["kind"] == "method" and pkg.endswith(".action") and e["owner"].endswith("Kt"):
-            add("Actions", e["name"], short)
+            add("Actions", e["name"], e)
         elif e["kind"] == "method" and pkg.endswith(".shaders") and e["owner"].endswith("Kt"):
-            add("Brushes", e["name"], short)
+            add("Brushes", e["name"], e)
         elif e["kind"] == "method" and pkg.endswith(".painter") and e["owner"].endswith("Kt"):
-            add("Painters", e["name"], short)
+            add("Painters", e["name"], e)
         elif e["kind"] in ("method", "property") and pkg.endswith(".shapes") and e["owner"].endswith("Kt"):
-            add("Shapes", e["name"], short)
+            add("Shapes", e["name"], e)
         elif (
             e["kind"] == "method"
             and pkg.endswith(".state")
@@ -462,28 +478,28 @@ def building_blocks(entries):
             and e["owner"].endswith("Kt")
             and re.match(r"(remember|animate|remote(Tween|Spring)|Mutable|lerp|RemoteColor$)", e["name"])
         ):
-            add("State & animation", e["name"], short)
+            add("State & animation", e["name"], e)
         elif e["kind"] == "method" and e["owner"] == "RemoteDrawScope":
-            add("Canvas drawing", e["name"], short)
+            add("Canvas drawing", e["name"], e)
         elif e["kind"] == "method" and e["owner"] == "RemoteTextMeasurer":
-            add("Text measuring", e["name"], short)
+            add("Text measuring", e["name"], e)
         elif e["kind"] == "method" and e["owner"] == "RemoteComponentComposeKt":
-            add("Composables", e["name"], short)
+            add("Composables", e["name"], e)
         elif e["kind"] == "method" and e["owner"] == "RemoteTextMeasureKt":
-            add("Text measuring", e["name"], short)
+            add("Text measuring", e["name"], e)
         elif e["kind"] == "property" and e["owner"] in ("RemoteTimeVariables", "RemoteConfiguration"):
-            add("Environment", e["owner"] + "." + e["name"], short)
+            add("Environment", e["owner"] + "." + e["name"], e)
         elif e["kind"] == "property" and e["owner"] in (
             "RemoteEnterTransition.Companion",
             "RemoteExitTransition.Companion",
         ):
-            add("Transitions", e["owner"].split(".")[0] + "." + e["name"], short)
+            add("Transitions", e["owner"].split(".")[0] + "." + e["name"], e)
         elif e["kind"] == "property" and e["owner"] == "RemoteEasing.Companion":
-            add("Easing", "RemoteEasing." + e["name"], short)
+            add("Easing", "RemoteEasing." + e["name"], e)
         elif e["kind"] == "property" and e["owner"] == "RemoteContentScale.Companion":
-            add("Content scale", "RemoteContentScale." + e["name"], short)
+            add("Content scale", "RemoteContentScale." + e["name"], e)
         elif e["kind"] == "method" and e["owner"] == "RemoteFloatOperations":
-            add("Float operations", e["name"], short)
+            add("Float operations", e["name"], e)
         elif (
             e["kind"] == "class"
             and pkg.endswith(".text")
@@ -491,69 +507,601 @@ def building_blocks(entries):
             and "." not in e["name"]
             and not e["name"].endswith("Kt")
         ):
-            add("Text", e["name"], short)
+            add("Text", e["name"], e)
     return blocks
+
+
+def short_package(pkg):
+    return pkg.replace("androidx.compose.remote.creation.compose", "creation.compose").replace(
+        "androidx.compose.remote.foundation", "foundation"
+    )
+
+
+# ---------------------------------------------------------------------------------------------
+# Where a story uses an API member: the one rule the coverage check, coverage.json and the
+# Coverage page share. A member counts only where the code uses it on its receiver, as the API
+# file declares it: `RemoteBrush.image(` for an extension on RemoteBrush.Companion, `.size(` for a
+# RemoteModifier extension, `text = …` inside `semantics { }` for a RemoteSemanticsPropertyReceiver
+# property, `drawCircle(` inside a RemoteDrawScope lambda. A top-level declaration also needs its
+# import (`androidx.compose.remote…modifier.text`), so a same-named member of another receiver or
+# package does not count. Overloads with the same package and name (`lerp` for RemoteColor and for
+# RemoteFloat) cannot be told apart without types: both count where either is called.
+
+
+def strip_code(text):
+    """`text` with comments and the literal parts of strings blanked (same length), so a name in a
+    comment or a string is not a use; a string template's expression (`"${x.y()}"`) is kept."""
+    out = list(text)
+    i = 0
+    n = len(text)
+    # Each entry is an open string (its quote) or a template expression ("{" with its depth).
+    stack: list[list[Any]] = []
+
+    def blank(start, end):
+        for k in range(start, end):
+            if out[k] != "\n":
+                out[k] = " "
+
+    while i < n:
+        top = stack[-1] if stack else None
+        if top is not None and top[0] in ('"', '"""'):
+            quote = top[0]
+            if text.startswith(quote, i):
+                stack.pop()
+                i += len(quote)
+            elif text.startswith("${", i):
+                stack.append(["{", 1])
+                i += 2
+            elif text[i] == "\\" and quote == '"':
+                blank(i, min(i + 2, n))
+                i += 2
+            else:
+                blank(i, i + 1)
+                i += 1
+            continue
+        if text.startswith("//", i):
+            end = text.find("\n", i)
+            end = n if end < 0 else end
+            blank(i, end)
+            i = end
+        elif text.startswith("/*", i):
+            end = text.find("*/", i + 2)
+            end = n if end < 0 else end + 2
+            blank(i, end)
+            i = end
+        elif text.startswith('"""', i):
+            stack.append(['"""'])
+            i += 3
+        elif text[i] == '"':
+            stack.append(['"'])
+            i += 1
+        elif text[i] == "'":
+            end = text.find("'", i + (3 if text[i + 1 : i + 2] == "\\" else 2))
+            end = n if end < 0 else end + 1
+            blank(i + 1, end - 1)
+            i = end
+        else:
+            if top is not None and top[0] == "{":
+                if text[i] == "{":
+                    top[1] += 1
+                elif text[i] == "}":
+                    top[1] -= 1
+                    if top[1] == 0:
+                        stack.pop()
+            i += 1
+    return "".join(out)
+
+
+def matching_bracket(text, index):
+    """The index of the bracket that closes the one at `index`, or len(text)."""
+    pairs = {"(": ")", "{": "}", "[": "]"}
+    stack = []
+    for i in range(index, len(text)):
+        c = text[i]
+        if c in pairs:
+            stack.append(pairs[c])
+        elif stack and c == stack[-1]:
+            stack.pop()
+            if not stack:
+                return i
+    return len(text)
+
+
+def matching_angle(text, index):
+    depth = 0
+    for i in range(index, len(text)):
+        if text[i] == "<":
+            depth += 1
+        elif text[i] == ">":
+            depth -= 1
+            if depth == 0:
+                return i + 1
+    return len(text)
+
+
+def split_params(params):
+    """The top-level comma-separated parts of a parameter list."""
+    parts = []
+    depth = 0
+    start = 0
+    for i, c in enumerate(params):
+        if c in "(<":
+            depth += 1
+        elif c in ")>" and params[i - 1 : i + 1] != "->":
+            depth -= 1
+        elif c == "," and depth == 0:
+            parts.append(params[start:i].strip())
+            start = i + 1
+    last = params[start:].strip()
+    return parts + [last] if last else parts
+
+
+def signature_params(e):
+    """The parameters of a method or constructor entry, as written in its signature."""
+    m = re.search(re.escape(e["name"]) + r"\(", e["signature"])
+    if not m:
+        return None
+    open_index = m.end() - 1
+    return split_params(e["signature"][open_index + 1 : matching_bracket(e["signature"], open_index)])
+
+
+def lambda_params(e):
+    """The function-typed parameters of `e`, in order: (name, the lambda's receiver or None)."""
+    out = []
+    for p in signature_params(e) or []:
+        m = re.fullmatch(r"(?:optional\s+)?(?:([\w.]+)\.)?\(\)\s*->\s*Unit\s+(\w+)", p)
+        if m:
+            out.append((m.group(2), m.group(1)))
+        elif re.fullmatch(r"(?:optional\s+)?kotlin\.jvm\.functions\.Function\d+<.*>\s+\w+", p):
+            out.append((p.split()[-1], None))
+    return out
+
+
+class ApiIndex:
+    """What the API file says about receivers: the lambdas each function takes and their receivers
+    (`semantics { }` → RemoteSemanticsPropertyReceiver), what each type declares (members, and
+    extensions on it), its supertypes, and which classes are objects (`RemoteTimeVariables.year`)."""
+
+    def __init__(self, entries):
+        # Opener name → the lambda parameters of each overload.
+        self.openers: dict[str, list[list[tuple[str, str | None]]]] = {}
+        self.lambda_receivers: set[str] = set()
+        self.supertypes: dict[str, set[str]] = {}
+        self.declared: dict[str, set[str]] = {}
+        self.objects: set[str] = set()
+        # Simple names of types that code can name before a dot: objects and classes with a companion.
+        self.static_types: set[str] = set()
+        for e in entries:
+            if e["kind"] == "class":
+                m = re.match(
+                    r".*?\b(?:class|interface)\s+([\w.]+)(?:<[^>]*>)?\s+(?:extends|implements)\s+(.+)$",
+                    e["signature"],
+                )
+                if m:
+                    supers = {s.strip().split("<")[0] for s in re.split(r",|\bimplements\b", m.group(2))}
+                    self.supertypes.setdefault(m.group(1), set()).update(s for s in supers if s)
+                continue
+            owner = e["owner"] or ""
+            if e["kind"] == "field" and e["name"] == "INSTANCE":
+                self.objects.add(owner)
+                self.static_types.add(owner.split(".")[-1])
+            if owner.endswith(".Companion"):
+                self.static_types.add(owner.split(".")[-2])
+            facade = owner.endswith("Kt") or e.get("static")
+            declaring = receiver_of(e) if facade else owner
+            if declaring:
+                self.declared.setdefault(declaring, set()).add(e["name"])
+            if e["kind"] not in ("method", "ctor"):
+                continue
+            lambdas = lambda_params(e)
+            if not any(receiver for _, receiver in lambdas):
+                continue
+            # `RemotePaint { … }` calls RemotePaint.Companion.invoke.
+            name = (
+                owner.split(".")[-2] if e["name"] == "invoke" and owner.endswith(".Companion") else e["name"]
+            )
+            if re.fullmatch(r"\w+", name):
+                self.openers.setdefault(name, []).append(lambdas)
+                self.lambda_receivers.update(receiver for _, receiver in lambdas if receiver)
+
+    def is_subtype(self, sub, sup):
+        seen = set()
+        queue = [sub]
+        while queue:
+            t = queue.pop()
+            if t == sup:
+                return True
+            if t not in seen:
+                seen.add(t)
+                queue.extend(self.supertypes.get(t, ()))
+        return False
+
+    def is_lambda_receiver(self, receiver):
+        return any(self.is_subtype(t, receiver) for t in self.lambda_receivers)
+
+    def declares(self, receiver, name):
+        """Whether `receiver` or a supertype declares `name` (a member or an extension on it)."""
+        return any(name in self.declared.get(t, ()) and self.is_subtype(receiver, t) for t in self.declared)
+
+
+def call_lambdas(code, end):
+    """The lambdas passed to a call whose name ends at `end`: [(start, end, parameter name or
+    None)], the trailing lambda last with the name "<trailing>"."""
+    n = len(code)
+    i = end
+    while i < n and code[i].isspace():
+        i += 1
+    if i < n and code[i] == "<":
+        i = matching_angle(code, i)
+        while i < n and code[i].isspace():
+            i += 1
+    out = []
+    if i < n and code[i] == "(":
+        close = matching_bracket(code, i)
+        j = i + 1
+        while j < close:
+            c = code[j]
+            if c in "([":
+                j = matching_bracket(code, j) + 1
+                continue
+            if c == "{":
+                before = code[i + 1 : j].rstrip()
+                named = re.search(r"(?:^|[(,])\s*(\w+)\s*=$", before)
+                if named or before == "" or before.endswith(","):
+                    out.append((j, matching_bracket(code, j), named.group(1) if named else None))
+                j = matching_bracket(code, j) + 1
+                continue
+            j += 1
+        i = close + 1
+        while i < n and code[i] in " \t":
+            i += 1
+    if i < n and code[i] == "{":
+        out.append((i, matching_bracket(code, i), "<trailing>"))
+    return out
+
+
+def receiver_regions(code, index):
+    """Spans of `code` with the implicit receiver each one adds: [(start, end, receiver)]. They are
+    the lambdas passed to a function that gives its lambda a receiver (`semantics { … }`,
+    `withTransform({ transform }) { draw }`), matched to its parameters by name, position, or as
+    the trailing lambda, and the bodies of a story's own extensions (`fun RemoteRowScope.x() { … }`)."""
+    regions = []
+    if index.openers:
+        names = "|".join(sorted((re.escape(n) for n in index.openers), key=len, reverse=True))
+        for m in re.finditer(r"(?<![\w])(" + names + r")(?!\w)", code):
+            lambdas = call_lambdas(code, m.end())
+            if not lambdas:
+                continue
+            # The overload with as many lambda parameters as the call passes, or the first one.
+            overloads = index.openers[m.group(1)]
+            params = next((p for p in overloads if len(p) == len(lambdas)), overloads[0])
+            positional = list(params)
+            for start, end, name in lambdas:
+                if name == "<trailing>":
+                    param = params[-1] if params else None
+                elif name is not None:
+                    param = next((p for p in params if p[0] == name), None)
+                else:
+                    param = positional[0] if positional else None
+                if param is not None and param in positional:
+                    positional.remove(param)
+                if param is not None and param[1]:
+                    regions.append((start, end, param[1]))
+    for m in re.finditer(r"\bfun\s+(?:<[^>]*>\s*)?([\w.]+)\.\w+\s*\(", code):
+        body = function_body(code, matching_bracket(code, m.end() - 1) + 1)
+        if body is not None:
+            regions.append((body[0], body[1], m.group(1)))
+    types = typed_names(code)
+    for m in re.finditer(r"(?<![\w.])with\s*\(\s*(\w+)\s*\)\s*\{", code):
+        if m.group(1) in types:
+            regions.append((m.end() - 1, matching_bracket(code, m.end() - 1), types[m.group(1)]))
+    # `val d: RemoteDrawScope.() -> Unit = { … }`
+    for m in re.finditer(r":\s*([\w.]+)\.\(\)\s*->\s*\w+\s*=\s*\{", code):
+        regions.append((m.end() - 1, matching_bracket(code, m.end() - 1), m.group(1)))
+    return regions
+
+
+def function_body(code, index):
+    """The span of a function's body, given the index just after its parameter list: a block
+    `{ … }`, or an expression body `= …` up to the next line that starts in column 0."""
+    depth = 0
+    i = index
+    while i < len(code):
+        c = code[i]
+        if c in "(<":
+            depth += 1
+        elif c in ")>" and code[i - 1 : i + 1] != "->":
+            depth -= 1
+        elif depth == 0 and c == "{":
+            return i, matching_bracket(code, i)
+        elif depth == 0 and c == "=" and code[i + 1 : i + 2] != "=":
+            end = re.compile(r"\n(?=[^\s})\]])").search(code, i)
+            return i, end.start() if end else len(code)
+        elif depth == 0 and c == "\n" and code[i + 1 : i + 2] not in (" ", "\t", "\n", ")", ":"):
+            return None
+        i += 1
+    return None
+
+
+def typed_names(code):
+    """{name: type} for parameters and values declared with a type (`scope: RemoteDrawScope`)."""
+    return {
+        m.group(1): m.group(2) for m in re.finditer(r"(?<![\w.])(\w+)\s*:\s*([A-Z][\w.]*)(?![\w.(])", code)
+    }
+
+
+def implicit_used(code, positions, name, receiver, index):
+    """Whether a use of `name` at one of `positions` is where `receiver` is the implicit receiver
+    that provides `name`: the innermost enclosing lambda whose receiver declares `name`, as Kotlin
+    resolves it (inside `withTransform({ rotate() })`, `rotate` is RemoteDrawTransform's)."""
+    regions = receiver_regions(code, index)
+    for p in positions:
+        enclosing = sorted((r for r in regions if r[0] < p < r[1]), key=lambda r: -r[0])
+        resolved = next((r[2] for r in enclosing if index.declares(r[2], name)), None)
+        if resolved is not None and index.is_subtype(resolved, receiver):
+            return True
+    return False
+
+
+def uses_of(code, name, call, prefix=r"(?<![\w.])"):
+    """Where `name` occurs after `prefix` (a regex), as a call (`name(`, `name<T>(`, `name {`) if
+    `call`: [(start of the match, the text left of `name`)]."""
+    out = []
+    for m in re.finditer(prefix + re.escape(name) + r"(?!\w)", code):
+        if call:
+            i = m.end()
+            while i < len(code) and code[i].isspace():
+                i += 1
+            if code[i : i + 1] == "<":
+                i = matching_angle(code, i)
+                while i < len(code) and code[i].isspace():
+                    i += 1
+            if code[i : i + 1] not in ("(", "{"):
+                continue
+        out.append(m.start())
+    return out
+
+
+def qualifier(code, dot):
+    """The identifier left of the `.` at `dot` (`RemoteFontVariation` in `RemoteFontVariation.x`),
+    or None when it is not a plain name (`f().x`, `a[0].x`)."""
+    m = re.search(r"(?<![\w.])(\w+)\s*$", code[:dot])
+    return m.group(1) if m else None
+
+
+def dotted_uses(code, name, call, receivers, index):
+    """`.name` uses whose left side may be one of `receivers` (simple type names): not
+    `OtherType.name` for an object or a class with a companion (`RemoteFontVariation.width`)."""
+    out = []
+    for start in uses_of(code, name, call, r"\.\s*"):
+        left = qualifier(code, start)
+        if left is not None and left in index.static_types and left not in receivers:
+            continue
+        out.append(start)
+    return out
+
+
+def receiver_of(e):
+    """The extension receiver of a function or property, from its API signature: the unnamed
+    first parameter (`image(RemoteBrush.Companion, …)`) or the `Type.` of `Type.name`."""
+    if e["kind"] == "method":
+        params = signature_params(e)
+        first = params[0] if params else ""
+        return first.rstrip("?") if re.fullmatch(r"[\w.]+(?:<.*>)?\??", first) else None
+    if e["kind"] == "property":
+        m = re.search(r"([\w.]+)\." + re.escape(e["name"]) + r"$", e["signature"])
+        return m.group(1) if m else None
+    return None
+
+
+def use_specs(e):
+    """How code uses the API entry `e`: a dict naming the import it needs (None for a member), its
+    receiver (from receiver_of, or the owning class) and the shape of a use. See member_used."""
+    name = e["name"]
+    owner = e["owner"]
+    fq = e["package"] + "." + name
+    if e["kind"] == "class":
+        return {"shape": "word", "import": fq, "name": name}
+    if e["kind"] in ("ctor", "field", "enum_constant"):
+        return {"shape": "word", "import": e["package"] + "." + owner.split(".")[0], "name": owner}
+    call = e["kind"] == "method"
+    if owner.endswith("Kt") or e.get("static"):
+        receiver = receiver_of(e)
+        return {"shape": "toplevel", "import": fq, "name": name, "call": call, "receiver": receiver}
+    # A member extension (`fun RemoteModifier.weight()` inside RemoteRowScope) has its own receiver.
+    extension = receiver_of(e) if call else None
+    return {
+        "shape": "member",
+        "import": None,
+        "name": name,
+        "call": call,
+        "receiver": owner,
+        "extension": extension,
+        "member_import": e["package"] + "." + owner + "." + name,
+    }
+
+
+def member_used(spec, code, imports, index):
+    """Whether `code` uses the API member described by `spec` on its receiver. `imports` are the
+    story's imports (rewritten to AndroidX), or None for a control option's code, which is printed
+    into a story that has them."""
+    if imports is not None and spec["import"] is not None and spec["import"] not in imports:
+        return False
+    name = spec["name"]
+    call = spec.get("call", False)
+    if spec["shape"] == "word":
+        return bool(uses_of(code, name, False))
+    receiver = spec["receiver"]
+    if receiver is None:
+        # A top-level function or property: called, or referenced as `::name`.
+        return bool(uses_of(code, name, call)) or bool(uses_of(code, name, False, r"::\s*"))
+    simple = receiver.split(".")[-2] if receiver.endswith(".Companion") else receiver.split(".")[-1]
+    if receiver.endswith(".Companion"):
+        owner = re.escape(receiver[: -len(".Companion")])
+        return bool(uses_of(code, name, call, r"(?<![\w.])" + owner + r"\s*\.\s*"))
+    if receiver in index.objects:
+        owner = re.escape(receiver)
+        aliases = [owner] + [
+            re.escape(a) for a in re.findall(r"\bva[lr]\s+(\w+)\s*=\s*" + owner + r"(?![\w.(])", code)
+        ]
+        if uses_of(code, name, call, r"(?<![\w.])(?:" + "|".join(aliases) + r")\s*\.\s*"):
+            return True
+        # `import …RemoteTimeVariables.year`, then `year`.
+        direct = spec.get("member_import")
+        return imports is not None and direct in imports and bool(uses_of(code, name, call))
+    if index.is_lambda_receiver(receiver):
+        # A lambda receiver (RemoteDrawScope, RemoteSemanticsPropertyReceiver, RemoteRowScope): its
+        # members and extensions are used implicitly inside that lambda (or on `this`); a member
+        # extension (`RemoteRowScope.weight` on RemoteModifier) is called there on its own
+        # receiver: `.weight(`.
+        extension = spec.get("extension")
+        if extension:
+            positions = dotted_uses(code, name, call, {extension.split(".")[-1]}, index)
+        else:
+            positions = uses_of(code, name, call) + uses_of(code, name, call, r"\bthis\s*\.\s*")
+        if implicit_used(code, positions, name, receiver, index):
+            return True
+        if extension:
+            return False
+        # An explicit receiver of that type: `scope.drawCircle(` with `scope: RemoteDrawScope`.
+        types = typed_names(code)
+        return any(
+            (left := qualifier(code, p)) in types and index.is_subtype(types[left], receiver)
+            for p in uses_of(code, name, call, r"\.\s*")
+        )
+    return bool(dotted_uses(code, name, call, {simple}, index))
+
+
+def block_specs(entries):
+    return [use_specs(e) for e in entries]
+
+
+def find_members(entries, query):
+    """The API entries `query` names: `Owner.member` (a member of Owner or of its companion, or an
+    extension on either), `package.name`, or a bare name."""
+    owner, _, name = query.rpartition(".")
+    return [
+        e
+        for e in entries
+        if e["kind"] != "class"
+        and e["name"] == name
+        and (
+            not owner
+            or owner in (e["owner"], e["package"], receiver_of(e))
+            or owner + ".Companion" in (e["owner"], receiver_of(e))
+        )
+    ]
+
+
+def prepare_sources(sources):
+    """{story function: (its code with strings and comments blanked, its imports)}."""
+    return {fn: (strip_code(src["code"]), set(src["imports"])) for fn, src in sorted(sources.items())}
+
+
+def stories_using(specs, prepared, index):
+    return [
+        fn
+        for fn, (code, imports) in prepared.items()
+        if any(member_used(s, code, imports, index) for s in specs)
+    ]
+
+
+def catalog_option_codes(catalog_dir):
+    """Option codes the catalog offers in its controls (`option("Label", "Code", value)`): a value
+    a user can pick and see printed in the Code tab counts as covered too."""
+    codes = []
+    if catalog_dir:
+        for f in sorted(os.listdir(catalog_dir)):
+            if f.endswith(".kt"):
+                text = read_text(os.path.join(catalog_dir, f))
+                codes += re.findall(r'option\(\s*"(?:\\.|[^"\\])*"\s*,\s*"((?:\\.|[^"\\])*)"', text)
+    return sorted({kotlin_unescape(c) for c in codes})
+
+
+def kotlin_unescape(text):
+    """The value of a Kotlin string literal's body: `\\"`, `\\\\`, `\\$`, `\\n`, `\\uXXXX`…"""
+    simple = {"t": "\t", "b": "\b", "n": "\n", "r": "\r", "'": "'", '"': '"', "\\": "\\", "$": "$"}
+
+    def one(m):
+        e = m.group(1)
+        return chr(int(e[1:], 16)) if e.startswith("u") else simple.get(e, m.group(0))
+
+    return re.sub(r"\\(u[0-9a-fA-F]{4}|.)", one, text)
+
+
+def coverage_report(entries, sources, option_codes):
+    """Every building block with the stories and control options that use it and its status:
+    covered (a story or an option uses it), pending (CANNOT_DEMONSTRATE names a reason) or missing.
+    The only place coverage is decided: the CLI's check and the site both read this."""
+    index = ApiIndex(entries)
+    prepared = prepare_sources(sources)
+    options = {c: strip_code(c) for c in option_codes}
+    blocks = []
+    for (group, name), block_entries in sorted(building_blocks(entries).items()):
+        specs = block_specs(block_entries)
+        stories = stories_using(specs, prepared, index)
+        codes = [c for c, code in options.items() if any(member_used(s, code, None, index) for s in specs)]
+        reason = CANNOT_DEMONSTRATE.get(name)
+        status = "covered" if stories or codes else "pending" if reason else "missing"
+        blocks.append(
+            {
+                "group": group,
+                "name": name,
+                "packages": sorted({short_package(e["package"]) for e in block_entries}),
+                "status": status,
+                "stories": stories,
+                "optionCodes": codes,
+                "reason": reason,
+            }
+        )
+    summary = {s: sum(1 for b in blocks if b["status"] == s) for s in ("covered", "pending", "missing")}
+    summary["total"] = len(blocks)
+    return {"summary": summary, "blocks": blocks}
 
 
 def cmd_coverage(args):
     entries = parse_api(args.api)
-    blocks = building_blocks(entries)
-    sources = read_json(args.sources)
-    # Option codes the catalog offers in its controls (`option("Label", "Code", value)`): a value a
-    # user can pick and see printed in the Code tab counts as covered too.
-    option_codes = []
-    if args.catalog:
-        for f in sorted(os.listdir(args.catalog)):
-            if f.endswith(".kt"):
-                text = read_text(os.path.join(args.catalog, f))
-                option_codes += re.findall(r'option\(\s*"(?:\\.|[^"\\])*"\s*,\s*"((?:\\.|[^"\\])*)"', text)
-    options_text = "\n".join(c.replace('\\"', '"') for c in option_codes)
-    uses = []
-    missing = []
-    for (group, name), pkgs in sorted(blocks.items()):
-        member = name.split(".")[-1]
-        qualified = name if "." in name else None
-        used_by = []
-        for fn, src in sorted(sources.items()):
-            code = src["code"]
-            if qualified:
-                owner = qualified.split(".")[0]
-                hit = qualified in code or (
-                    word_used(owner, code)
-                    and re.search(r"\." + re.escape(member) + r"(?!\w)", code) is not None
-                )
-            else:
-                hit = block_used(member, code)
-            if hit:
-                used_by.append(fn)
-        in_options = bool(
-            (qualified and qualified in options_text) or (not qualified and block_used(member, options_text))
-        )
-        pending = CANNOT_DEMONSTRATE.get(name)
-        uses.append(
-            {
-                "group": group,
-                "name": name,
-                "packages": sorted(pkgs),
-                "stories": used_by,
-                "inOptions": in_options,
-                "pending": pending,
-            }
-        )
-        if not used_by and not in_options and not pending:
-            missing.append(f"{group}: {name}")
+    report = coverage_report(entries, read_json(args.sources), catalog_option_codes(args.catalog))
     commit = read_text(os.path.join(args.api, "COMMIT")).strip()
-    write_json({"commit": commit, "blocks": uses}, args.out)
-    pending_count = sum(1 for u in uses if u["pending"] and not u["stories"])
-    covered = len(uses) - len(missing) - pending_count
+    write_json({"commit": commit, **report}, args.out)
+    s = report["summary"]
     print(
-        f"coverage: {covered}/{len(uses)} public building blocks used by a story, "
-        f"{pending_count} that cannot be demonstrated yet (reasons in coverage.json) -> {args.out}"
+        f"coverage: {s['covered']}/{s['total']} public building blocks used by a story, "
+        f"{s['pending']} that cannot be demonstrated yet (reasons in coverage.json) -> {args.out}"
     )
-    if missing:
-        print("not covered by any story:\n  " + "\n  ".join(missing), file=sys.stderr)
+    errors = [
+        f"not covered by any story: {b['group']}: {b['name']}"
+        for b in report["blocks"]
+        if b["status"] == "missing"
+    ]
+    # A reason for a block a story now covers is stale: the page would never show it.
+    errors += [
+        f"CANNOT_DEMONSTRATE lists {b['name']}, but it is covered: remove the entry"
+        for b in report["blocks"]
+        if b["status"] == "covered" and b["reason"]
+    ]
+    if errors:
+        print("\n".join(errors), file=sys.stderr)
         return 0 if args.report_only else 1
     return 0
+
+
+def cmd_uses(args):
+    """The stories that use an API member, by the coverage rule: `Owner.member` (a member, or an
+    extension on Owner), `package.name` or a bare name. For checking docs such as the API diff."""
+    entries = parse_api(args.api)
+    index = ApiIndex(entries)
+    prepared = prepare_sources(read_json(args.sources))
+    status = 0
+    for query in args.names:
+        matched = find_members(entries, query)
+        if not matched:
+            print(f"{query}: no such member in the API files", file=sys.stderr)
+            status = 1
+            continue
+        stories = stories_using(block_specs(matched), prepared, index)
+        print(f"{query}: {', '.join(stories) if stories else '(no story)'}")
+    return status
 
 
 def main():
@@ -577,8 +1125,14 @@ def main():
     c.add_argument("--out", required=True)
     c.add_argument("--catalog")
     c.add_argument("--report-only", action="store_true")
+    u = sub.add_parser("uses", help="list the stories that use API members, by the coverage rule")
+    u.add_argument("--api", required=True)
+    u.add_argument("--sources", required=True)
+    u.add_argument("names", nargs="+", help="Owner.member, package.name or name")
     args = p.parse_args()
-    return {"sources": cmd_sources, "api": cmd_api, "coverage": cmd_coverage}[args.cmd](args)
+    return {"sources": cmd_sources, "api": cmd_api, "coverage": cmd_coverage, "uses": cmd_uses}[args.cmd](
+        args
+    )
 
 
 if __name__ == "__main__":

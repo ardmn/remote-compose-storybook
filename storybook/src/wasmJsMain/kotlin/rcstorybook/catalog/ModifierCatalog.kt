@@ -719,10 +719,12 @@ internal val stateComponents =
                         "named-state--mutable-image",
                         "Mutable image",
                         "MutableImage",
-                        "A mutable bitmap declared by the document.",
-                        listOf(bool("swap", false)),
+                        "A mutable bitmap declared by the document. The remembered control switches between " +
+                            "rememberMutableRemoteImageBitmap and remember { MutableRemoteImageBitmap }; " +
+                            "the document is the same.",
+                        listOf(bool("swap", false), bool("remembered", true)),
                     ) {
-                        MutableImage(it.bool("swap"))
+                        MutableImage(it.bool("swap"), it.bool("remembered"))
                     },
                     Story(
                         "named-state--enum",

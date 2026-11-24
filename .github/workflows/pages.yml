@@ -50,12 +50,13 @@ jobs:
           ./gradlew --console=plain :storybook:dependencies --write-locks > /dev/null
           git diff --exit-code storybook/gradle.lockfile
 
-      - name: Python (ruff, mypy)
+      - name: Python (ruff, mypy, unit tests)
         run: |
           pip install --require-hashes -r tools/requirements-lint.txt
           ruff check tools
           ruff format --check tools
           mypy
+          python -m unittest discover -s tools
 
       - name: Shell (shellcheck)
         run: shellcheck scripts/*.sh
