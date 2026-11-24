@@ -91,6 +91,7 @@
     "cov.pendingSummary": "; <b>{n}</b> are public but cannot be demonstrated yet (reasons below)",
     "cov.pending": "cannot be shown yet",
     "cov.none": "no story yet",
+    "cov.unlinked": "used only in helper code:",
     "ov.lede":
       "A live catalog of the public <b>Jetpack Remote Compose</b> creation API, the <code>@RemoteComposable</code> building blocks from <code>androidx.compose.remote</code>. Every story is composed in your browser, captured to a <code>.rc</code> document and drawn by a player, so you can see what each block does, how to call it, and how its document changes when its arguments change.",
     "ov.counts":
@@ -209,6 +210,7 @@
     "cov.pendingSummary": "; ещё <b>{n}</b> публичны, но пока их нельзя показать (причины ниже)",
     "cov.pending": "пока нельзя показать",
     "cov.none": "story пока нет",
+    "cov.unlinked": "используется только во вспомогательном коде:",
     "ov.lede":
       "Живой каталог публичного API создания UI в <b>Jetpack Remote Compose</b> — строительных блоков <code>@RemoteComposable</code> из <code>androidx.compose.remote</code>. Каждая story собирается прямо в браузере в документ <code>.rc</code> и рисуется плеером: видно, что делает блок, как его вызвать и как меняется документ при изменении параметров.",
     "ov.counts":

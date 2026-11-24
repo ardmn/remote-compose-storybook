@@ -941,10 +941,13 @@ dependencies {
         const direct = b.stories.map((fn) => storyFor.get(fn)).filter(Boolean);
         const opts = viaOptions(b.optionCodes).filter((s) => !direct.includes(s));
         const links = [...direct, ...opts].map((s) => html`<a href="#/story/${s.id}">${s.name}</a>`);
+        // A covered block with no story page to link: its stories are helper functions only.
         const note =
           b.status === "pending"
             ? html`<span class="pill">${t("cov.pending")}</span> <span class="empty">${b.reason}</span>`
-            : html`<span class="empty">${t("cov.none")}</span>`;
+            : b.status === "covered"
+              ? html`<span class="empty">${t("cov.unlinked")}</span> ${b.stories.map((fn) => html`<code>${fn}</code> `)}`
+              : html`<span class="empty">${t("cov.none")}</span>`;
         parts.push(html`<tr><td>${b.name}</td><td>${links.length ? links : note}</td></tr>`);
       }
       parts.push(html`</table></div>`);
