@@ -23,7 +23,7 @@
   // SafeHtml (another html`` result, or raw()). Arrays are joined, each item treated the same way;
   // null and undefined become "". setHtml() is the only way markup reaches the DOM and accepts
   // nothing but SafeHtml, so a plain string is always escaped. raw() is the only way around it, and
-  // each raw() call needs an eslint-disable with its reason (no-restricted-syntax in eslint.config.mjs).
+  // each raw() call needs an eslint-disable with its reason (no-restricted-syntax in e2e/eslint.config.mjs).
   // Whitespace inside html`` is part of the page, so Prettier leaves these templates alone
   // (embeddedLanguageFormatting is off for web/ in .prettierrc.json).
 

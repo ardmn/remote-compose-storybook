@@ -1,8 +1,11 @@
-// ESLint for the page shell (web/) and the end-to-end test (e2e/).
-// Run from e2e/, where the tooling is installed: npm run lint
-import js from "./e2e/node_modules/@eslint/js/src/index.js";
-import globals from "./e2e/node_modules/globals/index.js";
-import noUnsanitized from "./e2e/node_modules/eslint-plugin-no-unsanitized/index.js";
+// ESLint for the page shell (web/) and the end-to-end test (e2e/). It lives in e2e/, next to the
+// package that installs ESLint and its plugins, so the imports below resolve (and knip sees them).
+// Run it with npm run lint in e2e/: the script runs ESLint from the repository root with
+// --config e2e/eslint.config.mjs, and with --config ESLint resolves the file patterns below against
+// the working directory, the repository root.
+import js from "@eslint/js";
+import globals from "globals";
+import noUnsanitized from "eslint-plugin-no-unsanitized";
 
 export default [
   { ignores: ["build/**", "**/node_modules/**", "e2e/out/**"] },
@@ -36,7 +39,7 @@ export default [
     },
   },
   {
-    files: ["e2e/**/*.mjs", "eslint.config.mjs"],
+    files: ["e2e/**/*.mjs"],
     languageOptions: { ecmaVersion: 2024, sourceType: "module", globals: { ...globals.node, ...globals.browser } },
     rules: { eqeqeq: ["error", "smart"] },
   },
