@@ -72,7 +72,7 @@ jobs:
       - name: Shell (shellcheck)
         run: |
           shellcheck --version
-          shellcheck scripts/*.sh
+          shellcheck scripts/*.sh .github/actions/fetch-tool/fetch.sh
 
       - name: Install actionlint
         uses: ./.github/actions/fetch-tool
