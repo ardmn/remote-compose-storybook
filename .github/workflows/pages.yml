@@ -43,6 +43,13 @@ jobs:
       - name: Kotlin (ktfmt, kotlinlang style; detekt)
         run: ./gradlew --console=plain :storybook:ktfmtCheck :storybook:detektWasmJsMainSourceSet
 
+      # The lock must match the declared dependencies: otherwise a downgrade or a removed library is
+      # held silently, and OSV-Scanner scans versions that no longer ship.
+      - name: Gradle lockfile matches the dependencies
+        run: |
+          ./gradlew --console=plain :storybook:dependencies --write-locks > /dev/null
+          git diff --exit-code storybook/gradle.lockfile
+
       - name: Python (ruff, mypy, unit tests)
         run: |
           pip install --require-hashes -r tools/requirements-lint.txt

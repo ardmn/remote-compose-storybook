@@ -21,8 +21,9 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
-      # The npm, Yarn and pip lockfiles (e2e/, kotlin-js-store/, tools/); reviewed advisories are in
-      # osv-scanner.toml. Gradle dependencies are not scanned: there is no Gradle lockfile.
+      # The npm, Yarn, pip and Gradle lockfiles (e2e/, kotlin-js-store/, tools/, storybook/gradle.lockfile:
+      # what ships in storybook.wasm); reviewed advisories are in osv-scanner.toml. Build tools (ktfmt,
+      # detekt, compiler plugins) are not locked, so not scanned: they never reach the site.
       - name: Dependencies (OSV-Scanner)
         env:
           VERSION: 2.7.1
