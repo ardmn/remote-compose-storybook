@@ -720,9 +720,9 @@ internal val stateComponents =
                         "Mutable image",
                         "MutableImage",
                         "A mutable bitmap declared by the document.",
-                        listOf(bool("swap", false)),
+                        listOf(bool("swap", false), bool("remembered", true)),
                     ) {
-                        MutableImage(it.bool("swap"))
+                        MutableImage(it.bool("swap"), it.bool("remembered"))
                     },
                     Story(
                         "named-state--enum",

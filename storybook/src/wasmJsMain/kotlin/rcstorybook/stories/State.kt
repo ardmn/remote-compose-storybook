@@ -189,8 +189,10 @@ fun FloatExpressions(speed: Float, base: Float) {
 fun ColorExpressions(from: Color, to: Color, speed: Float) {
     val t = (sin(RemoteTimeVariables.continuousSeconds * speed.rf) + 1f.rf) / 2f.rf
     RemoteRow(horizontalArrangement = RemoteArrangement.spacedBy(10.rdp)) {
-        // lerp between two colors, by a time-driven fraction.
-        RemoteBox(RemoteModifier.size(90.rdp).background(lerp(from.rc, to.rc, t)))
+        // lerp between two colors, by a time-driven fraction. RemoteColor(color) is color.rc.
+        RemoteBox(
+            RemoteModifier.size(90.rdp).background(lerp(RemoteColor(from), RemoteColor(to), t)),
+        )
         // A hue that rotates with time: hue, saturation and value are all in 0..1.
         RemoteBox(
             RemoteModifier.size(90.rdp).background(RemoteColor.hsv(t, 0.8f.rf, 0.9f.rf)),
@@ -317,12 +319,16 @@ fun MutableValues(step: Float, label: String) {
 
 @Composable
 @RemoteComposable
-fun MutableImage(swap: Boolean) {
+fun MutableImage(swap: Boolean, remembered: Boolean = true) {
     // A mutable bitmap: the document declares an image that can be replaced while it plays.
+    // rememberMutableRemoteImageBitmap(bitmap) is remember { MutableRemoteImageBitmap(bitmap) }.
+    val bitmap = solidBitmap(if (swap) Color(0xFFE53935) else Color(0xFF1E88E5))
     val image: MutableRemoteImageBitmap =
-        rememberMutableRemoteImageBitmap(
-            solidBitmap(if (swap) Color(0xFFE53935) else Color(0xFF1E88E5)),
-        )
+        if (remembered) {
+            rememberMutableRemoteImageBitmap(bitmap)
+        } else {
+            remember { MutableRemoteImageBitmap(bitmap) }
+        }
     RemoteImage(image, "current".rs, RemoteModifier.size(100.rdp))
 }
 
