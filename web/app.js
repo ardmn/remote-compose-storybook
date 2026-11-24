@@ -16,6 +16,59 @@
   const t = I18n.t;
   const esc = H.escape;
 
+  // ------------------------------------------------------------------------------------------
+  // HTML: escaped by default
+  //
+  // Markup is built with the html`` tag, which escapes every interpolation unless it is already
+  // SafeHtml (another html`` result, or raw()). Arrays are joined, each item treated the same way;
+  // null and undefined become "". setHtml() is the only way markup reaches the DOM and accepts
+  // nothing but SafeHtml, so a plain string is always escaped. raw() is the only way around it, and
+  // each raw() call needs an eslint-disable with its reason (no-restricted-syntax in eslint.config.mjs).
+  // Whitespace inside html`` is part of the page, so Prettier leaves these templates alone
+  // (embeddedLanguageFormatting is off for web/ in .prettierrc.json).
+
+  class SafeHtml {
+    constructor(markup) {
+      this.markup = markup;
+      Object.freeze(this);
+    }
+  }
+
+  function htmlPart(value) {
+    if (value instanceof SafeHtml) return value.markup;
+    if (value == null) return "";
+    if (Array.isArray(value)) return value.map(htmlPart).join("");
+    return esc(value);
+  }
+
+  function html(strings, ...values) {
+    let out = strings[0];
+    for (let i = 0; i < values.length; i++) out += htmlPart(values[i]) + strings[i + 1];
+    return new SafeHtml(out);
+  }
+
+  // Trusted markup only: bundled translations that hold markup (tHtml) and highlight.js output,
+  // which escapes the source text itself. Never data from the catalog, the URL or the player.
+  const raw = (markup) => new SafeHtml(String(markup));
+
+  // Items joined by `separator` (a plain string is escaped, like any interpolation).
+  const joinHtml = (items, separator) => new SafeHtml(items.map(htmlPart).join(htmlPart(separator)));
+
+  // A translation whose text holds markup (i18n.js: bundled, never user data). Its {vars} are
+  // escaped like any interpolation. Plain-text translations go through t() and html`` instead.
+  function tHtml(key, vars) {
+    const escaped = {};
+    for (const [k, v] of Object.entries(vars || {})) escaped[k] = htmlPart(v);
+    // eslint-disable-next-line no-restricted-syntax -- a bundled translation; its {vars} are escaped above
+    return raw(t(key, escaped));
+  }
+
+  function setHtml(element, value) {
+    if (!(value instanceof SafeHtml)) throw new TypeError("setHtml() takes SafeHtml from html`` or raw()");
+    // eslint-disable-next-line no-unsanitized/property -- the page's only HTML sink: value is SafeHtml, built by html`` (escapes every interpolation) or raw() (bundled translations, highlight.js output)
+    element.innerHTML = value.markup;
+  }
+
   const state = {
     catalog: null,
     sources: {},
@@ -255,18 +308,21 @@
       return (ia < 0 ? 99 : ia) - (ib < 0 ? 99 : ib);
     });
     const currentId = state.current && state.current.story.id;
-    let html = "";
+    const current = html`aria-current="page"`;
+    const parts = [];
     if (!q) {
-      html += `<div class="nav-section">
-        <a class="nav-link nav-top" href="#/" ${location.hash === "" || location.hash === "#/" ? 'aria-current="page"' : ""}>${t("nav.overview")}</a>
-        <a class="nav-link nav-top" href="#/coverage" ${location.hash === "#/coverage" ? 'aria-current="page"' : ""}>${t("nav.coverage")}</a>
-      </div>`;
+      parts.push(html`<div class="nav-section">
+        <a class="nav-link nav-top" href="#/" ${location.hash === "" || location.hash === "#/" ? current : ""}>${t("nav.overview")}</a>
+        <a class="nav-link nav-top" href="#/coverage" ${location.hash === "#/coverage" ? current : ""}>${t("nav.coverage")}</a>
+      </div>`);
     }
     for (const cat of cats) {
-      html += `<div class="nav-section"><div class="nav-heading">${esc(I18n.category(cat))}</div>`;
+      parts.push(html`<div class="nav-section"><div class="nav-heading">${I18n.category(cat)}</div>`);
       for (const c of byCategory.get(cat)) {
         const open = q || state.expanded.has(c.id) || (state.current && state.current.component.id === c.id);
-        html += `<button class="nav-comp" data-comp="${esc(c.id)}" aria-expanded="${open ? "true" : "false"}">${esc(c.title)}</button>`;
+        parts.push(
+          html`<button class="nav-comp" data-comp="${c.id}" aria-expanded="${open ? "true" : "false"}">${c.title}</button>`,
+        );
         if (open) {
           for (const s of c.stories) {
             if (
@@ -278,23 +334,24 @@
               )
             )
               continue;
-            html += `<a class="nav-link" href="#/story/${esc(s.id)}" ${s.id === currentId ? 'aria-current="page"' : ""}>${esc(s.name)}</a>`;
+            parts.push(
+              html`<a class="nav-link" href="#/story/${s.id}" ${s.id === currentId ? current : ""}>${s.name}</a>`,
+            );
           }
         }
       }
-      html += `</div>`;
+      parts.push(html`</div>`);
     }
-    if (!cats.length) html += `<div class="nav-empty">${t("nav.empty", { q: esc(q) })}</div>`;
-    // eslint-disable-next-line no-unsanitized/property -- story/category names, ids and the search query go through esc(); the rest is bundled translations from i18n.js
-    nav.innerHTML = html;
+    if (!cats.length) parts.push(html`<div class="nav-empty">${t("nav.empty", { q })}</div>`);
+    setHtml(nav, html`${parts}`);
   }
 
   // ------------------------------------------------------------------------------------------
   // Routing
 
   function parseHash() {
-    const raw = location.hash.replace(/^#/, "") || "/";
-    const [path, query] = raw.split("?");
+    const hash = location.hash.replace(/^#/, "") || "/";
+    const [path, query] = hash.split("?");
     return { path, params: new URLSearchParams(query || "") };
   }
 
@@ -312,10 +369,9 @@
     renderNav($("search").value);
   }
 
-  function showPage(html) {
+  function showPage(content) {
     state.current = null;
-    // eslint-disable-next-line no-unsanitized/property -- html is renderOverview()/renderCoverage(): data strings go through esc(), counts are numbers, the rest is bundled translations from i18n.js
-    $("page").innerHTML = html;
+    setHtml($("page"), content);
     $("page").hidden = false;
     $("storyView").hidden = true;
     $("stageWrap").classList.add("offstage");
@@ -337,11 +393,11 @@
     const story = state.storiesById.get(id);
     const component = state.componentByStory.get(id);
     const switching = !state.current || state.current.story.id !== id;
-    const raw = defaultValues(story);
+    const requested = defaultValues(story);
     for (const a of story.args) {
-      if (params.has(a.name)) raw[a.name] = params.get(a.name);
+      if (params.has(a.name)) requested[a.name] = params.get(a.name);
     }
-    state.current = { story, component, values: raw };
+    state.current = { story, component, values: requested };
     state.expanded.add(component.id);
     if (switching) {
       state.lastDocument = null;
@@ -360,23 +416,26 @@
     $("storyTitle").textContent = story.name;
     $("storyDesc").textContent = story.description;
     const plain = I18n.plain(component);
-    // eslint-disable-next-line no-unsanitized/property -- plain.what and each useWhen go through esc(); headings are bundled translations from i18n.js
-    $("storyPlain").innerHTML = plain
-      ? `<section class="plain-card"><h2><span class="plain-icon" aria-hidden="true">i</span>${t("plain.what")}</h2>
-          <p>${esc(plain.what)}</p></section>
+    setHtml(
+      $("storyPlain"),
+      plain
+        ? html`<section class="plain-card"><h2><span class="plain-icon" aria-hidden="true">i</span>${t("plain.what")}</h2>
+          <p>${plain.what}</p></section>
         <section class="plain-card"><h2><span class="plain-icon" aria-hidden="true">★</span>${t("plain.use")}</h2>
-          <ul>${plain.useWhen.map((u) => `<li>${esc(u)}</li>`).join("")}</ul></section>`
-      : "";
+          <ul>${plain.useWhen.map((u) => html`<li>${u}</li>`)}</ul></section>`
+        : html``,
+    );
     const how = I18n.how(component);
     $("storyHow").hidden = !how;
-    // eslint-disable-next-line no-unsanitized/property -- `how` is the hand-written HTML for this component bundled in i18n.js, the title a bundled translation
-    $("storyHow").innerHTML = how ? `<summary>${t("how.title")}</summary>${how}` : "";
+    // `how` is the hand-written HTML for this component, bundled in i18n.js.
+    // eslint-disable-next-line no-restricted-syntax -- how is I18n.how(): bundled markup from i18n.js
+    setHtml($("storyHow"), how ? html`<summary>${t("how.title")}</summary>${raw(how)}` : html``);
     document.title = component.title + " · " + story.name + " — Remote Compose Storybook";
     sizeStage();
     // Stage and story go to the player together, so it never re-renders the previous story at the
     // new size; the values come back canonical (clamped, defaulted) for the controls and the code.
     window.rcStorybook.stage(stageConfig());
-    state.current.values = JSON.parse(window.rcStorybook.show(id, raw, switching));
+    state.current.values = JSON.parse(window.rcStorybook.show(id, requested, switching));
     renderControls();
     renderCode();
     renderDocs();
@@ -484,15 +543,17 @@
     const { story, values } = state.current;
     const body = $("controls");
     if (!story.args.length) {
-      // eslint-disable-next-line no-unsanitized/property -- a bundled translation, no data
-      body.innerHTML = `<p class="empty">${t("controls.none")}</p>`;
+      setHtml(body, html`<p class="empty">${t("controls.none")}</p>`);
       return;
     }
-    let rows = "";
-    for (const a of story.args)
-      rows += `<tr><td class="name">${esc(a.name)}</td><td>${controlHtml(a, values[a.name])}</td><td class="doc">${esc(a.doc || "")}</td></tr>`;
-    // eslint-disable-next-line no-unsanitized/property -- arg names, docs, option labels and values (values also come from the URL) go through esc() in renderControls/controlHtml, colors are regex-checked, min/max/step are catalog numbers; headers are bundled translations from i18n.js
-    body.innerHTML = `<table class="controls"><thead><tr><th>${t("controls.name")}</th><th>${t("controls.control")}</th><th>${t("controls.description")}</th></tr></thead><tbody>${rows}</tbody></table>`;
+    const rows = story.args.map(
+      (a) =>
+        html`<tr><td class="name">${a.name}</td><td>${controlHtml(a, values[a.name])}</td><td class="doc">${a.doc || ""}</td></tr>`,
+    );
+    setHtml(
+      body,
+      html`<table class="controls"><thead><tr><th>${t("controls.name")}</th><th>${t("controls.control")}</th><th>${t("controls.description")}</th></tr></thead><tbody>${rows}</tbody></table>`,
+    );
     body.querySelectorAll("[data-arg]").forEach((el) => {
       const name = el.dataset.arg;
       const arg = story.args.find((a) => a.name === name);
@@ -530,27 +591,27 @@
   }
 
   function controlHtml(a, v) {
-    const n = esc(a.name);
+    const n = a.name;
     switch (a.type) {
       case "boolean":
-        return `<label class="switch"><input type="checkbox" data-arg="${n}" aria-label="${n}" ${v === "true" ? "checked" : ""}><span></span></label>`;
+        return html`<label class="switch"><input type="checkbox" data-arg="${n}" aria-label="${n}" ${v === "true" ? "checked" : ""}><span></span></label>`;
       case "int":
       case "float":
-        return `<div class="control"><input type="range" data-arg="${n}" aria-label="${n}" min="${a.min}" max="${a.max}" step="${a.step}" value="${esc(String(v))}"><output data-for="${n}">${esc(displayValue(a, v))}</output></div>`;
+        return html`<div class="control"><input type="range" data-arg="${n}" aria-label="${n}" min="${a.min}" max="${a.max}" step="${a.step}" value="${String(v)}"><output data-for="${n}">${displayValue(a, v)}</output></div>`;
       case "text":
-        return `<div class="control"><input type="text" data-arg="${n}" aria-label="${n}" value="${esc(String(v))}"></div>`;
+        return html`<div class="control"><input type="text" data-arg="${n}" aria-label="${n}" value="${String(v)}"></div>`;
       case "color": {
         // Canonical colours are #AARRGGBB; anything else (never expected) falls back to opaque black.
         const hex = /^#[0-9A-F]{8}$/i.test(String(v)) ? String(v).slice(1).toUpperCase() : "FF000000";
         const alpha = parseInt(hex.slice(0, 2), 16);
-        return `<div class="control"><input type="color" data-arg="${n}" aria-label="${n} colour" value="#${hex.slice(2)}">
+        return html`<div class="control"><input type="color" data-arg="${n}" aria-label="${n} colour" value="#${hex.slice(2)}">
           <label class="tool">alpha <input type="range" data-alpha="${n}" aria-label="${n} alpha" min="0" max="255" value="${alpha}" style="width:110px"></label>
-          <output data-for="${n}">#${esc(hex)}</output></div>`;
+          <output data-for="${n}">#${hex}</output></div>`;
       }
       case "choice":
-        return `<select data-arg="${n}" aria-label="${n}">${a.options.map((o) => `<option ${o.label === v ? "selected" : ""}>${esc(o.label)}</option>`).join("")}</select>`;
+        return html`<select data-arg="${n}" aria-label="${n}">${a.options.map((o) => html`<option ${o.label === v ? "selected" : ""}>${o.label}</option>`)}</select>`;
       default:
-        return esc(String(v));
+        return html`${String(v)}`;
     }
   }
 
@@ -587,43 +648,54 @@
   }
 
   function codeBlock(title, code, lang) {
-    const html = lang === "diff" ? H.diff(code) : lang === "plain" ? esc(code) : H.kotlin(code);
-    return `${title ? `<div class="code-title">${esc(title)}</div>` : ""}<div class="code-block"><button class="btn copy" data-copy>${t("code.copy")}</button><pre><code>${html}</code></pre></div>`;
+    // highlight.js escapes the source text itself and adds only its own <span> tags.
+    // eslint-disable-next-line no-restricted-syntax -- highlight.js escapes every token it does not wrap in its own <span>
+    const highlighted = lang === "diff" ? raw(H.diff(code)) : lang === "plain" ? code : raw(H.kotlin(code));
+    return html`${title ? html`<div class="code-title">${title}</div>` : ""}<div class="code-block"><button class="btn copy" data-copy>${t("code.copy")}</button><pre><code>${highlighted}</code></pre></div>`;
   }
 
   function renderCode() {
     if (!state.current) return;
     const { story } = state.current;
     const src = state.sources[story.function];
-    const body = $("code");
-    let html = codeBlock(t("code.usage"), usageCode());
-    html += src
-      ? codeBlock(t("code.source", { file: src.file }), src.code)
-      : `<p class="empty">${t("code.missing", { fn: esc(story.function) })}</p>`;
-    // eslint-disable-next-line no-unsanitized/property -- codeBlock() escapes its title (file name included) and escapes or highlights the code (highlight.js escapes every token); the function name goes through esc()
-    body.innerHTML = html;
+    setHtml(
+      $("code"),
+      html`${codeBlock(t("code.usage"), usageCode())}${
+        src
+          ? codeBlock(t("code.source", { file: src.file }), src.code)
+          : html`<p class="empty">${t("code.missing", { fn: story.function })}</p>`
+      }`,
+    );
   }
 
   // Docs -------------------------------------------------------------------------------------
 
   function renderDocs() {
     const { component } = state.current;
-    let html = `<div class="docs"><p>${esc(component.description)}</p>`;
+    const parts = [html`<div class="docs"><p>${component.description}</p>`];
     const how = I18n.how(component);
-    if (how) html += `<h3>${t("how.title")}</h3>${how}`;
+    // `how` is the hand-written HTML for this component, bundled in i18n.js.
+    // eslint-disable-next-line no-restricted-syntax -- how is I18n.how(): bundled markup from i18n.js
+    if (how) parts.push(html`<h3>${t("how.title")}</h3>${raw(how)}`);
     for (const sym of component.symbols) {
       const sigs = state.api[sym];
       const short = sym.replace(/^androidx\.compose\.remote\./, "");
-      html += `<h3><code>${esc(short)}</code></h3>`;
-      if (sigs && sigs.length) html += codeBlock("", sigs.join("\n"), "plain");
-      else html += `<p class="empty">${t("docs.noSignature")}</p>`;
+      parts.push(html`<h3><code>${short}</code></h3>`);
+      if (sigs && sigs.length) parts.push(codeBlock("", sigs.join("\n"), "plain"));
+      else parts.push(html`<p class="empty">${t("docs.noSignature")}</p>`);
     }
-    const otherStories = component.stories.map((s) => `<a href="#/story/${esc(s.id)}">${esc(s.name)}</a>`).join(" · ");
-    html += `<h3>${t("docs.stories")}</h3><p>${otherStories}</p>`;
+    const otherStories = joinHtml(
+      component.stories.map((s) => html`<a href="#/story/${s.id}">${s.name}</a>`),
+      " · ",
+    );
+    parts.push(html`<h3>${t("docs.stories")}</h3><p>${otherStories}</p>`);
     const pkgs = [...new Set(component.symbols.map((s) => s.replace(/\.[^.]+$/, "")))];
-    html += `<h3>${t("docs.reference")}</h3><p>${pkgs.map((p) => `<a href="https://developer.android.com/reference/kotlin/${esc(p.replace(/\./g, "/"))}/package-summary" target="_blank" rel="noopener"><code>${esc(p)}</code></a>`).join("<br>")}</p></div>`;
-    // eslint-disable-next-line no-unsanitized/property -- descriptions, symbols, story names/ids and package names go through esc(); signatures through codeBlock(); the rest is bundled translations from i18n.js
-    $("docs").innerHTML = html;
+    const refs = pkgs.map(
+      (p) =>
+        html`<a href="https://developer.android.com/reference/kotlin/${p.replace(/\./g, "/")}/package-summary" target="_blank" rel="noopener"><code>${p}</code></a>`,
+    );
+    parts.push(html`<h3>${t("docs.reference")}</h3><p>${joinHtml(refs, html`<br>`)}</p></div>`);
+    setHtml($("docs"), html`${parts}`);
   }
 
   // Document / Changes / Actions --------------------------------------------------------------
@@ -632,29 +704,27 @@
     const doc = state.lastDocument;
     const body = $("document");
     if (!doc) {
-      // eslint-disable-next-line no-unsanitized/property -- a bundled translation, no data
-      body.innerHTML = `<p class="empty">${t("doc.waiting")}</p>`;
+      setHtml(body, html`<p class="empty">${t("doc.waiting")}</p>`);
       return;
     }
-    // eslint-disable-next-line no-unsanitized/property -- byte and operation counts are numbers, the structure text is escaped by codeBlock(..., "plain")
-    body.innerHTML =
-      `<p>${t("doc.summary", {
+    setHtml(
+      body,
+      html`<p>${tHtml("doc.summary", {
         bytes: doc.bytes.toLocaleString(),
         ops: doc.operations,
         centered: $("layout").value === "centered" ? t("doc.centered") : "",
-      })}</p>` + codeBlock(t("doc.structure"), doc.structure, "plain");
+      })}</p>${codeBlock(t("doc.structure"), doc.structure, "plain")}`,
+    );
   }
 
   function renderChanges() {
     const doc = state.lastDocument;
     const body = $("changes");
     if (!doc || !doc.diff) {
-      // eslint-disable-next-line no-unsanitized/property -- a bundled translation, no data
-      body.innerHTML = `<p class="empty">${t("changes.none")}</p>`;
+      setHtml(body, html`<p class="empty">${t("changes.none")}</p>`);
       return;
     }
-    // eslint-disable-next-line no-unsanitized/property -- the diff goes through H.diff(), which escapes every line
-    body.innerHTML = `<p>${t("changes.intro")}</p>` + codeBlock("", doc.diff, "diff");
+    setHtml(body, html`<p>${tHtml("changes.intro")}</p>${codeBlock("", doc.diff, "diff")}`);
   }
 
   // Host values ------------------------------------------------------------------------------
@@ -663,14 +733,14 @@
 
   function hostInput(v, label) {
     const kind = NAMED_TYPES[v.type] || "unknown";
-    const attrs = `data-host="${esc(v.name)}" data-type="${v.type}" aria-label="${label}"`;
-    if (kind === "text") return `<input type="text" ${attrs} placeholder="${t("host.placeholder")}">`;
+    const attrs = html`data-host="${v.name}" data-type="${v.type}" aria-label="${label}"`;
+    if (kind === "text") return html`<input type="text" ${attrs} placeholder="${t("host.placeholder")}">`;
     if (kind === "float" || kind === "int" || kind === "long") {
       const step = kind === "float" ? "0.1" : "1";
-      return `<input type="number" ${attrs} step="${step}" placeholder="${t("host.placeholder")}">`;
+      return html`<input type="number" ${attrs} step="${step}" placeholder="${t("host.placeholder")}">`;
     }
-    if (kind === "color") return `<input type="color" ${attrs} value="#3949ab">`;
-    return `<span class="empty">${t("host.inCode", { kind: esc(kind) })}</span>`;
+    if (kind === "color") return html`<input type="color" ${attrs} value="#3949ab">`;
+    return html`<span class="empty">${t("host.inCode", { kind })}</span>`;
   }
 
   function renderHostValues() {
@@ -678,21 +748,20 @@
     const doc = state.lastDocument;
     const named = (doc && doc.named) || [];
     if (!named.length) {
-      // eslint-disable-next-line no-unsanitized/property -- a bundled translation, no data
-      body.innerHTML = `<p class="empty">${t("host.none")}</p>`;
+      setHtml(body, html`<p class="empty">${tHtml("host.none")}</p>`);
       return;
     }
-    const rows = named
-      .map((v) => {
-        const label = esc(v.name.replace(/^USER:/, ""));
-        const kind = esc(NAMED_TYPES[v.type] || "unknown");
-        return `<tr><td class="name">${label}</td><td><code>${kind}</code></td><td><div class="control">${hostInput(v, label)}</div></td></tr>`;
-      })
-      .join("");
-    // eslint-disable-next-line no-unsanitized/property -- named-value names and kinds go through esc(), types are numbers, the rest is bundled translations from i18n.js
-    body.innerHTML = `<p>${t("host.intro", { bytes: doc.bytes.toLocaleString() })}</p>
+    const rows = named.map((v) => {
+      const label = v.name.replace(/^USER:/, "");
+      const kind = NAMED_TYPES[v.type] || "unknown";
+      return html`<tr><td class="name">${label}</td><td><code>${kind}</code></td><td><div class="control">${hostInput(v, label)}</div></td></tr>`;
+    });
+    setHtml(
+      body,
+      html`<p>${tHtml("host.intro", { bytes: doc.bytes.toLocaleString() })}</p>
       <table class="controls"><thead><tr><th>${t("controls.name")}</th><th>${t("host.type")}</th><th>${t("host.value")}</th></tr></thead><tbody>${rows}</tbody></table>
-      <p><button class="btn" id="hostReset">${t("host.reset")}</button></p>`;
+      <p><button class="btn" id="hostReset">${t("host.reset")}</button></p>`,
+    );
     body.querySelectorAll("[data-host]").forEach((el) => {
       el.addEventListener("input", () => {
         const type = Number(el.dataset.type);
@@ -717,17 +786,17 @@
   function renderActions() {
     const body = $("actions");
     if (!state.actions.length) {
-      // eslint-disable-next-line no-unsanitized/property -- a bundled translation, no data
-      body.innerHTML = `<p class="empty">${t("actions.none")}</p>`;
+      setHtml(body, html`<p class="empty">${t("actions.none")}</p>`);
       return;
     }
-    // eslint-disable-next-line no-unsanitized/property -- event time, type and detail go through esc(); the button label is a bundled translation
-    body.innerHTML = `<ul class="action-log">${state.actions
-      .slice()
-      .reverse()
-      .map((a) => `<li><time>${esc(a.time)}</time><b>${esc(a.type)}</b><span>${esc(a.detail)}</span></li>`)
-      .join("")}</ul>
-      <p><button class="btn" id="clearActions">${t("actions.clear")}</button></p>`;
+    setHtml(
+      body,
+      html`<ul class="action-log">${state.actions
+        .slice()
+        .reverse()
+        .map((a) => html`<li><time>${a.time}</time><b>${a.type}</b><span>${a.detail}</span></li>`)}</ul>
+      <p><button class="btn" id="clearActions">${t("actions.clear")}</button></p>`,
+    );
     $("clearActions").addEventListener("click", () => {
       state.actions = [];
       updateActionsBadge();
@@ -746,11 +815,11 @@
 
   // Where the API reference comes from, as HTML for the Coverage page.
   function apiSource() {
-    const commit = esc((state.coverage.commit || "").slice(0, 9));
+    const commit = (state.coverage.commit || "").slice(0, 9);
     const pinned = pinnedRelease();
     return pinned
-      ? `<code>${esc(pinned["remote-creation-compose"])}</code>, androidx <code>${commit}</code>`
-      : `androidx-main <code>${commit}</code>`;
+      ? html`<code>${pinned["remote-creation-compose"]}</code>, androidx <code>${commit}</code>`
+      : html`androidx-main <code>${commit}</code>`;
   }
 
   function renderOverview() {
@@ -762,24 +831,24 @@
       (a, b) => CATEGORY_ORDER.indexOf(a) - CATEGORY_ORDER.indexOf(b),
     );
     const first = (c) => (c.stories[0] ? "#/story/" + c.stories[0].id : "#/");
-    return `
+    return html`
       <h1>Remote Compose Storybook</h1>
-      <p class="lede">${t("ov.lede")}</p>
-      <p>${t("ov.counts", { components: state.components.length, stories: total, covered, blocks: cov.length })}</p>
+      <p class="lede">${tHtml("ov.lede")}</p>
+      <p>${tHtml("ov.counts", { components: state.components.length, stories: total, covered, blocks: cov.length })}</p>
 
       <h2>${t("ov.what.title")}</h2>
       <p>${t("ov.what")}</p>
       <div class="audience">
         <div><h3>${t("ov.designers.title")}</h3><p>${t("ov.designers")}</p></div>
-        <div><h3>${t("ov.pm.title")}</h3><p>${t("ov.pm")}</p></div>
+        <div><h3>${t("ov.pm.title")}</h3><p>${tHtml("ov.pm")}</p></div>
         <div><h3>${t("ov.dev.title")}</h3><p>${t("ov.dev")}</p></div>
       </div>
 
       <h2>${t("ov.read.title")}</h2>
-      <p>${t("ov.read")}</p>
+      <p>${tHtml("ov.read")}</p>
 
       <h2>${t("ov.use.title")}</h2>
-      ${pinned ? `<p>${t("ov.useRelease", { release: esc(pinned["remote-creation-compose"]) })}</p>` : `<p>${t("ov.use", { release: esc(state.meta.androidxRelease || "Google Maven") })}</p>`}
+      ${pinned ? html`<p>${tHtml("ov.useRelease", { release: pinned["remote-creation-compose"] })}</p>` : html`<p>${tHtml("ov.use", { release: state.meta.androidxRelease || "Google Maven" })}</p>`}
       ${codeBlock(
         "build.gradle.kts",
         pinned
@@ -822,25 +891,22 @@ dependencies {
       )}
 
       <h2>${t("ov.components")}</h2>
-      ${cats
-        .map(
-          (cat) =>
-            `<h3>${esc(I18n.category(cat))}</h3><div class="cards">${state.components
-              .filter((c) => c.category === cat)
-              .map((c) => {
-                const plain = I18n.plain(c);
-                return `<a class="card" href="${esc(first(c))}"><b>${esc(c.title)}</b><span>${esc(plain ? plain.what : c.description)}</span></a>`;
-              })
-              .join("")}</div>`,
-        )
-        .join("")}
+      ${cats.map(
+        (cat) =>
+          html`<h3>${I18n.category(cat)}</h3><div class="cards">${state.components
+            .filter((c) => c.category === cat)
+            .map((c) => {
+              const plain = I18n.plain(c);
+              return html`<a class="card" href="${first(c)}"><b>${c.title}</b><span>${plain ? plain.what : c.description}</span></a>`;
+            })}</div>`,
+      )}
 
       <h2>${t("ov.how.title")}</h2>
-      <p>${t("ov.how")}</p>`;
+      <p>${tHtml("ov.how")}</p>`;
   }
 
   function renderCoverage() {
-    if (!state.coverage) return `<h1>${t("cov.title")}</h1><p class="empty">${t("cov.missing")}</p>`;
+    if (!state.coverage) return html`<h1>${t("cov.title")}</h1><p class="empty">${t("cov.missing")}</p>`;
     const blocks = state.coverage.blocks;
     const storyFor = new Map();
     for (const s of state.storiesById.values()) if (!storyFor.has(s.function)) storyFor.set(s.function, s);
@@ -861,26 +927,30 @@ dependencies {
       if (!groups.has(b.group)) groups.set(b.group, []);
       groups.get(b.group).push(b);
     }
-    let html = `<h1>${t("cov.title")}</h1>
-      <p class="lede">${t("cov.lede", { source: apiSource() })}</p>
-      <p>${t("cov.summary", { covered, total: blocks.length, pending: pending ? t("cov.pendingSummary", { n: pending }) : "" })}</p>
-      <div class="meter"><div style="width:${((100 * covered) / Math.max(1, blocks.length)).toFixed(1)}%"></div></div>`;
+    const parts = [
+      html`<h1>${t("cov.title")}</h1>
+      <p class="lede">${tHtml("cov.lede", { source: apiSource() })}</p>
+      <p>${tHtml("cov.summary", { covered, total: blocks.length, pending: pending ? tHtml("cov.pendingSummary", { n: pending }) : "" })}</p>
+      <div class="meter"><div style="width:${((100 * covered) / Math.max(1, blocks.length)).toFixed(1)}%"></div></div>`,
+    ];
     for (const [group, items] of groups) {
       const n = items.filter((b) => b.stories.length || b.inOptions).length;
-      html += `<div class="cov-group"><h2>${esc(group)} <span class="pill">${n}/${items.length}</span></h2><table class="cov-table">`;
+      parts.push(
+        html`<div class="cov-group"><h2>${group} <span class="pill">${n}/${items.length}</span></h2><table class="cov-table">`,
+      );
       for (const b of items) {
         const direct = b.stories.map((fn) => storyFor.get(fn)).filter(Boolean);
         const opts = b.inOptions ? viaOptions(b.name).filter((s) => !direct.includes(s)) : [];
-        const links = [...direct, ...opts].map((s) => `<a href="#/story/${esc(s.id)}">${esc(s.name)}</a>`).join("");
+        const links = [...direct, ...opts].map((s) => html`<a href="#/story/${s.id}">${s.name}</a>`);
         const note =
-          b.pending && !links
-            ? `<span class="pill">${t("cov.pending")}</span> <span class="empty">${esc(b.pending)}</span>`
-            : `<span class="empty">${t("cov.none")}</span>`;
-        html += `<tr><td>${esc(b.name)}</td><td>${links || note}</td></tr>`;
+          b.pending && !links.length
+            ? html`<span class="pill">${t("cov.pending")}</span> <span class="empty">${b.pending}</span>`
+            : html`<span class="empty">${t("cov.none")}</span>`;
+        parts.push(html`<tr><td>${b.name}</td><td>${links.length ? links : note}</td></tr>`);
       }
-      html += `</table></div>`;
+      parts.push(html`</table></div>`);
     }
-    return html;
+    return html`${parts}`;
   }
 
   // ------------------------------------------------------------------------------------------
