@@ -20,8 +20,21 @@ export default [
   // SafeHtml, and reaches the DOM only through setHtml(), which throws on anything but SafeHtml.
   // setHtml() holds the page's one innerHTML assignment and the one disable comment for this rule;
   // any other innerHTML, outerHTML, insertAdjacentHTML or document.write with a non-literal value
-  // fails the lint, so new markup has to go through setHtml().
+  // fails the lint, so new markup has to go through setHtml(). raw() skips escaping, so every call
+  // is reported too: each one carries a disable comment saying why its input is trusted markup.
   { files: ["web/**/*.js"], ...noUnsanitized.configs.recommended },
+  {
+    files: ["web/app.js"],
+    rules: {
+      "no-restricted-syntax": [
+        "error",
+        {
+          selector: "CallExpression[callee.name='raw']",
+          message: "raw() skips escaping: pass only bundled markup, and say why in a disable comment.",
+        },
+      ],
+    },
+  },
   {
     files: ["e2e/**/*.mjs", "eslint.config.mjs"],
     languageOptions: { ecmaVersion: 2024, sourceType: "module", globals: { ...globals.node, ...globals.browser } },

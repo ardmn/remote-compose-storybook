@@ -22,7 +22,8 @@
   // Markup is built with the html`` tag, which escapes every interpolation unless it is already
   // SafeHtml (another html`` result, or raw()). Arrays are joined, each item treated the same way;
   // null and undefined become "". setHtml() is the only way markup reaches the DOM and accepts
-  // nothing but SafeHtml, so a forgotten escape cannot happen: a plain string is always escaped.
+  // nothing but SafeHtml, so a plain string is always escaped. raw() is the only way around it, and
+  // each raw() call needs an eslint-disable with its reason (no-restricted-syntax in eslint.config.mjs).
   // Whitespace inside html`` is part of the page, so Prettier leaves these templates alone
   // (embeddedLanguageFormatting is off for web/ in .prettierrc.json).
 
@@ -58,6 +59,7 @@
   function tHtml(key, vars) {
     const escaped = {};
     for (const [k, v] of Object.entries(vars || {})) escaped[k] = htmlPart(v);
+    // eslint-disable-next-line no-restricted-syntax -- a bundled translation; its {vars} are escaped above
     return raw(t(key, escaped));
   }
 
@@ -426,6 +428,7 @@
     const how = I18n.how(component);
     $("storyHow").hidden = !how;
     // `how` is the hand-written HTML for this component, bundled in i18n.js.
+    // eslint-disable-next-line no-restricted-syntax -- how is I18n.how(): bundled markup from i18n.js
     setHtml($("storyHow"), how ? html`<summary>${t("how.title")}</summary>${raw(how)}` : html``);
     document.title = component.title + " · " + story.name + " — Remote Compose Storybook";
     sizeStage();
@@ -646,6 +649,7 @@
 
   function codeBlock(title, code, lang) {
     // highlight.js escapes the source text itself and adds only its own <span> tags.
+    // eslint-disable-next-line no-restricted-syntax -- highlight.js escapes every token it does not wrap in its own <span>
     const highlighted = lang === "diff" ? raw(H.diff(code)) : lang === "plain" ? code : raw(H.kotlin(code));
     return html`${title ? html`<div class="code-title">${title}</div>` : ""}<div class="code-block"><button class="btn copy" data-copy>${t("code.copy")}</button><pre><code>${highlighted}</code></pre></div>`;
   }
@@ -671,6 +675,7 @@
     const parts = [html`<div class="docs"><p>${component.description}</p>`];
     const how = I18n.how(component);
     // `how` is the hand-written HTML for this component, bundled in i18n.js.
+    // eslint-disable-next-line no-restricted-syntax -- how is I18n.how(): bundled markup from i18n.js
     if (how) parts.push(html`<h3>${t("how.title")}</h3>${raw(how)}`);
     for (const sym of component.symbols) {
       const sigs = state.api[sym];

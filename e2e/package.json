@@ -5,7 +5,7 @@
   "scripts": {
     "test": "node run.mjs",
     "social": "node social.mjs",
-    "lint": "cd .. && eslint web e2e/*.mjs eslint.config.mjs && prettier --check web e2e/*.mjs e2e/package.json eslint.config.mjs .github && cd e2e && knip",
+    "lint": "cd .. && eslint web e2e/*.mjs eslint.config.mjs && prettier --check web e2e/*.mjs e2e/package.json eslint.config.mjs .github && cd e2e && knip && node i18n-markup.mjs",
     "lint:prune-directives": "cd .. && eslint --fix --fix-type directive web e2e/*.mjs eslint.config.mjs && prettier --write web e2e/*.mjs eslint.config.mjs",
     "format": "cd .. && prettier --write web e2e/*.mjs e2e/package.json eslint.config.mjs .github"
   },
