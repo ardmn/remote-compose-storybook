@@ -5,6 +5,9 @@ import ee.schimke.composeai.rcplayer.protocol.RcNoArg
 import ee.schimke.composeai.rcplayer.protocol.RcOpcodes
 import ee.schimke.composeai.rcplayer.protocol.RcOperation
 
+/** The LCS table is n×m ints; above this many cells the diff would take too long in the browser. */
+private const val MAX_DIFF_CELLS = 6_000_000L
+
 /**
  * A document as text, one operation per line, nested by container: what the Document tab shows and
  * what the Changes tab diffs. Each line is the decoded operation's own description.
@@ -40,7 +43,7 @@ private fun describe(op: RcOperation): String =
 internal fun unifiedDiff(before: List<String>, after: List<String>, context: Int = 3): String {
     val n = before.size
     val m = after.size
-    if (n.toLong() * m > 6_000_000L) return "(documents too large to diff: $n and $m lines)"
+    if (n.toLong() * m > MAX_DIFF_CELLS) return "(documents too large to diff: $n and $m lines)"
     val lcs = Array(n + 1) { IntArray(m + 1) }
     for (i in n - 1 downTo 0) for (j in m - 1 downTo 0) {
         lcs[i][j] =

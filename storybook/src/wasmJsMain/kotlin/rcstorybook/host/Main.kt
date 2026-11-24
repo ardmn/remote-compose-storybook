@@ -43,6 +43,17 @@ import rcstorybook.catalog.Args
 import rcstorybook.catalog.Catalog
 import rcstorybook.catalog.Story
 
+/** The stage size a page may ask for, in dp. */
+private const val MIN_STAGE_DP = 16
+private const val MAX_STAGE_DP = 4000
+
+private const val HEX_RADIX = 16
+
+/** `AARRGGBB`. */
+private const val ARGB_HEX_DIGITS = 8
+
+private val DarkStageBackground = Color(0xFF121316)
+
 /** What the stage shows: a story and the values of its args. */
 private data class Selection(val story: Story, val args: Args)
 
@@ -96,11 +107,15 @@ fun main() {
                 StageConfig(
                     dark = jsProperty(config, "theme") == "dark",
                     widthDp =
-                        jsProperty(config, "width")?.toDoubleOrNull()?.toInt()?.coerceIn(16, 4000)
-                            ?: 360,
+                        jsProperty(config, "width")
+                            ?.toDoubleOrNull()
+                            ?.toInt()
+                            ?.coerceIn(MIN_STAGE_DP, MAX_STAGE_DP) ?: 360,
                     heightDp =
-                        jsProperty(config, "height")?.toDoubleOrNull()?.toInt()?.coerceIn(16, 4000)
-                            ?: 360,
+                        jsProperty(config, "height")
+                            ?.toDoubleOrNull()
+                            ?.toInt()
+                            ?.coerceIn(MIN_STAGE_DP, MAX_STAGE_DP) ?: 360,
                     centered = jsProperty(config, "layout") != "topstart",
                 )
         },
@@ -165,8 +180,8 @@ private fun setHostValue(name: String, type: Int, raw: String) {
             RcNamedVariable.LONG_TYPE -> raw.toLongOrNull()?.let { RcNamedValue.LongValue(it) }
             RcNamedVariable.COLOR_TYPE ->
                 raw.removePrefix("#")
-                    .takeIf { it.length == 8 }
-                    ?.toLongOrNull(16)
+                    .takeIf { it.length == ARGB_HEX_DIGITS }
+                    ?.toLongOrNull(HEX_RADIX)
                     ?.let { RcNamedValue.Color(it.toInt()) }
             else -> null
         }
@@ -192,7 +207,7 @@ private fun Stage() {
                 replay,
                 modifier =
                     Modifier.size(config.widthDp.dp, config.heightDp.dp)
-                        .background(if (config.dark) Color(0xFF121316) else Color.White),
+                        .background(if (config.dark) DarkStageBackground else Color.White),
                 theme = if (config.dark) RcPlayerTheme.Dark else RcPlayerTheme.Light,
                 namedValues = hostValues,
                 onEvent = { event ->
@@ -206,7 +221,7 @@ private fun Stage() {
             display = display,
             modifier =
                 Modifier.size(config.widthDp.dp, config.heightDp.dp)
-                    .background(if (config.dark) Color(0xFF121316) else Color.White),
+                    .background(if (config.dark) DarkStageBackground else Color.White),
             theme = if (config.dark) RcPlayerTheme.Dark else RcPlayerTheme.Light,
             typefaces = typefaces,
             encodePng = ::encodePng,

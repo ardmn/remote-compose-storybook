@@ -4,6 +4,11 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
 import ee.schimke.composeai.rccreation.compose.layout.RemoteComposable
 
+private const val HEX_RADIX = 16
+
+/** `AARRGGBB`. */
+private const val ARGB_HEX_DIGITS = 8
+
 /** One building block of the public `@RemoteComposable` API, with its stories. */
 class Component(
     val id: String,
@@ -110,8 +115,8 @@ class ColorArg(name: String, default: Color, doc: String = "") : Arg<Color>(name
         val hex = raw.removePrefix("#")
         val argb =
             when (hex.length) {
-                6 -> hex.takeIf { it.all(Char::isHexDigit) }?.let { ("FF$it").toLong(16) }
-                8 -> hex.takeIf { it.all(Char::isHexDigit) }?.toLong(16)
+                6 -> hex.takeIf { it.all(Char::isHexDigit) }?.let { ("FF$it").toLong(HEX_RADIX) }
+                ARGB_HEX_DIGITS -> hex.takeIf { it.all(Char::isHexDigit) }?.toLong(HEX_RADIX)
                 else -> null
             } ?: return default
         return Color(argb.toInt())
@@ -157,7 +162,7 @@ private fun Char.isHexDigit() = this in '0'..'9' || this in 'a'..'f' || this in 
 internal fun argbHex(color: Color): String {
     val argb = (color.value shr 32).toLong() and 0xFFFFFFFFL
     // Color.value packs sRGB colors as ARGB in the top 32 bits.
-    return argb.toString(16).uppercase().padStart(8, '0')
+    return argb.toString(HEX_RADIX).uppercase().padStart(ARGB_HEX_DIGITS, '0')
 }
 
 // Builders used by the catalog.

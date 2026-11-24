@@ -1,5 +1,10 @@
 package rcstorybook.host
 
+private const val HEX_RADIX = 16
+
+/** A JSON `\uXXXX` escape has four hex digits. */
+private const val UNICODE_ESCAPE_DIGITS = 4
+
 /**
  * Serializes maps, lists, strings, numbers, booleans and null as JSON: the catalog and the document
  * reports are the only JSON this app writes, so a tree serializer is all it needs.
@@ -49,7 +54,9 @@ private fun StringBuilder.appendJsonString(s: String) {
             c == '\n' -> append("\\n")
             c == '\r' -> append("\\r")
             c == '\t' -> append("\\t")
-            c < ' ' -> append("\\u").append(c.code.toString(16).padStart(4, '0'))
+            c < ' ' ->
+                append("\\u")
+                    .append(c.code.toString(HEX_RADIX).padStart(UNICODE_ESCAPE_DIGITS, '0'))
             else -> append(c)
         }
     }

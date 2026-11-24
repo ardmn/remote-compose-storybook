@@ -7,9 +7,7 @@ import noUnsanitized from "./e2e/node_modules/eslint-plugin-no-unsanitized/index
 export default [
   { ignores: ["build/**", "**/node_modules/**", "e2e/out/**"] },
   // An eslint-disable comment that no longer suppresses anything fails the lint (the default only
-  // warns). It does not re-check a reviewed sink: the disable covers the `innerHTML =` line only,
-  // while the HTML is built in the lines above it, so a change to that template (a new
-  // interpolation without esc()) still needs a reviewer's eye.
+  // warns).
   { linterOptions: { reportUnusedDisableDirectives: "error" } },
   js.configs.recommended,
   {
@@ -17,11 +15,26 @@ export default [
     languageOptions: { ecmaVersion: 2022, sourceType: "script", globals: { ...globals.browser } },
     rules: { "no-unused-vars": ["error", { args: "none" }], eqeqeq: ["error", "smart"] },
   },
-  // The page builds HTML from story data and translations: every innerHTML, insertAdjacentHTML or
-  // document.write with a non-literal value is an XSS sink to review. Each reviewed sink has a
-  // disable comment for this rule on the line before it, saying why it is safe; any other sink fails
-  // the lint.
+  // The page builds HTML from story data, the URL and translations. It escapes by default: markup is
+  // built with the html`` tag in web/app.js, which escapes every interpolation that is not already
+  // SafeHtml, and reaches the DOM only through setHtml(), which throws on anything but SafeHtml.
+  // setHtml() holds the page's one innerHTML assignment and the one disable comment for this rule;
+  // any other innerHTML, outerHTML, insertAdjacentHTML or document.write with a non-literal value
+  // fails the lint, so new markup has to go through setHtml(). raw() skips escaping, so every call
+  // is reported too: each one carries a disable comment saying why its input is trusted markup.
   { files: ["web/**/*.js"], ...noUnsanitized.configs.recommended },
+  {
+    files: ["web/app.js"],
+    rules: {
+      "no-restricted-syntax": [
+        "error",
+        {
+          selector: "CallExpression[callee.name='raw']",
+          message: "raw() skips escaping: pass only bundled markup, and say why in a disable comment.",
+        },
+      ],
+    },
+  },
   {
     files: ["e2e/**/*.mjs", "eslint.config.mjs"],
     languageOptions: { ecmaVersion: 2024, sourceType: "module", globals: { ...globals.node, ...globals.browser } },

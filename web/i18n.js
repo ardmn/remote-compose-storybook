@@ -1,6 +1,7 @@
 // The page's own words in English and Russian. The API, the code and the story names stay in
 // English, as they are in Android Studio; everything that explains them is translated.
-// Strings may hold markup: they are the page's own text, never user data.
+// Strings may hold markup: they are the page's own text, never user data. app.js escapes every
+// translation by default; a key whose text holds markup must be rendered with tHtml() there.
 (function () {
   "use strict";
 
