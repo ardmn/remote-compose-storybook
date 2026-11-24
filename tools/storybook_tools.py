@@ -150,6 +150,25 @@ def import_used(name, text):
     return False
 
 
+def import_needed(fq, body, imports, entries, index):
+    """Whether `body` (with `imports`) needs the import `fq`. AndroidX remote API is checked with
+    the coverage rule (a parameter called `width` does not need `modifier.width`); anything else
+    with import_used."""
+    specs = []
+    if entries and fq.startswith("androidx.compose.remote."):
+        for e in entries:
+            if e["kind"] == "class" or (e["owner"] or "").endswith("Kt") or e.get("static"):
+                hit = e["package"] + "." + e["name"] == fq
+            else:
+                hit = e["package"] + "." + (e["owner"] or "") + "." + e["name"] == fq
+            if hit:
+                specs.append(use_specs(e))
+    if not specs:
+        return import_used(fq.rsplit(".", 1)[1], body)
+    code = strip_code(body)
+    return any(member_used(spec, code, set(imports), index) for spec in specs)
+
+
 def innermost_opener(text, index):
     """The bracket that encloses `index`, ignoring string literals: "(", "{", "[" or None."""
     stripped = re.sub(r'"(?:\\.|[^"\\])*"', lambda m: '"' + " " * (len(m.group(0)) - 2) + '"', text[:index])
@@ -169,7 +188,9 @@ def story_files(stories_dir):
 def cmd_sources(args):
     out = {}
     errors = []
-    public = public_names(parse_api(args.api)) if args.api else None
+    entries = parse_api(args.api) if args.api else []
+    public = public_names(entries) if args.api else None
+    index = ApiIndex(entries)
     all_decls = {}
     parsed = {}
     for path in story_files(args.stories):
@@ -214,7 +235,10 @@ def cmd_sources(args):
             pool = set(imports)
             for h in helpers:
                 pool.update(parsed[all_decls[h.name][0]][0])
-            used_imports = sorted({rewrite(imp) for imp in pool if import_used(imp.rsplit(".", 1)[1], body)})
+            rewritten = [rewrite(imp) for imp in pool]
+            used_imports = sorted(
+                {imp for imp in rewritten if import_needed(imp, body, rewritten, entries, index)}
+            )
             code = "\n".join("import " + i for i in used_imports) + "\n\n" + rewrite(body)
             out[d.name] = {
                 "file": os.path.basename(path),
@@ -645,6 +669,8 @@ class ApiIndex:
         self.supertypes: dict[str, set[str]] = {}
         self.declared: dict[str, set[str]] = {}
         self.objects: set[str] = set()
+        # Simple names of types that code can name before a dot: objects and classes with a companion.
+        self.static_types: set[str] = set()
         for e in entries:
             if e["kind"] == "class":
                 m = re.match(
@@ -658,6 +684,9 @@ class ApiIndex:
             owner = e["owner"] or ""
             if e["kind"] == "field" and e["name"] == "INSTANCE":
                 self.objects.add(owner)
+                self.static_types.add(owner.split(".")[-1])
+            if owner.endswith(".Companion"):
+                self.static_types.add(owner.split(".")[-2])
             facade = owner.endswith("Kt") or e.get("static")
             declaring = receiver_of(e) if facade else owner
             if declaring:
@@ -759,23 +788,97 @@ def receiver_regions(code, index):
                 if param is not None and param[1]:
                     regions.append((start, end, param[1]))
     for m in re.finditer(r"\bfun\s+(?:<[^>]*>\s*)?([\w.]+)\.\w+\s*\(", code):
-        brace = code.find("{", matching_bracket(code, m.end() - 1))
-        if brace >= 0:
-            regions.append((brace, matching_bracket(code, brace), m.group(1)))
+        body = function_body(code, matching_bracket(code, m.end() - 1) + 1)
+        if body is not None:
+            regions.append((body[0], body[1], m.group(1)))
+    types = typed_names(code)
+    for m in re.finditer(r"(?<![\w.])with\s*\(\s*(\w+)\s*\)\s*\{", code):
+        if m.group(1) in types:
+            regions.append((m.end() - 1, matching_bracket(code, m.end() - 1), types[m.group(1)]))
+    # `val d: RemoteDrawScope.() -> Unit = { … }`
+    for m in re.finditer(r":\s*([\w.]+)\.\(\)\s*->\s*\w+\s*=\s*\{", code):
+        regions.append((m.end() - 1, matching_bracket(code, m.end() - 1), m.group(1)))
     return regions
 
 
-def implicit_used(code, pattern, name, receiver, index):
-    """Whether `pattern` (a use of `name`) occurs where `receiver` is the implicit receiver that
-    provides `name`: the innermost enclosing lambda whose receiver declares `name`, as Kotlin
+def function_body(code, index):
+    """The span of a function's body, given the index just after its parameter list: a block
+    `{ … }`, or an expression body `= …` up to the next line that starts in column 0."""
+    depth = 0
+    i = index
+    while i < len(code):
+        c = code[i]
+        if c in "(<":
+            depth += 1
+        elif c in ")>" and code[i - 1 : i + 1] != "->":
+            depth -= 1
+        elif depth == 0 and c == "{":
+            return i, matching_bracket(code, i)
+        elif depth == 0 and c == "=" and code[i + 1 : i + 2] != "=":
+            end = re.compile(r"\n(?=[^\s})\]])").search(code, i)
+            return i, end.start() if end else len(code)
+        elif depth == 0 and c == "\n" and code[i + 1 : i + 2] not in (" ", "\t", "\n", ")", ":"):
+            return None
+        i += 1
+    return None
+
+
+def typed_names(code):
+    """{name: type} for parameters and values declared with a type (`scope: RemoteDrawScope`)."""
+    return {
+        m.group(1): m.group(2) for m in re.finditer(r"(?<![\w.])(\w+)\s*:\s*([A-Z][\w.]*)(?![\w.(])", code)
+    }
+
+
+def implicit_used(code, positions, name, receiver, index):
+    """Whether a use of `name` at one of `positions` is where `receiver` is the implicit receiver
+    that provides `name`: the innermost enclosing lambda whose receiver declares `name`, as Kotlin
     resolves it (inside `withTransform({ rotate() })`, `rotate` is RemoteDrawTransform's)."""
     regions = receiver_regions(code, index)
-    for m in re.finditer(pattern, code):
-        enclosing = sorted((r for r in regions if r[0] < m.start() < r[1]), key=lambda r: -r[0])
+    for p in positions:
+        enclosing = sorted((r for r in regions if r[0] < p < r[1]), key=lambda r: -r[0])
         resolved = next((r[2] for r in enclosing if index.declares(r[2], name)), None)
         if resolved is not None and index.is_subtype(resolved, receiver):
             return True
     return False
+
+
+def uses_of(code, name, call, prefix=r"(?<![\w.])"):
+    """Where `name` occurs after `prefix` (a regex), as a call (`name(`, `name<T>(`, `name {`) if
+    `call`: [(start of the match, the text left of `name`)]."""
+    out = []
+    for m in re.finditer(prefix + re.escape(name) + r"(?!\w)", code):
+        if call:
+            i = m.end()
+            while i < len(code) and code[i].isspace():
+                i += 1
+            if code[i : i + 1] == "<":
+                i = matching_angle(code, i)
+                while i < len(code) and code[i].isspace():
+                    i += 1
+            if code[i : i + 1] not in ("(", "{"):
+                continue
+        out.append(m.start())
+    return out
+
+
+def qualifier(code, dot):
+    """The identifier left of the `.` at `dot` (`RemoteFontVariation` in `RemoteFontVariation.x`),
+    or None when it is not a plain name (`f().x`, `a[0].x`)."""
+    m = re.search(r"(?<![\w.])(\w+)\s*$", code[:dot])
+    return m.group(1) if m else None
+
+
+def dotted_uses(code, name, call, receivers, index):
+    """`.name` uses whose left side may be one of `receivers` (simple type names): not
+    `OtherType.name` for an object or a class with a companion (`RemoteFontVariation.width`)."""
+    out = []
+    for start in uses_of(code, name, call, r"\.\s*"):
+        left = qualifier(code, start)
+        if left is not None and left in index.static_types and left not in receivers:
+            continue
+        out.append(start)
+    return out
 
 
 def receiver_of(e):
@@ -814,6 +917,7 @@ def use_specs(e):
         "call": call,
         "receiver": owner,
         "extension": extension,
+        "member_import": e["package"] + "." + owner + "." + name,
     }
 
 
@@ -823,30 +927,49 @@ def member_used(spec, code, imports, index):
     into a story that has them."""
     if imports is not None and spec["import"] is not None and spec["import"] not in imports:
         return False
-    name = re.escape(spec["name"])
-    tail = r"\s*(?:<[^<>]*>\s*)?[({]" if spec.get("call") else r"(?!\w)"
-    bare = r"(?<![\w.])" + name + tail
-    dotted = r"\.\s*" + name + tail
+    name = spec["name"]
+    call = spec.get("call", False)
     if spec["shape"] == "word":
-        return re.search(r"(?<![\w.])" + name + r"(?!\w)", code) is not None
+        return bool(uses_of(code, name, False))
     receiver = spec["receiver"]
     if receiver is None:
-        return re.search(bare, code) is not None
+        # A top-level function or property: called, or referenced as `::name`.
+        return bool(uses_of(code, name, call)) or bool(uses_of(code, name, False, r"::\s*"))
+    simple = receiver.split(".")[-2] if receiver.endswith(".Companion") else receiver.split(".")[-1]
     if receiver.endswith(".Companion"):
         owner = re.escape(receiver[: -len(".Companion")])
-        return re.search(r"(?<![\w.])" + owner + r"\s*\." + r"\s*" + name + tail, code) is not None
+        return bool(uses_of(code, name, call, r"(?<![\w.])" + owner + r"\s*\.\s*"))
     if receiver in index.objects:
         owner = re.escape(receiver)
         aliases = [owner] + [
             re.escape(a) for a in re.findall(r"\bva[lr]\s+(\w+)\s*=\s*" + owner + r"(?![\w.(])", code)
         ]
-        return re.search(r"(?<![\w.])(?:" + "|".join(aliases) + r")\s*\.\s*" + name + tail, code) is not None
+        if uses_of(code, name, call, r"(?<![\w.])(?:" + "|".join(aliases) + r")\s*\.\s*"):
+            return True
+        # `import …RemoteTimeVariables.year`, then `year`.
+        direct = spec.get("member_import")
+        return imports is not None and direct in imports and bool(uses_of(code, name, call))
     if index.is_lambda_receiver(receiver):
         # A lambda receiver (RemoteDrawScope, RemoteSemanticsPropertyReceiver, RemoteRowScope): its
-        # members and extensions are used implicitly inside that lambda; a member extension
-        # (`RemoteRowScope.weight` on RemoteModifier) is called there on its own receiver: `.weight(`.
-        return implicit_used(code, dotted if spec.get("extension") else bare, spec["name"], receiver, index)
-    return re.search(dotted, code) is not None
+        # members and extensions are used implicitly inside that lambda (or on `this`); a member
+        # extension (`RemoteRowScope.weight` on RemoteModifier) is called there on its own
+        # receiver: `.weight(`.
+        extension = spec.get("extension")
+        if extension:
+            positions = dotted_uses(code, name, call, {extension.split(".")[-1]}, index)
+        else:
+            positions = uses_of(code, name, call) + uses_of(code, name, call, r"\bthis\s*\.\s*")
+        if implicit_used(code, positions, name, receiver, index):
+            return True
+        if extension:
+            return False
+        # An explicit receiver of that type: `scope.drawCircle(` with `scope: RemoteDrawScope`.
+        types = typed_names(code)
+        return any(
+            (left := qualifier(code, p)) in types and index.is_subtype(types[left], receiver)
+            for p in uses_of(code, name, call, r"\.\s*")
+        )
+    return bool(dotted_uses(code, name, call, {simple}, index))
 
 
 def block_specs(entries):
@@ -892,7 +1015,18 @@ def catalog_option_codes(catalog_dir):
             if f.endswith(".kt"):
                 text = read_text(os.path.join(catalog_dir, f))
                 codes += re.findall(r'option\(\s*"(?:\\.|[^"\\])*"\s*,\s*"((?:\\.|[^"\\])*)"', text)
-    return sorted({c.replace('\\"', '"') for c in codes})
+    return sorted({kotlin_unescape(c) for c in codes})
+
+
+def kotlin_unescape(text):
+    """The value of a Kotlin string literal's body: `\\"`, `\\\\`, `\\$`, `\\n`, `\\uXXXX`…"""
+    simple = {"t": "\t", "b": "\b", "n": "\n", "r": "\r", "'": "'", '"': '"', "\\": "\\", "$": "$"}
+
+    def one(m):
+        e = m.group(1)
+        return chr(int(e[1:], 16)) if e.startswith("u") else simple.get(e, m.group(0))
+
+    return re.sub(r"\\(u[0-9a-fA-F]{4}|.)", one, text)
 
 
 def coverage_report(entries, sources, option_codes):

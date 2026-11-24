@@ -1,6 +1,9 @@
 """Tests for the coverage rule in storybook_tools.py: python3 -m unittest discover -s tools"""
 
+import json
 import os
+import tempfile
+import types
 import unittest
 from unittest import mock
 
@@ -131,8 +134,8 @@ class StatusTest(unittest.TestCase):
         return t.coverage_report(ENTRIES, sources, list(options))
 
     def test_pending_block_covered_by_an_option_is_covered(self):
-        # A pending block offered by a control option counted as covered on the site and as
-        # pending in the CLI (ardmn/work#11).
+        # A pending block offered by a control option used to count as covered on the site and as
+        # pending in the CLI: one rule now decides both.
         with mock.patch.dict(t.CANNOT_DEMONSTRATE, {"RemoteEasing.Linear": "a reason"}):
             report = self.report("", (), ["RemoteEasing.Linear"])
         blocks = {b["name"]: b for b in report["blocks"]}
@@ -151,6 +154,121 @@ class StatusTest(unittest.TestCase):
         report = self.report(code, [C + "state.rememberNamedRemoteLong"])
         blocks = {b["name"]: b for b in report["blocks"]}
         self.assertEqual(blocks["rememberNamedRemoteLong"]["status"], "covered")
+
+
+class ReviewFindingsTest(unittest.TestCase):
+    def test_member_of_another_object_is_not_a_modifier(self):
+        # `RemoteFontVariation.width(` is not the `width` modifier, and inside a row
+        # `RemoteFontVariation.weight(` is not RemoteRowScope.weight.
+        width = member("WidthModifierKt", "width")
+        code = "RemoteText(t, settings = RemoteFontVariation.Settings(RemoteFontVariation.width(w)))"
+        self.assertFalse(used(width, code, (C + "modifier.width",)))
+        self.assertTrue(used(width, "RemoteModifier.width(9.rdp)", (C + "modifier.width",)))
+        self.assertTrue(used(width, "RemoteModifier.size(1.rdp)\n    .width(9.rdp)", (C + "modifier.width",)))
+        weight = member("RemoteRowScope", "weight")
+        in_row = "RemoteRow { RemoteText(t, fontVariationSettings = RemoteFontVariation.weight(1f.rf)) }"
+        self.assertFalse(used(weight, in_row))
+
+    def test_a_parameter_named_like_an_import_does_not_keep_it(self):
+        index = t.ApiIndex(ENTRIES)
+        body = "fun Story(width: Float) {\n    RemoteText(t, RemoteFontVariation.width(width.rf))\n}"
+        self.assertFalse(t.import_needed(C + "modifier.width", body, [C + "modifier.width"], ENTRIES, index))
+        self.assertTrue(
+            t.import_needed(
+                C + "modifier.width", "RemoteModifier.width(1.rdp)", [C + "modifier.width"], ENTRIES, index
+            )
+        )
+        # Not AndroidX remote API: the plain word rule.
+        self.assertTrue(
+            t.import_needed("androidx.compose.ui.graphics.Color", "Color.Red", [], ENTRIES, index)
+        )
+
+    def test_explicit_receivers_of_a_lambda_receiver(self):
+        draw = member("RemoteDrawScope", "drawCircle")
+        self.assertTrue(used(draw, "RemoteCanvas { this.drawCircle(p, 1f.rf) }"))
+        self.assertTrue(used(draw, "fun dot(scope: RemoteDrawScope) {\n    scope.drawCircle(p, 1f.rf)\n}"))
+        self.assertTrue(
+            used(draw, "fun dot(scope: RemoteDrawScope) {\n    with(scope) { drawCircle(p, 1f.rf) }\n}")
+        )
+        self.assertTrue(used(draw, "val d: RemoteDrawScope.() -> Unit = { drawCircle(p, 1f.rf) }"))
+        self.assertFalse(used(draw, "fun dot(scope: Canvas) {\n    scope.drawCircle(p, 1f.rf)\n}"))
+
+    def test_expression_bodied_extension(self):
+        draw = member("RemoteDrawScope", "drawCircle")
+        self.assertTrue(used(draw, "fun RemoteDrawScope.dot() = drawCircle(p, 1f.rf)\n"))
+        weight = member("RemoteRowScope", "weight")
+        code = "fun RemoteRowScope.x() = 1\n\nfun y() {\n    RemoteText(t, RemoteModifier.weight(1f.rf))\n}"
+        self.assertFalse(used(weight, code))
+
+    def test_object_member_imported_directly(self):
+        year = member("RemoteTimeVariables", "year")
+        self.assertTrue(
+            used(year, "RemoteText(year.toRemoteString())", (C + "state.RemoteTimeVariables.year",))
+        )
+        self.assertFalse(used(year, "RemoteText(year.toRemoteString())", ()))
+
+    def test_function_reference(self):
+        tween = member("RemoteAnimationKt", "remoteTween")
+        self.assertTrue(used(tween, "val make = ::remoteTween", (C + "state.remoteTween",)))
+
+    def test_nested_generic_call(self):
+        enum = member("RemoteStateKt", "rememberNamedRemoteEnum")
+        code = 'rememberNamedRemoteEnum<Pair<Screen, List<Int>>>("s", x)'
+        self.assertTrue(used(enum, code, (C + "state.rememberNamedRemoteEnum",)))
+
+    def test_option_codes_unescape_kotlin_strings(self):
+        with tempfile.TemporaryDirectory() as d:
+            with open(os.path.join(d, "C.kt"), "w", encoding="utf-8") as fh:
+                fh.write('option("A", "RemoteState.Domain(\\"weather\\")", x)\n')
+                fh.write('option("B", "a\\\\b \\$c \\u0041\\tz", y)\n')
+            self.assertEqual(t.catalog_option_codes(d), ['RemoteState.Domain("weather")', "a\\b $c A\tz"])
+
+
+class CoverageExitCodeTest(unittest.TestCase):
+    """cmd_coverage fails on a missing block and on a stale CANNOT_DEMONSTRATE reason."""
+
+    NAME = "RemoteEasing.Linear"
+
+    def run_coverage(self, options, reasons, report_only=False):
+        block = {k: v for k, v in t.building_blocks(ENTRIES).items() if k[1] == self.NAME}
+        with tempfile.TemporaryDirectory() as d:
+            sources = os.path.join(d, "sources.json")
+            with open(sources, "w", encoding="utf-8") as fh:
+                json.dump({}, fh)
+            catalog = os.path.join(d, "catalog")
+            os.makedirs(catalog)
+            with open(os.path.join(catalog, "C.kt"), "w", encoding="utf-8") as fh:
+                fh.write("".join(f'option("x", "{o}", 1)\n' for o in options))
+            args = types.SimpleNamespace(
+                api=API,
+                sources=sources,
+                catalog=catalog,
+                out=os.path.join(d, "c.json"),
+                report_only=report_only,
+            )
+            with (
+                mock.patch.object(t, "building_blocks", return_value=block),
+                mock.patch.dict(t.CANNOT_DEMONSTRATE, reasons, clear=True),
+                mock.patch("sys.stdout"),
+                mock.patch("sys.stderr"),
+            ):
+                return t.cmd_coverage(args)
+
+    def test_covered(self):
+        self.assertEqual(self.run_coverage([self.NAME], {}), 0)
+
+    def test_missing_fails(self):
+        self.assertEqual(self.run_coverage([], {}), 1)
+
+    def test_pending_passes(self):
+        self.assertEqual(self.run_coverage([], {self.NAME: "why"}), 0)
+
+    def test_stale_reason_fails(self):
+        self.assertEqual(self.run_coverage([self.NAME], {self.NAME: "why"}), 1)
+
+    def test_report_only_passes(self):
+        self.assertEqual(self.run_coverage([], {}, report_only=True), 0)
+        self.assertEqual(self.run_coverage([self.NAME], {self.NAME: "why"}, report_only=True), 0)
 
 
 if __name__ == "__main__":
