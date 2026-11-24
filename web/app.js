@@ -825,8 +825,8 @@
   function renderOverview() {
     const pinned = pinnedRelease();
     const total = state.components.reduce((n, c) => n + c.stories.length, 0);
-    const cov = state.coverage ? state.coverage.blocks : [];
-    const covered = cov.filter((b) => b.stories.length || b.inOptions).length;
+    // Coverage is decided at build time (tools/storybook_tools.py coverage_report); this only shows it.
+    const summary = state.coverage ? state.coverage.summary : { covered: 0, total: 0 };
     const cats = [...new Set(state.components.map((c) => c.category))].sort(
       (a, b) => CATEGORY_ORDER.indexOf(a) - CATEGORY_ORDER.indexOf(b),
     );
@@ -834,7 +834,7 @@
     return html`
       <h1>Remote Compose Storybook</h1>
       <p class="lede">${tHtml("ov.lede")}</p>
-      <p>${tHtml("ov.counts", { components: state.components.length, stories: total, covered, blocks: cov.length })}</p>
+      <p>${tHtml("ov.counts", { components: state.components.length, stories: total, covered: summary.covered, blocks: summary.total })}</p>
 
       <h2>${t("ov.what.title")}</h2>
       <p>${t("ov.what")}</p>
@@ -907,21 +907,20 @@ dependencies {
 
   function renderCoverage() {
     if (!state.coverage) return html`<h1>${t("cov.title")}</h1><p class="empty">${t("cov.missing")}</p>`;
-    const blocks = state.coverage.blocks;
+    // Coverage is decided at build time (tools/storybook_tools.py coverage_report): each block's
+    // status, its stories and the control option codes that use it. This page only shows it.
+    const { blocks, summary } = state.coverage;
     const storyFor = new Map();
     for (const s of state.storiesById.values()) if (!storyFor.has(s.function)) storyFor.set(s.function, s);
-    // Stories whose control options print this name in the Code tab.
-    const viaOptions = (name) => {
-      const member = name.split(".").pop();
-      const re = new RegExp("(^|[^\\w])" + member.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + "(?!\\w)");
+    // Stories offering one of these option codes in a control.
+    const viaOptions = (codes) => {
       const out = [];
       for (const s of state.storiesById.values()) {
-        if (s.args.some((a) => a.options && a.options.some((o) => re.test(o.code)))) out.push(s);
+        if (s.args.some((a) => a.options && a.options.some((o) => codes.includes(o.code)))) out.push(s);
       }
       return out;
     };
-    const covered = blocks.filter((b) => b.stories.length || b.inOptions).length;
-    const pending = blocks.filter((b) => b.pending && !b.stories.length).length;
+    const { covered, total, pending } = summary;
     const groups = new Map();
     for (const b of blocks) {
       if (!groups.has(b.group)) groups.set(b.group, []);
@@ -930,21 +929,21 @@ dependencies {
     const parts = [
       html`<h1>${t("cov.title")}</h1>
       <p class="lede">${tHtml("cov.lede", { source: apiSource() })}</p>
-      <p>${tHtml("cov.summary", { covered, total: blocks.length, pending: pending ? tHtml("cov.pendingSummary", { n: pending }) : "" })}</p>
-      <div class="meter"><div style="width:${((100 * covered) / Math.max(1, blocks.length)).toFixed(1)}%"></div></div>`,
+      <p>${tHtml("cov.summary", { covered, total, pending: pending ? tHtml("cov.pendingSummary", { n: pending }) : "" })}</p>
+      <div class="meter"><div style="width:${((100 * covered) / Math.max(1, total)).toFixed(1)}%"></div></div>`,
     ];
     for (const [group, items] of groups) {
-      const n = items.filter((b) => b.stories.length || b.inOptions).length;
+      const n = items.filter((b) => b.status === "covered").length;
       parts.push(
         html`<div class="cov-group"><h2>${group} <span class="pill">${n}/${items.length}</span></h2><table class="cov-table">`,
       );
       for (const b of items) {
         const direct = b.stories.map((fn) => storyFor.get(fn)).filter(Boolean);
-        const opts = b.inOptions ? viaOptions(b.name).filter((s) => !direct.includes(s)) : [];
+        const opts = viaOptions(b.optionCodes).filter((s) => !direct.includes(s));
         const links = [...direct, ...opts].map((s) => html`<a href="#/story/${s.id}">${s.name}</a>`);
         const note =
-          b.pending && !links.length
-            ? html`<span class="pill">${t("cov.pending")}</span> <span class="empty">${b.pending}</span>`
+          b.status === "pending"
+            ? html`<span class="pill">${t("cov.pending")}</span> <span class="empty">${b.reason}</span>`
             : html`<span class="empty">${t("cov.none")}</span>`;
         parts.push(html`<tr><td>${b.name}</td><td>${links.length ? links : note}</td></tr>`);
       }

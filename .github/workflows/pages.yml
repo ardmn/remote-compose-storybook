@@ -43,12 +43,13 @@ jobs:
       - name: Kotlin (ktfmt, kotlinlang style; detekt)
         run: ./gradlew --console=plain :storybook:ktfmtCheck :storybook:detektWasmJsMainSourceSet
 
-      - name: Python (ruff, mypy)
+      - name: Python (ruff, mypy, unit tests)
         run: |
           pip install --require-hashes -r tools/requirements-lint.txt
           ruff check tools
           ruff format --check tools
           mypy
+          python -m unittest discover -s tools
 
       - name: Shell (shellcheck)
         run: shellcheck scripts/*.sh
