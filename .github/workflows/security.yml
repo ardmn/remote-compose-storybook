@@ -21,15 +21,15 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
+      - name: Install OSV-Scanner
+        uses: ./.github/actions/fetch-tool
+        with:
+          name: osv-scanner
+          url: https://github.com/google/osv-scanner/releases/download/v2.7.1/osv-scanner_linux_amd64
+          sha256: fb7dab19a8bd9bbe5c3189f09d4b7ee1820c9553a23bac202648a56efd2f6ee8
+
       # The npm, Yarn, pip and Gradle lockfiles (e2e/, kotlin-js-store/, tools/, storybook/gradle.lockfile:
       # what ships in storybook.wasm); reviewed advisories are in osv-scanner.toml. Build tools (ktfmt,
       # detekt, compiler plugins) are not locked, so not scanned: they never reach the site.
       - name: Dependencies (OSV-Scanner)
-        env:
-          VERSION: 2.7.1
-          SHA256: fb7dab19a8bd9bbe5c3189f09d4b7ee1820c9553a23bac202648a56efd2f6ee8
-        run: |
-          curl -sSfL --retry 3 --retry-all-errors -o "$RUNNER_TEMP/osv-scanner" "https://github.com/google/osv-scanner/releases/download/v$VERSION/osv-scanner_linux_amd64"
-          echo "$SHA256  $RUNNER_TEMP/osv-scanner" | sha256sum -c -
-          chmod +x "$RUNNER_TEMP/osv-scanner"
-          "$RUNNER_TEMP/osv-scanner" scan source --config osv-scanner.toml -r .
+        run: osv-scanner scan source --config osv-scanner.toml -r .

@@ -1,0 +1,49 @@
+name: Fetch a pinned tool
+description: >-
+  Downloads a release binary, checks its SHA-256 before anything else touches it, and puts it on
+  PATH for the job's later steps (ahead of any copy in the runner image). The caller names the
+  release URL and its SHA-256, so the pinned version stays visible in the workflow.
+
+inputs:
+  name:
+    description: The command name the tool is installed under.
+    required: true
+  url:
+    description: The release asset to download (a tar archive in any compression tar detects, or the binary itself).
+    required: true
+  sha256:
+    description: The SHA-256 of the downloaded file, from the official release.
+    required: true
+  archive-path:
+    description: The binary's path inside the archive; empty when the download is the binary itself.
+    required: false
+    default: ""
+
+runs:
+  using: composite
+  steps:
+    - name: Download, verify and install ${{ inputs.name }}
+      shell: bash
+      env:
+        NAME: ${{ inputs.name }}
+        URL: ${{ inputs.url }}
+        SHA256: ${{ inputs.sha256 }}
+        ARCHIVE_PATH: ${{ inputs.archive-path }}
+      run: |
+        set -euo pipefail
+        [[ "$NAME" =~ ^[A-Za-z0-9._-]+$ ]] || { echo "::error::name must be a plain command name: '$NAME'"; exit 1; }
+        [[ "$SHA256" =~ ^[0-9a-f]{64}$ ]] || { echo "::error::sha256 must be 64 lowercase hex digits"; exit 1; }
+        dir="$RUNNER_TEMP/tools/$NAME"
+        rm -rf "$dir"
+        mkdir -p "$dir/bin"
+        download="$dir/download"
+        curl -sSfL --retry 3 --retry-all-errors -o "$download" "$URL"
+        echo "$SHA256  $download" | sha256sum -c -
+        if [[ -n "$ARCHIVE_PATH" ]]; then
+          tar -xf "$download" -C "$dir" "$ARCHIVE_PATH"
+          mv "$dir/$ARCHIVE_PATH" "$dir/bin/$NAME"
+        else
+          mv "$download" "$dir/bin/$NAME"
+        fi
+        chmod +x "$dir/bin/$NAME"
+        echo "$dir/bin" >> "$GITHUB_PATH"
