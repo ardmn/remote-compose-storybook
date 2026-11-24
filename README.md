@@ -33,7 +33,7 @@ The stage has a viewport size, a light or dark player theme and a centered or to
 Pages:
 
 - **Overview**: what Remote Compose is, how to depend on it, and every component.
-- **API coverage**: every public building block in the AndroidX API and the stories that cover it. The build fails when a public building block has no story. Public blocks no story can demonstrate yet (an AndroidX limitation, or API newer than the fork) are listed with the reason (`CANNOT_DEMONSTRATE` in `tools/storybook_tools.py`).
+- **API coverage**: every public building block in the AndroidX API and the stories that cover it. A block counts where a story, or a control option it offers, uses it on its receiver as the API declares it: `RemoteBrush.image(…)`, `.rotate(…)` on a modifier, `rotate(…) { }` inside a canvas, `text = …` inside `semantics { }`; a top-level declaration also needs its import. `tools/storybook_tools.py coverage` decides each block's status once and writes it to `coverage.json`; the page only shows it, and `storybook_tools.py uses <Owner.member>` lists the stories that use any API member by the same rule. The build fails when a public building block has no story. Public blocks no story can demonstrate yet (an AndroidX limitation, or API newer than the fork) are listed with the reason (`CANNOT_DEMONSTRATE` in `tools/storybook_tools.py`).
 
 ## How it works
 
