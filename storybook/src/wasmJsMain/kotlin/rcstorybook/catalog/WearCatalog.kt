@@ -631,11 +631,13 @@ internal val wearComponents =
                     "Curved progress",
                     "WearCurvedProgress",
                     "The edge indicator, from 135° with a 90° sweep by default. Known limitation: at " +
-                        "100% with a 360° sweep the ring does not close; its rounded ends meet at a " +
-                        "pinch near startAngle. This is a bug in RemoteCurvedProgressIndicator, not the " +
-                        "intended look. Circular progress had the same bug, and remote-material3 " +
-                        "1.0.0-alpha16 fixes it there; a fix for the curved indicator is not in " +
-                        "AndroidX yet.",
+                        "100% with a 360° sweep the ring does not join up. The full arc starts half a " +
+                        "stroke after startAngle and is one stroke width short, so its rounded ends meet " +
+                        "at a pinch at startAngle. This is a bug in the curved indicators (this one and " +
+                        "the intro/outro one), not the intended look. Circular progress had a related " +
+                        "bug, a gap at 100%, which remote-material3 1.0.0-alpha16 fixes. The curved " +
+                        "indicators still have it in 1.0.0-alpha16, the version this catalog uses, and " +
+                        "a fix for them is not in AndroidX yet.",
                     listOf(
                         float("progress", 0.7f, 0f, 1f, step = 0.05f),
                         sweepAngle(),
@@ -652,7 +654,8 @@ internal val wearComponents =
                         "dot at the start grows in and pushes the track ahead of it; when progress " +
                         "reaches 100%, the track's tail collapses and the arc runs to the end in about " +
                         "0.85 s. The springs only play when the progress changes inside the document, " +
-                        "so the story keeps it in a MutableRemoteFloat and steps it on tap." +
+                        "so the story keeps it in a MutableRemoteFloat and steps it on tap. At 100% " +
+                        "with a 360° sweep the ring meets at a pinch, as in the default story." +
                         NO_PRESS_FEEDBACK_SHORT,
                     listOf(sweepAngle()),
                 ) {
