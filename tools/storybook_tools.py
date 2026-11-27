@@ -316,6 +316,7 @@ def clean_signature(s):
     s = s.replace("public ", "").replace("static ", "").replace("final ", "").replace("abstract ", "")
     s = re.sub(r"\bandroidx\.compose\.remote\.creation\.compose\.(\w+\.)", "", s)
     s = re.sub(r"\bandroidx\.compose\.remote\.foundation\.(\w+\.)", "", s)
+    s = re.sub(r"\bandroidx\.wear\.compose\.remote\.(\w+\.)", "", s)
     s = re.sub(r"\bandroidx\.compose\.ui\.(\w+\.)+", "", s)
     s = re.sub(r"\bandroidx\.compose\.runtime\.", "", s)
     s = s.replace("kotlin.jvm.functions.Function0<kotlin.Unit>", "() -> Unit")

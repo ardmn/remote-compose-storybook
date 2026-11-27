@@ -79,6 +79,16 @@ class ReceiverTest(unittest.TestCase):
         self.assertTrue(used(weight, "RemoteRow { RemoteText(t, modifier = RemoteModifier.weight(1f.rf)) }"))
         self.assertFalse(used(weight, "RemoteFontVariation.Settings(RemoteFontVariation.weight(4f.rf))"))
 
+    def test_button_group_scope_weight_only_inside_a_button_group(self):
+        # RemoteButtonGroup's lambda receiver is written fully qualified in remote-material3's API
+        # file, its members under the short owner name: both must name the same scope.
+        weight = member("RemoteButtonGroupScope", "weight")
+        group = "RemoteButtonGroup(m) {\n    RemoteIconButton(a, modifier = RemoteModifier.weight(1f.rf)) {}\n}"
+        row = "RemoteRow {\n    RemoteText(t, modifier = RemoteModifier.weight(1f.rf))\n}"
+        self.assertTrue(used(weight, group))
+        self.assertFalse(used(weight, row))
+        self.assertTrue(INDEX.is_lambda_receiver("RemoteButtonGroupScope"))
+
     def test_innermost_receiver_wins(self):
         # In withTransform's first lambda `rotate` is RemoteDrawTransform's, in its trailing one
         # RemoteDrawScope's; in a column inside a row `weight` is the column's.
