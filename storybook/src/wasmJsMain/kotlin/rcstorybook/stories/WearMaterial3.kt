@@ -2,7 +2,11 @@ package rcstorybook.stories
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Canvas
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.graphics.Paint
 import ee.schimke.composeai.rccreation.compose.action.hostAction
 import ee.schimke.composeai.rccreation.compose.action.valueChangeAction
 import ee.schimke.composeai.rccreation.compose.capture.RemoteImageVector
@@ -12,16 +16,23 @@ import ee.schimke.composeai.rccreation.compose.layout.RemoteArrangement
 import ee.schimke.composeai.rccreation.compose.layout.RemoteBox
 import ee.schimke.composeai.rccreation.compose.layout.RemoteColumn
 import ee.schimke.composeai.rccreation.compose.layout.RemoteComposable
+import ee.schimke.composeai.rccreation.compose.layout.RemotePaddingValues
 import ee.schimke.composeai.rccreation.compose.layout.RemoteRow
 import ee.schimke.composeai.rccreation.compose.modifier.RemoteModifier
+import ee.schimke.composeai.rccreation.compose.modifier.clickable
 import ee.schimke.composeai.rccreation.compose.modifier.fillMaxSize
 import ee.schimke.composeai.rccreation.compose.modifier.fillMaxWidth
 import ee.schimke.composeai.rccreation.compose.modifier.padding
 import ee.schimke.composeai.rccreation.compose.modifier.size
 import ee.schimke.composeai.rccreation.compose.shaders.RemoteBrush
 import ee.schimke.composeai.rccreation.compose.shaders.solidColor
+import ee.schimke.composeai.rccreation.compose.shapes.RemoteRoundedCornerShape
+import ee.schimke.composeai.rccreation.compose.shapes.RemoteShape
 import ee.schimke.composeai.rccreation.compose.state.MutableRemoteBoolean
+import ee.schimke.composeai.rccreation.compose.state.MutableRemoteFloat
 import ee.schimke.composeai.rccreation.compose.state.MutableRemoteInt
+import ee.schimke.composeai.rccreation.compose.state.RemoteColor
+import ee.schimke.composeai.rccreation.compose.state.RemoteImageBitmap
 import ee.schimke.composeai.rccreation.compose.state.rb
 import ee.schimke.composeai.rccreation.compose.state.rc
 import ee.schimke.composeai.rccreation.compose.state.rdp
@@ -37,6 +48,7 @@ import ee.schimke.composeai.rccreation.wear.material3.RemoteButtonColors
 import ee.schimke.composeai.rccreation.wear.material3.RemoteButtonDefaults
 import ee.schimke.composeai.rccreation.wear.material3.RemoteButtonGroup
 import ee.schimke.composeai.rccreation.wear.material3.RemoteCard
+import ee.schimke.composeai.rccreation.wear.material3.RemoteCardDefaults
 import ee.schimke.composeai.rccreation.wear.material3.RemoteCheckboxButton
 import ee.schimke.composeai.rccreation.wear.material3.RemoteCircularProgressIndicator
 import ee.schimke.composeai.rccreation.wear.material3.RemoteCompactButton
@@ -53,8 +65,10 @@ import ee.schimke.composeai.rccreation.wear.material3.RemoteIconToggleButtonDefa
 import ee.schimke.composeai.rccreation.wear.material3.RemoteIntroOutroCurvedProgressIndicator
 import ee.schimke.composeai.rccreation.wear.material3.RemoteLinearProgressIndicator
 import ee.schimke.composeai.rccreation.wear.material3.RemoteMaterialTheme
+import ee.schimke.composeai.rccreation.wear.material3.RemoteMotionScheme
 import ee.schimke.composeai.rccreation.wear.material3.RemoteOutlinedCard
 import ee.schimke.composeai.rccreation.wear.material3.RemoteRadioButton
+import ee.schimke.composeai.rccreation.wear.material3.RemoteShapes
 import ee.schimke.composeai.rccreation.wear.material3.RemoteSplitCheckboxButton
 import ee.schimke.composeai.rccreation.wear.material3.RemoteSplitRadioButton
 import ee.schimke.composeai.rccreation.wear.material3.RemoteSplitSwitchButton
@@ -92,6 +106,64 @@ fun buttonColors(style: WearButtonStyle): RemoteButtonColors =
         WearButtonStyle.Outlined -> RemoteButtonDefaults.outlinedButtonColors()
         WearButtonStyle.Child -> RemoteButtonDefaults.childButtonColors()
     }
+
+/** Color roles of RemoteColorScheme a story lets you pick for a text, an icon or a card slot. */
+enum class WearColorRole {
+    Primary,
+    PrimaryContainer,
+    Secondary,
+    Tertiary,
+    OnSurface,
+    OnSurfaceVariant,
+    SurfaceContainer,
+    SurfaceContainerHigh,
+    Outline,
+    Error,
+    Transparent,
+}
+
+/** The theme's color for [role]. */
+@Composable
+@RemoteComposable
+fun themeColor(role: WearColorRole): RemoteColor {
+    val scheme = RemoteMaterialTheme.colorScheme
+    return when (role) {
+        WearColorRole.Primary -> scheme.primary
+        WearColorRole.PrimaryContainer -> scheme.primaryContainer
+        WearColorRole.Secondary -> scheme.secondary
+        WearColorRole.Tertiary -> scheme.tertiary
+        WearColorRole.OnSurface -> scheme.onSurface
+        WearColorRole.OnSurfaceVariant -> scheme.onSurfaceVariant
+        WearColorRole.SurfaceContainer -> scheme.surfaceContainer
+        WearColorRole.SurfaceContainerHigh -> scheme.surfaceContainerHigh
+        WearColorRole.Outline -> scheme.outline
+        WearColorRole.Error -> scheme.error
+        WearColorRole.Transparent -> Color.Transparent.rc
+    }
+}
+
+/** The five corner sizes of RemoteShapes; cards default to Large. */
+enum class WearShapeSize {
+    ExtraSmall,
+    Small,
+    Medium,
+    Large,
+    ExtraLarge,
+}
+
+/** The theme's shape for [shape]. */
+@Composable
+@RemoteComposable
+fun themeShape(shape: WearShapeSize): RemoteShape {
+    val shapes = RemoteMaterialTheme.shapes
+    return when (shape) {
+        WearShapeSize.ExtraSmall -> shapes.extraSmall
+        WearShapeSize.Small -> shapes.small
+        WearShapeSize.Medium -> shapes.medium
+        WearShapeSize.Large -> shapes.large
+        WearShapeSize.ExtraLarge -> shapes.extraLarge
+    }
+}
 
 /** A heart, 24×24: the icon the Wear stories put in their buttons. */
 fun heartIcon(): RemoteImageVector =
@@ -207,8 +279,12 @@ fun WearEdgeButton(label: String, size: RemoteEdgeButtonSize, filledTonal: Boole
             modifier = RemoteModifier.fillMaxSize(),
             contentAlignment = RemoteAlignment.BottomCenter,
         ) {
+            // Wear Material 3's EdgeButton keeps 3 dp off the bottom edge; RemoteEdgeButton draws
+            // flush with it, so the padding is added here.
             RemoteEdgeButton(
                 onClick = valueChangeAction(taps, taps + 1.ri),
+                modifier =
+                    RemoteModifier.padding(bottom = RemoteEdgeButtonDefaults.VerticalPadding),
                 buttonSize = size,
                 colors =
                     if (filledTonal) {
@@ -271,8 +347,8 @@ fun WearTextButtons(text: String, enabled: Boolean) {
 @Composable
 @RemoteComposable
 fun WearToggleButtons(initiallyChecked: Boolean, variantShapes: Boolean) {
-    val muted = remember { MutableRemoteBoolean(initiallyChecked) }
-    val bold = remember { MutableRemoteBoolean(initiallyChecked) }
+    val muted = remember(initiallyChecked) { MutableRemoteBoolean(initiallyChecked) }
+    val bold = remember(initiallyChecked) { MutableRemoteBoolean(initiallyChecked) }
     WatchScreen {
         RemoteRow(horizontalArrangement = RemoteArrangement.spacedBy(8.rdp)) {
             RemoteIconToggleButton(
@@ -304,12 +380,15 @@ fun WearToggleButtons(initiallyChecked: Boolean, variantShapes: Boolean) {
 @Composable
 @RemoteComposable
 fun WearButtonGroup(buttons: Int) {
+    // As in AndroidX's RemoteButtonGroupAnimatedSample: the middle of three buttons is wider, and
+    // animateWidth makes a pressed button expand while its neighbours give way.
+    val weights = if (buttons == 3) listOf(1f, 1.5f, 1f) else List(buttons) { 1f }
     WatchScreen {
         RemoteButtonGroup(modifier = RemoteModifier.fillMaxWidth()) {
-            repeat(buttons) { index ->
+            weights.forEachIndexed { index, weight ->
                 RemoteIconButton(
                     onClick = hostAction("group_click".rs, index.ri),
-                    modifier = RemoteModifier.weight(1f.rf),
+                    modifier = RemoteModifier.weight(weight.rf).animateWidth(),
                     colors = RemoteIconButtonDefaults.filledIconButtonColors(),
                     shapes = RemoteIconButtonDefaults.shapes(RemoteButtonDefaults.shape),
                 ) {
@@ -323,8 +402,8 @@ fun WearButtonGroup(buttons: Int) {
 @Composable
 @RemoteComposable
 fun WearCheckboxButtons(label: String, initiallyChecked: Boolean, enabled: Boolean) {
-    val checked = remember { MutableRemoteBoolean(initiallyChecked) }
-    val split = remember { MutableRemoteBoolean(initiallyChecked) }
+    val checked = remember(initiallyChecked) { MutableRemoteBoolean(initiallyChecked) }
+    val split = remember(initiallyChecked) { MutableRemoteBoolean(initiallyChecked) }
     WatchScreen {
         RemoteColumn(verticalArrangement = RemoteArrangement.spacedBy(4.rdp)) {
             RemoteCheckboxButton(
@@ -351,8 +430,8 @@ fun WearCheckboxButtons(label: String, initiallyChecked: Boolean, enabled: Boole
 @Composable
 @RemoteComposable
 fun WearSwitchButtons(label: String, initiallyChecked: Boolean, enabled: Boolean) {
-    val checked = remember { MutableRemoteBoolean(initiallyChecked) }
-    val split = remember { MutableRemoteBoolean(initiallyChecked) }
+    val checked = remember(initiallyChecked) { MutableRemoteBoolean(initiallyChecked) }
+    val split = remember(initiallyChecked) { MutableRemoteBoolean(initiallyChecked) }
     WatchScreen {
         RemoteColumn(verticalArrangement = RemoteArrangement.spacedBy(4.rdp)) {
             RemoteSwitchButton(
@@ -405,68 +484,200 @@ fun WearRadioButtons(first: String, second: String, enabled: Boolean) {
 
 @Composable
 @RemoteComposable
-fun WearCard(text: String, outlined: Boolean) {
+fun WearCard(
+    text: String,
+    enabled: Boolean,
+    shape: WearShapeSize,
+    contentPadding: Int,
+    containerColor: WearColorRole,
+    contentColor: WearColorRole,
+) {
     WatchScreen {
-        if (outlined) {
-            RemoteOutlinedCard(
-                onClick = hostAction("open_card".rs),
-                modifier = RemoteModifier.fillMaxWidth(),
-            ) {
-                RemoteText(text.rs)
-            }
-        } else {
-            RemoteCard(
-                onClick = hostAction("open_card".rs),
-                modifier = RemoteModifier.fillMaxWidth(),
-            ) {
-                RemoteText(text.rs)
-            }
-        }
-    }
-}
-
-@Composable
-@RemoteComposable
-fun WearAppCard(appName: String, title: String, body: String, time: String) {
-    WatchScreen {
-        RemoteAppCard(
+        RemoteCard(
             onClick = hostAction("open_card".rs),
-            appName = { RemoteText(appName.rs) },
-            time = { RemoteText(time.rs) },
-            title = { RemoteText(title.rs) },
             modifier = RemoteModifier.fillMaxWidth(),
+            enabled = enabled.rb,
+            shape = themeShape(shape),
+            colors =
+                RemoteCardDefaults.cardColors(
+                    containerColor = themeColor(containerColor),
+                    contentColor = themeColor(contentColor),
+                ),
+            contentPadding = RemotePaddingValues(contentPadding.rdp),
         ) {
-            RemoteText(body.rs)
+            RemoteText(text.rs)
         }
     }
 }
 
 @Composable
 @RemoteComposable
-fun WearTitleCard(title: String, subtitle: String, time: String) {
+fun WearOutlinedCard(
+    text: String,
+    enabled: Boolean,
+    shape: WearShapeSize,
+    contentPadding: Int,
+    contentColor: WearColorRole,
+    borderColor: WearColorRole,
+    borderWidth: Int,
+) {
     WatchScreen {
+        // An outlined card's container is transparent: only the border and the content show.
+        RemoteOutlinedCard(
+            onClick = hostAction("open_card".rs),
+            modifier = RemoteModifier.fillMaxWidth(),
+            enabled = enabled.rb,
+            shape = themeShape(shape),
+            colors = RemoteCardDefaults.outlinedCardColors(contentColor = themeColor(contentColor)),
+            border =
+                RemoteCardDefaults.outlinedCardBorder(
+                    outlineColor = themeColor(borderColor),
+                    borderWidth = borderWidth.rdp,
+                ),
+            contentPadding = RemotePaddingValues(contentPadding.rdp),
+        ) {
+            RemoteText(text.rs)
+        }
+    }
+}
+
+/**
+ * A sunset over a hill, 160×90, drawn into a bitmap the document carries: the image card's
+ * background.
+ */
+fun sunsetBitmap(): RemoteImageBitmap {
+    val image = ImageBitmap(160, 90)
+    Canvas(image).apply {
+        drawRect(0f, 0f, 160f, 90f, Paint().apply { color = Color(0xFFFF7043) })
+        drawCircle(Offset(110f, 46f), 16f, Paint().apply { color = Color(0xFFFFD54F) })
+        // A hill in front of the sun: the top of a large circle below the image.
+        drawCircle(Offset(60f, 192f), 130f, Paint().apply { color = Color(0xFF5D4037) })
+    }
+    return RemoteImageBitmap(image)
+}
+
+@Composable
+@RemoteComposable
+fun WearImageCard(title: String, subtitle: String, imageAlpha: Float, scrim: Boolean) {
+    val bitmap = remember { sunsetBitmap() }
+    WatchScreen {
+        // containerPainter draws the image under the content, clipped to the card's shape; the
+        // scrim darkens it so the text stays readable.
         RemoteTitleCard(
             onClick = hostAction("open_card".rs),
+            containerPainter =
+                RemoteCardDefaults.containerPainter(
+                    image = bitmap,
+                    scrim = if (scrim) RemoteCardDefaults.scrimBrush() else null,
+                    alpha = imageAlpha.rf,
+                ),
             title = { RemoteText(title.rs) },
-            time = { RemoteText(time.rs) },
             subtitle = { RemoteText(subtitle.rs) },
             modifier = RemoteModifier.fillMaxWidth(),
+            colors = RemoteCardDefaults.cardWithContainerPainterColors(),
         )
     }
 }
 
 @Composable
 @RemoteComposable
-fun WearText(text: String, maxLines: Int, primaryColor: Boolean) {
+fun WearAppCard(
+    appName: String,
+    title: String,
+    time: String,
+    content: String,
+    appImage: Boolean,
+    enabled: Boolean,
+    shape: WearShapeSize,
+    contentPadding: Int,
+    containerColor: WearColorRole,
+    contentColor: WearColorRole,
+    appNameColor: WearColorRole,
+    timeColor: WearColorRole,
+    titleColor: WearColorRole,
+) {
+    WatchScreen {
+        RemoteAppCard(
+            onClick = hostAction("open_card".rs),
+            appName = { RemoteText(appName.rs) },
+            title = { RemoteText(title.rs) },
+            modifier = RemoteModifier.fillMaxWidth(),
+            enabled = enabled.rb,
+            shape = themeShape(shape),
+            colors =
+                RemoteCardDefaults.cardColors(
+                    containerColor = themeColor(containerColor),
+                    contentColor = themeColor(contentColor),
+                    appNameColor = themeColor(appNameColor),
+                    timeColor = themeColor(timeColor),
+                    titleColor = themeColor(titleColor),
+                ),
+            contentPadding = RemotePaddingValues(contentPadding.rdp),
+            appImage =
+                if (appImage) {
+                    {
+                        RemoteIcon(
+                            imageVector = heartIcon(),
+                            contentDescription = null,
+                            modifier = RemoteModifier.size(RemoteCardDefaults.AppImageSize),
+                        )
+                    }
+                } else {
+                    null
+                },
+            time = if (time.isNotEmpty()) ({ RemoteText(time.rs) }) else null,
+        ) {
+            if (content.isNotEmpty()) RemoteText(content.rs)
+        }
+    }
+}
+
+@Composable
+@RemoteComposable
+fun WearTitleCard(
+    title: String,
+    time: String,
+    subtitle: String,
+    content: String,
+    enabled: Boolean,
+    shape: WearShapeSize,
+    contentPadding: Int,
+    containerColor: WearColorRole,
+    contentColor: WearColorRole,
+    timeColor: WearColorRole,
+    titleColor: WearColorRole,
+    subtitleColor: WearColorRole,
+) {
+    WatchScreen {
+        RemoteTitleCard(
+            onClick = hostAction("open_card".rs),
+            title = { RemoteText(title.rs) },
+            modifier = RemoteModifier.fillMaxWidth(),
+            time = if (time.isNotEmpty()) ({ RemoteText(time.rs) }) else null,
+            subtitle = if (subtitle.isNotEmpty()) ({ RemoteText(subtitle.rs) }) else null,
+            enabled = enabled.rb,
+            shape = themeShape(shape),
+            colors =
+                RemoteCardDefaults.cardColors(
+                    containerColor = themeColor(containerColor),
+                    contentColor = themeColor(contentColor),
+                    timeColor = themeColor(timeColor),
+                    titleColor = themeColor(titleColor),
+                    subtitleColor = themeColor(subtitleColor),
+                ),
+            contentPadding = RemotePaddingValues(contentPadding.rdp),
+            content = if (content.isNotEmpty()) ({ RemoteText(content.rs) }) else null,
+        )
+    }
+}
+
+@Composable
+@RemoteComposable
+fun WearText(text: String, maxLines: Int, color: WearColorRole) {
     WatchScreen {
         RemoteText(
             text = text.rs,
-            color =
-                if (primaryColor) {
-                    RemoteMaterialTheme.colorScheme.primary
-                } else {
-                    RemoteMaterialTheme.colorScheme.onSurface
-                },
+            color = themeColor(color),
             style = RemoteMaterialTheme.typography.titleMedium,
             textAlign = RemoteTextAlign.Center,
             maxLines = maxLines,
@@ -477,18 +688,13 @@ fun WearText(text: String, maxLines: Int, primaryColor: Boolean) {
 
 @Composable
 @RemoteComposable
-fun WearIcon(size: Int, primaryTint: Boolean) {
+fun WearIcon(size: Int, tint: WearColorRole) {
     WatchScreen {
         RemoteIcon(
             imageVector = heartIcon(),
             contentDescription = "Favourite".rs,
             modifier = RemoteModifier.size(size.rdp),
-            tint =
-                if (primaryTint) {
-                    RemoteMaterialTheme.colorScheme.primary
-                } else {
-                    RemoteMaterialTheme.colorScheme.onSurface
-                },
+            tint = themeColor(tint),
         )
     }
 }
@@ -523,23 +729,39 @@ fun WearLinearProgress(progress: Float, enabled: Boolean) {
 
 @Composable
 @RemoteComposable
-fun WearCurvedProgress(progress: Float, sweepAngle: Int, introOutro: Boolean) {
+fun WearCurvedProgress(progress: Float, sweepAngle: Int) {
     // Drawn along the round screen's edge, around the content.
     RemoteBox(modifier = RemoteModifier.fillMaxSize(), contentAlignment = RemoteAlignment.Center) {
-        if (introOutro) {
-            RemoteIntroOutroCurvedProgressIndicator(
-                progress = progress.rf,
-                modifier = RemoteModifier.fillMaxSize(),
-                sweepAngle = sweepAngle.toFloat().rf,
-            )
-        } else {
-            RemoteCurvedProgressIndicator(
-                progress = progress.rf,
-                modifier = RemoteModifier.fillMaxSize(),
-                sweepAngle = sweepAngle.toFloat().rf,
-            )
-        }
-        RemoteText("${(progress * 100).roundToInt()}%".rs)
+        RemoteCurvedProgressIndicator(
+            progress = progress.rf,
+            modifier = RemoteModifier.fillMaxSize(),
+            sweepAngle = sweepAngle.toFloat().rf,
+        )
+        RemoteText(
+            "${(progress * 100).roundToInt()}%".rs,
+            style = RemoteMaterialTheme.typography.titleMedium,
+        )
+    }
+}
+
+@Composable
+@RemoteComposable
+fun WearIntroOutroProgress(sweepAngle: Int) {
+    // As in AndroidX's RemoteIntroOutroCurvedProgressIndicatorSample: the progress lives in the
+    // document, and each tap steps it 0 -> 0.5 -> 1 -> 0, so the player animates every change.
+    val progress = remember { MutableRemoteFloat(0f) }
+    val next =
+        progress.isGreaterThanOrEqualTo(1f.rf).select(ifTrue = 0f.rf, ifFalse = progress + 0.5f.rf)
+    RemoteBox(
+        modifier = RemoteModifier.fillMaxSize().clickable(valueChangeAction(progress, next)),
+        contentAlignment = RemoteAlignment.Center,
+    ) {
+        RemoteIntroOutroCurvedProgressIndicator(
+            progress = progress,
+            modifier = RemoteModifier.fillMaxSize(),
+            sweepAngle = sweepAngle.toFloat().rf,
+        )
+        RemoteText("Tap to step".rs, style = RemoteMaterialTheme.typography.titleMedium)
     }
 }
 
@@ -561,18 +783,121 @@ fun WearPageIndicator(pageCount: Int, selectedPage: Int, vertical: Boolean) {
     }
 }
 
+/** RemoteMaterialTheme's two motion schemes. */
+enum class WearMotion {
+    Standard,
+    Expressive,
+}
+
+/** Shape sets for the theme story: Wear's default corners, or all corners at one size. */
+enum class WearShapeSet {
+    Default,
+    Square,
+    Round,
+}
+
+/** The RemoteShapes for [shapes]. */
+fun remoteShapes(shapes: WearShapeSet): RemoteShapes =
+    when (shapes) {
+        WearShapeSet.Default -> RemoteShapes()
+        WearShapeSet.Square -> uniformShapes(RemoteRoundedCornerShape(2.rdp))
+        WearShapeSet.Round -> uniformShapes(RemoteRoundedCornerShape(36.rdp))
+    }
+
+private fun uniformShapes(shape: RemoteRoundedCornerShape) =
+    RemoteShapes(
+        extraSmall = shape,
+        small = shape,
+        medium = shape,
+        large = shape,
+        extraLarge = shape,
+    )
+
 @Composable
 @RemoteComposable
-fun WearTheme(primary: Color, onPrimary: Color) {
+fun WearTheme(
+    primary: Color,
+    onPrimary: Color,
+    secondary: Color,
+    tertiary: Color,
+    surfaceContainer: Color,
+    onSurface: Color,
+    onSurfaceVariant: Color,
+    error: Color,
+    motion: WearMotion,
+    shapes: WearShapeSet,
+) {
     val colors =
-        RemoteMaterialTheme.colorScheme.copy(primary = primary.rc, onPrimary = onPrimary.rc)
-    RemoteMaterialTheme(colorScheme = colors) {
-        WatchScreen {
-            RemoteButton(
-                onClick = hostAction("themed_click".rs),
-                modifier = RemoteModifier.fillMaxWidth(),
-            ) {
-                RemoteText("Themed button".rs)
+        RemoteMaterialTheme.colorScheme.copy(
+            primary = primary.rc,
+            onPrimary = onPrimary.rc,
+            secondary = secondary.rc,
+            tertiary = tertiary.rc,
+            surfaceContainer = surfaceContainer.rc,
+            onSurface = onSurface.rc,
+            onSurfaceVariant = onSurfaceVariant.rc,
+            error = error.rc,
+        )
+    RemoteMaterialTheme(
+        colorScheme = colors,
+        shapes = remoteShapes(shapes),
+        motionScheme =
+            when (motion) {
+                WearMotion.Standard -> RemoteMotionScheme.standard()
+                WearMotion.Expressive -> RemoteMotionScheme.expressive()
+            },
+    ) {
+        ThemedRunScreen()
+    }
+}
+
+/**
+ * A run screen for the theme story: a text, a card, a progress bar, a warning and a button group.
+ */
+@Composable
+@RemoteComposable
+fun ThemedRunScreen() {
+    // Every component below reads the theme: the text (secondary), the card (surfaceContainer,
+    // onSurface, tertiary, onSurfaceVariant, large shape), the progress (primary) and the
+    // button group (primary, onPrimary, and the motion
+    // scheme's press spring); the warning uses error.
+    RemoteColumn(
+        // Wide side padding keeps the card's corners inside the round screen.
+        modifier = RemoteModifier.fillMaxSize().padding(horizontal = 30.rdp),
+        verticalArrangement = RemoteArrangement.spacedBy(2.rdp, RemoteAlignment.CenterVertically),
+        horizontalAlignment = RemoteAlignment.CenterHorizontally,
+    ) {
+        RemoteText(
+            "Morning run".rs,
+            color = RemoteMaterialTheme.colorScheme.secondary,
+            style = RemoteMaterialTheme.typography.titleSmall,
+        )
+        RemoteTitleCard(
+            onClick = hostAction("themed_card".rs),
+            title = { RemoteText("5 km".rs) },
+            subtitle = { RemoteText("Goal".rs) },
+            modifier = RemoteModifier.fillMaxWidth(),
+        ) {
+            RemoteText("3.2 km done".rs)
+        }
+        RemoteLinearProgressIndicator(
+            progress = 0.64f.rf,
+            modifier = RemoteModifier.fillMaxWidth(),
+        )
+        RemoteText(
+            "Battery low".rs,
+            color = RemoteMaterialTheme.colorScheme.error,
+            style = RemoteMaterialTheme.typography.labelSmall,
+        )
+        // Press and hold a button: the group's spring comes from the motion scheme.
+        RemoteButtonGroup(modifier = RemoteModifier.fillMaxWidth()) {
+            listOf("Start", "Pause").forEach { label ->
+                RemoteCompactButton(
+                    onClick = hostAction("themed_click".rs, label.rs),
+                    modifier = RemoteModifier.weight(1f.rf).animateWidth(),
+                ) {
+                    RemoteText(label.rs)
+                }
             }
         }
     }

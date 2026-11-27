@@ -8,7 +8,10 @@
 # With a release, verify-androidx compiles against the released artifacts on Google Maven
 # (RELEASE: one `artifact=version` per line) instead of a snapshot (SNAPSHOT_BUILD). The versions
 # come from libraryversions.toml at <sha>, which must name <release> for remote-creation-compose.
-# Downloads into a temporary directory first, so a failed download leaves the reference untouched.
+# Downloads into a staging directory next to the reference, checks it, then swaps the whole
+# directory in (two renames, never a mix of old and new files): the API files and their version
+# marker (RELEASE or SNAPSHOT_BUILD) are published together or not at all, so a failed or
+# interrupted refresh leaves the old baseline in place.
 set -euo pipefail
 cd "$(dirname "$0")/.."
 REF="${1:-androidx-main}"
@@ -17,8 +20,45 @@ SHA=$(curl -sf "https://api.github.com/repos/androidx/androidx/commits/$REF" |
   python3 -c 'import json,sys; print(json.load(sys.stdin)["sha"])')
 BASE="https://raw.githubusercontent.com/androidx/androidx/$SHA/compose/remote"
 OUT=reference/androidx-api
-TMP=$(mktemp -d)
-trap 'rm -rf "$TMP"' EXIT
+TMP=""
+# Set from just before this refresh moves $OUT aside until the new one is in its place.
+SWAPPING=0
+# Puts this refresh's backup back if it stopped mid-swap, then removes its staging dir and lock.
+cleanup() {
+  if [[ $SWAPPING == 1 && ! -d "$OUT" && -d "$OUT.old" ]]; then mv "$OUT.old" "$OUT"; fi
+  if [[ -n "$TMP" ]]; then rm -rf "$TMP"; fi
+  rmdir "$LOCK"
+}
+# One refresh at a time per checkout: they share the $OUT.old backup slot.
+LOCK="$OUT.lock"
+mkdir "$LOCK" 2>/dev/null || { echo "another refresh holds $LOCK (remove it if none is running)" >&2; exit 1; }
+trap cleanup EXIT
+# A refresh killed between publish()'s two renames (no trap ran) left only the backup: restore it.
+if [[ ! -d "$OUT" && -d "$OUT.old" ]]; then mv "$OUT.old" "$OUT"; fi
+TMP=$(mktemp -d "$OUT.new.XXXXXX")
+API_FILES=(remote-creation-compose.txt remote-creation-expression.txt foundation.txt remote-material3.txt)
+
+# Publishes $TMP as $OUT once every API file, COMMIT and the version marker $1 are there and not
+# empty (a RELEASE must pin all three artifacts, Wear's included).
+publish() {
+  local marker=$1 f
+  for f in "${API_FILES[@]}" COMMIT "$marker"; do
+    [[ -s "$TMP/$f" ]] || { echo "refusing to publish: $f is missing or empty" >&2; exit 1; }
+  done
+  if [[ "$marker" == RELEASE ]]; then
+    for f in remote-creation-compose foundation remote-material3; do
+      grep -q "^$f=." "$TMP/RELEASE" || { echo "refusing to publish: RELEASE does not pin $f" >&2; exit 1; }
+    done
+  fi
+  cp "$OUT/README.md" "$TMP/"
+  chmod 755 "$TMP"
+  rm -rf "$OUT.old"
+  SWAPPING=1
+  mv "$OUT" "$OUT.old"
+  mv "$TMP" "$OUT"
+  SWAPPING=0
+  rm -rf "$OUT.old"
+}
 curl -sf "$BASE/remote-creation-compose/api/current.txt" -o "$TMP/remote-creation-compose.txt"
 curl -sf "$BASE/remote-creation-expression/api/current.txt" -o "$TMP/remote-creation-expression.txt"
 curl -sf "$BASE/foundation/foundation/api/current.txt" -o "$TMP/foundation.txt"
@@ -44,9 +84,7 @@ print(f"remote-creation-compose={compose}\nfoundation={foundation}\nremote-mater
     curl -sfI "https://dl.google.com/android/maven2/$group/$artifact/$version/$artifact-$version.pom" >/dev/null ||
       { echo "$group/$artifact:$version is not on Google Maven" >&2; exit 1; }
   done <"$TMP/RELEASE"
-  mv "$TMP"/remote-creation-compose.txt "$TMP"/remote-creation-expression.txt "$TMP"/foundation.txt \
-    "$TMP"/remote-material3.txt "$TMP"/COMMIT "$TMP"/RELEASE "$OUT"/
-  rm -f "$OUT/SNAPSHOT_BUILD"
+  publish RELEASE
   echo "reference/androidx-api now at $RELEASE (androidx $SHA): $(tr '\n' ' ' <"$OUT/RELEASE")"
   exit 0
 fi
@@ -59,7 +97,5 @@ curl -sfI "https://androidx.dev/snapshots/builds/$(cat "$TMP/SNAPSHOT_BUILD")/ar
   { echo "androidx.dev build $(cat "$TMP/SNAPSHOT_BUILD") has no remote-creation-compose" >&2; exit 1; }
 curl -sfI "https://androidx.dev/snapshots/builds/$(cat "$TMP/SNAPSHOT_BUILD")/artifacts/repository/androidx/wear/compose/remote/remote-material3/maven-metadata.xml" >/dev/null ||
   { echo "androidx.dev build $(cat "$TMP/SNAPSHOT_BUILD") has no remote-material3" >&2; exit 1; }
-mv "$TMP"/remote-creation-compose.txt "$TMP"/remote-creation-expression.txt "$TMP"/foundation.txt \
-  "$TMP"/remote-material3.txt "$TMP"/COMMIT "$TMP"/SNAPSHOT_BUILD "$OUT"/
-rm -f "$OUT/RELEASE"
+publish SNAPSHOT_BUILD
 echo "reference/androidx-api now at androidx-main $SHA, snapshot build $(cat "$OUT/SNAPSHOT_BUILD")"

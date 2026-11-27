@@ -336,7 +336,7 @@ internal val plainLanguage: Map<String, Plain> =
             ),
         "wear-card" to
             Plain(
-                "A tappable surface that groups a piece of content, filled or outlined.",
+                "A tappable surface that groups a piece of content: filled, outlined or over an image.",
                 listOf("A reminder or next event", "A summary that opens details"),
             ),
         "wear-app-card" to
@@ -381,7 +381,7 @@ internal val plainLanguage: Map<String, Plain> =
             ),
         "wear-theme" to
             Plain(
-                "The watch's design tokens: colors, type and shapes that every component reads, so a brand color changes them all.",
+                "The watch's design tokens: colors, type, shapes and motion that every component reads, so a brand color changes them all.",
                 listOf("Brand colors in a remote watch screen", "A per-user accent color"),
             ),
     )
