@@ -271,5 +271,73 @@ class CoverageExitCodeTest(unittest.TestCase):
         self.assertEqual(self.run_coverage([self.NAME], {self.NAME: "why"}, report_only=True), 0)
 
 
+class WearMaterial3Test(unittest.TestCase):
+    W = "androidx.wear.compose.remote.material3."
+
+    def test_package_is_rewritten_to_androidx(self):
+        self.assertEqual(
+            t.rewrite("import ee.schimke.composeai.rccreation.wear.material3.RemoteButton"),
+            "import " + self.W + "RemoteButton",
+        )
+
+    def test_every_wear_composable_is_a_building_block(self):
+        blocks = t.building_blocks(ENTRIES)
+        wear = {name for group, name in blocks if group == "Wear Material 3"}
+        self.assertIn("RemoteButton", wear)
+        self.assertIn("RemoteEdgeButton", wear)
+        self.assertIn("RemoteTimeText", wear)
+        # Defaults objects and state factories are reached through the composables, not blocks.
+        self.assertNotIn("RemoteButtonDefaults", wear)
+        self.assertNotIn("rememberRemotePageIndicatorState", wear)
+
+    def test_wear_text_is_not_the_layout_text(self):
+        # Same simple name in two packages: the Wear one counts only with the Wear import.
+        found = t.find_members(ENTRIES, "RemoteTextKt.RemoteText")
+        wear = t.block_specs([e for e in found if e["package"] + "." == self.W])
+        self.assertTrue(wear)
+        code = 'fun F() { RemoteText("a".rs) }'
+        self.assertTrue(used(wear, code, [self.W + "RemoteText"]))
+        self.assertFalse(used(wear, code, [C + "layout.RemoteText"]))
+
+    def test_public_wear_import_is_accepted_and_rewritten(self):
+        with tempfile.TemporaryDirectory() as d:
+            stories = os.path.join(d, "stories")
+            os.makedirs(stories)
+            with open(os.path.join(stories, "S.kt"), "w", encoding="utf-8") as fh:
+                fh.write(
+                    "package rcstorybook.stories\n\n"
+                    "import ee.schimke.composeai.rccreation.compose.layout.RemoteComposable\n"
+                    "import ee.schimke.composeai.rccreation.wear.material3.RemoteIcon\n\n"
+                    "@RemoteComposable\nfun S() {\n    RemoteIcon(icon(), null)\n}\n"
+                )
+            out = os.path.join(d, "out", "sources.json")
+            args = types.SimpleNamespace(
+                stories=stories, api=API, out=out, verify_out=None, snippets_out=None
+            )
+            with mock.patch("sys.stdout"):
+                self.assertEqual(t.cmd_sources(args), 0)
+            with open(out, encoding="utf-8") as fh:
+                self.assertIn(self.W + "RemoteIcon", json.load(fh)["S"]["imports"])
+
+    def test_import_outside_the_public_wear_api_fails(self):
+        with tempfile.TemporaryDirectory() as d:
+            stories = os.path.join(d, "stories")
+            os.makedirs(stories)
+            with open(os.path.join(stories, "S.kt"), "w", encoding="utf-8") as fh:
+                fh.write(
+                    "package rcstorybook.stories\n\n"
+                    "import ee.schimke.composeai.rccreation.wear.material3.RemoteSlider\n"
+                )
+            args = types.SimpleNamespace(
+                stories=stories,
+                api=API,
+                out=os.path.join(d, "out", "sources.json"),
+                verify_out=None,
+                snippets_out=None,
+            )
+            with mock.patch("sys.stderr"):
+                self.assertEqual(t.cmd_sources(args), 1)
+
+
 if __name__ == "__main__":
     unittest.main()

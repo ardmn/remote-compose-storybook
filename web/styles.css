@@ -382,6 +382,10 @@ input:focus-visible {
   overflow: hidden;
   background: #fff;
 }
+/* A Wear OS story: the stage is the round watch screen and clips its content to the circle. */
+.stage-frame.round {
+  border-radius: 50%;
+}
 /* Fixed and larger than any viewport: the frame around it clips to the story's size. */
 #stage {
   width: 1600px;
@@ -723,6 +727,8 @@ input:focus-visible {
 .cov-table td:first-child {
   font-family: var(--mono);
   width: 34%;
+  /* Long names (RemoteIntroOutroCurvedProgressIndicator) wrap instead of widening a phone's page. */
+  overflow-wrap: anywhere;
 }
 .cov-table a {
   margin-right: 8px;

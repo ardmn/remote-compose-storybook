@@ -284,4 +284,104 @@ internal val plainLanguage: Map<String, Plain> =
                 "A list of switches the user flips on the device and values the app keeps up to date.",
                 listOf("Settings and preferences", "Feature toggles shown in a remote screen"),
             ),
+        "wear-button" to
+            Plain(
+                "The main button on a Wear OS watch: a wide pill with a label, an optional icon and a second line, in five levels of emphasis.",
+                listOf("Start a workout", "Reply to a message", "Confirm an action"),
+            ),
+        "wear-compact-button" to
+            Plain(
+                "A short, low button for less important actions that should not take a whole row.",
+                listOf("Secondary actions under a card", "Like or share"),
+            ),
+        "wear-edge-button" to
+            Plain(
+                "The button that sits along the bottom curve of a round watch screen for the screen's main action.",
+                listOf("The main action of a screen", "Done, Start or Open on phone"),
+            ),
+        "wear-icon-button" to
+            Plain(
+                "A round button with only an icon, for actions everyone recognises at a glance.",
+                listOf("Play, pause, call", "Rows of quick actions"),
+            ),
+        "wear-text-button" to
+            Plain(
+                "A round button with a few characters of text instead of an icon.",
+                listOf("Number pads", "Short options like 5, 10, 15 min"),
+            ),
+        "wear-toggle-buttons" to
+            Plain(
+                "Round buttons that stay on or off, with an icon or a short text.",
+                listOf("Mute, flashlight, do not disturb", "Formatting options"),
+            ),
+        "wear-button-group" to
+            Plain(
+                "A row of buttons that share the width of the screen evenly.",
+                listOf("Media controls", "Two or three related quick actions"),
+            ),
+        "wear-checkbox-button" to
+            Plain(
+                "A wide button with a checkbox; the split version lets the label open details while the box toggles.",
+                listOf("Choosing several items", "Settings with a details screen"),
+            ),
+        "wear-switch-button" to
+            Plain(
+                "A wide button with an on/off switch, plain or split.",
+                listOf("Wi-Fi, Bluetooth, notifications", "Feature on/off settings"),
+            ),
+        "wear-radio-button" to
+            Plain(
+                "Wide buttons for picking exactly one option from a list.",
+                listOf("Units and formats", "Choosing one of a few plans"),
+            ),
+        "wear-card" to
+            Plain(
+                "A tappable surface that groups a piece of content, filled or outlined.",
+                listOf("A reminder or next event", "A summary that opens details"),
+            ),
+        "wear-app-card" to
+            Plain(
+                "A card for a notification-style item: the app's name, a time, a title and a body.",
+                listOf("Messages and notifications", "Updates from an app"),
+            ),
+        "wear-title-card" to
+            Plain(
+                "A card led by a bold title, with a time and a subtitle.",
+                listOf("Flights, deliveries, appointments", "Anything identified by its title"),
+            ),
+        "wear-text" to
+            Plain(
+                "Text in the watch's type scale and colors, so it matches the rest of the system.",
+                listOf("Titles and labels on a watch screen", "Short status messages"),
+            ),
+        "wear-icon" to
+            Plain(
+                "A vector icon tinted with the theme's colors.",
+                listOf("Icons inside buttons and cards", "Status symbols"),
+            ),
+        "wear-circular-progress" to
+            Plain(
+                "A ring that fills up to show progress, or spins while the amount is unknown.",
+                listOf("Downloads and syncing", "Goals like steps or minutes"),
+            ),
+        "wear-linear-progress" to
+            Plain(
+                "A horizontal bar that fills up to show progress.",
+                listOf("Progress inside a card", "Battery or storage levels"),
+            ),
+        "wear-curved-progress" to
+            Plain(
+                "Progress drawn along the edge of the round screen, around everything else.",
+                listOf("Workout or timer progress", "Full-screen countdowns"),
+            ),
+        "wear-page-indicator" to
+            Plain(
+                "Dots that show which page of a swipeable set is on screen.",
+                listOf("Onboarding pages", "Swiping between tiles or cards"),
+            ),
+        "wear-theme" to
+            Plain(
+                "The watch's design tokens: colors, type and shapes that every component reads, so a brand color changes them all.",
+                listOf("Brand colors in a remote watch screen", "A per-user accent color"),
+            ),
     )

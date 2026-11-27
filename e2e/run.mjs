@@ -109,6 +109,27 @@ async function setLayout(value) {
 
 const { stableStage, stageChangesFrom, localArgs, openStory } = stageTools(page, base);
 
+// The stage frame's shape and size as the page drew it.
+async function stageFrame() {
+  return page.evaluate(() => {
+    const el = document.getElementById("stageFrame");
+    return {
+      round: el.classList.contains("round") && getComputedStyle(el).borderTopLeftRadius === "50%",
+      width: el.offsetWidth,
+      height: el.offsetHeight,
+      background: getComputedStyle(el).backgroundColor,
+    };
+  });
+}
+
+async function setViewport(value) {
+  await page.evaluate((v) => {
+    const el = document.getElementById("viewport");
+    el.value = v;
+    el.dispatchEvent(new Event("change"));
+  }, value);
+}
+
 for (const s of stories) {
   if (only && !s.id.includes(only)) continue;
   const errorsBefore = pageErrors.length;
@@ -159,6 +180,10 @@ for (const s of stories) {
   // Docs tab: every symbol must resolve.
   const docs = await page.textContent("#docs");
   if (docs.includes("No signature found")) fail(`${s.id}: Docs tab has a symbol with no AndroidX signature`);
+  // A Wear story opens on a round watch screen; every other story on a rectangle.
+  const frame = await stageFrame();
+  if (frame.round !== !!s.round || (s.round && frame.width !== frame.height))
+    fail(`${s.id}: stage is ${frame.width}×${frame.height}, round ${frame.round}; the story says round ${!!s.round}`);
   if (pageErrors.length > errorsBefore)
     fail(`${s.id}: page errors: ${pageErrors.slice(errorsBefore).join(" | ").slice(0, 300)}`);
   console.log(`  ok ${s.id}`);
@@ -230,6 +255,41 @@ if (!only) {
     const bad = audit.violations.filter((v) => v.impact === "serious" || v.impact === "critical");
     if (bad.length) fail(`${hash}: ${bad.map((v) => `${v.id} (${v.nodes.length})`).join(", ")}`);
     else console.log(`  ok accessibility ${hash}`);
+  }
+
+  // The round watch frame follows the story and the viewport: on for a Wear story, off for a
+  // rectangular viewport or the next non-Wear story, on for a watch viewport whatever the story.
+  {
+    const wearStory = stories.find((x) => x.round);
+    const shapes = [];
+    await openStory(wearStory.id);
+    shapes.push((await stageFrame()).round);
+    for (const v of ["360x640", "watch192", "auto"]) {
+      await setViewport(v);
+      shapes.push((await stageFrame()).round);
+      if (v === "360x640") {
+        // Wear components draw in dark colors: the stage stays black on a rectangle too, in the
+        // page frame and in the player (a pixel in the stage's empty top-left corner).
+        const box = await page.locator("#stageFrame").boundingBox();
+        await page.waitForTimeout(500);
+        const png = PNG.sync.read(await page.screenshot({ clip: { x: box.x + 4, y: box.y + 4, width: 1, height: 1 } }));
+        const dark = png.data[0] < 16 && png.data[1] < 16 && png.data[2] < 16;
+        const frameBg = (await stageFrame()).background;
+        if (!dark || frameBg !== "rgb(0, 0, 0)")
+          fail(`${wearStory.id} on 360x640: stage pixel ${[...png.data.slice(0, 3)]}, frame ${frameBg} (want black)`);
+      }
+    }
+    await openStory("remote-box--layering");
+    shapes.push((await stageFrame()).round);
+    await setViewport("watch227");
+    shapes.push((await stageFrame()).round);
+    // A non-Wear story on a watch viewport keeps its player theme's background (light here).
+    const plainBg = (await stageFrame()).background;
+    if (plainBg !== "rgb(255, 255, 255)") fail(`remote-box--layering on watch227: frame ${plainBg} (want white)`);
+    await setViewport("auto");
+    const want = [true, false, true, true, false, true];
+    if (shapes.join() !== want.join()) fail(`round frame across viewports and stories: ${shapes} (want ${want})`);
+    else console.log("  ok round frame follows the story and the viewport");
   }
 
   // Returning to the same story from a page without a stage shows its document again.
