@@ -22,6 +22,59 @@ private val edgeButtonSizes =
         option("Large", "RemoteEdgeButtonSize.Large", RemoteEdgeButtonSize.Large),
     )
 
+/** A pick of [roles] for one color slot, as `WearColorRole.X` in the Code tab. */
+private fun role(
+    name: String,
+    default: WearColorRole,
+    roles: List<WearColorRole> = WearColorRole.entries,
+    doc: String = "",
+) =
+    choice(
+        name,
+        roles.map { option(it.name, "WearColorRole.${it.name}", it) },
+        default = roles.indexOf(default),
+        doc = doc,
+    )
+
+/** The five roles the Text and Icon stories offer: distinct on Wear's black background. */
+private val textRoles =
+    listOf(
+        WearColorRole.Primary,
+        WearColorRole.Secondary,
+        WearColorRole.Tertiary,
+        WearColorRole.OnSurfaceVariant,
+        WearColorRole.Error,
+    )
+
+private fun shape(name: String = "shape") =
+    choice(
+        name,
+        WearShape.entries.map { option(it.name, "WearShape.${it.name}", it) },
+        default = WearShape.entries.indexOf(WearShape.Large),
+        doc = "A RemoteShapes size; cards default to large.",
+    )
+
+/** RemoteCardDefaults.ContentPadding, in dp. */
+private const val CARD_PADDING = 12
+
+/** The largest card padding the control offers, in dp. */
+private const val MAX_CARD_PADDING = 24
+
+private fun contentPadding() =
+    int(
+        "contentPadding",
+        CARD_PADDING,
+        0,
+        MAX_CARD_PADDING,
+        doc = "All sides, in dp; RemoteCardDefaults.ContentPadding is $CARD_PADDING.",
+    )
+
+/** What no Wear story can show yet, in the words every interactive story description ends with. */
+private const val NO_PRESS_FEEDBACK =
+    " Known limitation: a press shows no feedback. remote-material3 has no pressed state, and the " +
+        "Compose players (this one included) draw a ripple only where the document asks for one; " +
+        "AndroidX's View player draws a temporary ripple on any click (b/585818680)."
+
 /** A story on a round watch screen. */
 private fun watchStory(
     id: String,
@@ -56,7 +109,9 @@ internal val wearComponents =
                     "wear-button--variants",
                     "Button variants",
                     "WearButton",
-                    "Every color set of RemoteButtonDefaults, with or without an icon and a secondary label.",
+                    "Every color set of RemoteButtonDefaults, with or without an icon and a secondary " +
+                        "label." +
+                        NO_PRESS_FEEDBACK,
                     listOf(
                         text("label", "Start run"),
                         text("secondaryLabel", "5 km"),
@@ -103,7 +158,10 @@ internal val wearComponents =
                     "wear-edge-button--sizes",
                     "Sizes",
                     "WearEdgeButton",
-                    "Tap it: the count above is document state, updated by the player.",
+                    "Tap it: the count above is document state, updated by the player. The story adds " +
+                        "RemoteEdgeButtonDefaults.VerticalPadding (3 dp) below the button, as Wear Material " +
+                        "3's EdgeButton does; RemoteEdgeButton itself omits it and touches the screen's edge." +
+                        NO_PRESS_FEEDBACK,
                     listOf(
                         text("label", "Tap"),
                         choice("size", edgeButtonSizes, default = 2),
@@ -174,13 +232,16 @@ internal val wearComponents =
             "wear-button-group",
             "Button group",
             listOf("RemoteButtonGroup", "RemoteButtonGroupDefaults"),
-            "A row of buttons that share the width, with Wear's standard spacing.",
+            "A row of buttons that share the width, with Wear's standard spacing. A pressed button " +
+                "grows and its neighbours shrink.",
             listOf(
                 watchStory(
                     "wear-button-group--default",
                     "Button group",
                     "WearButtonGroup",
-                    "Two or three icon buttons that share the row by weight.",
+                    "Two or three icon buttons that share the row by weight (the middle of three is 1.5×). " +
+                        "Press and hold one: animateWidth widens it with a spring and squeezes the others, " +
+                        "then lets go when you release.",
                     listOf(int("buttons", 3, 2, 3)),
                 ) {
                     WearButtonGroup(it.int("buttons"))
@@ -266,17 +327,85 @@ internal val wearComponents =
         wear(
             "wear-card",
             "Card",
-            listOf("RemoteCard", "RemoteOutlinedCard", "RemoteCardDefaults"),
-            "A tappable surface for a block of content, filled or outlined.",
+            listOf("RemoteCard", "RemoteOutlinedCard", "RemoteCardDefaults", "RemoteCardColors"),
+            "A tappable surface for a block of content: filled, outlined, or over an image.",
             listOf(
                 watchStory(
-                    "wear-card--variants",
-                    "Filled or outlined",
+                    "wear-card--filled",
+                    "Filled",
                     "WearCard",
-                    "A card, or an outlined card when outlined is on, with the same content.",
-                    listOf(text("text", "Next: Team sync at 10:30"), bool("outlined", false)),
+                    "RemoteCard with its shape, padding and the two colors it draws (container and " +
+                        "content). Turning enabled off only stops the tap: cards have no disabled colors." +
+                        NO_PRESS_FEEDBACK,
+                    listOf(
+                        text("text", "Next: Team sync at 10:30"),
+                        bool("enabled", true),
+                        shape(),
+                        contentPadding(),
+                        role("containerColor", WearColorRole.SurfaceContainer),
+                        role("contentColor", WearColorRole.OnSurfaceVariant),
+                    ),
                 ) {
-                    WearCard(it.text("text"), it.bool("outlined"))
+                    WearCard(
+                        it.text("text"),
+                        it.bool("enabled"),
+                        it["shape"],
+                        it.int("contentPadding"),
+                        it["containerColor"],
+                        it["contentColor"],
+                    )
+                },
+                watchStory(
+                    "wear-card--outlined",
+                    "Outlined",
+                    "WearOutlinedCard",
+                    "RemoteOutlinedCard: a transparent container inside a border, whose color and width " +
+                        "come from outlinedCardBorder.",
+                    listOf(
+                        text("text", "Next: Team sync at 10:30"),
+                        bool("enabled", true),
+                        shape(),
+                        contentPadding(),
+                        role("contentColor", WearColorRole.OnSurfaceVariant),
+                        role("borderColor", WearColorRole.Outline),
+                        int(
+                            "borderWidth",
+                            1,
+                            1,
+                            4,
+                            doc = "In dp; RemoteCardDefaults.OutlinedBorderSize is 1.",
+                        ),
+                    ),
+                ) {
+                    WearOutlinedCard(
+                        it.text("text"),
+                        it.bool("enabled"),
+                        it["shape"],
+                        it.int("contentPadding"),
+                        it["contentColor"],
+                        it["borderColor"],
+                        it.int("borderWidth"),
+                    )
+                },
+                watchStory(
+                    "wear-card--image",
+                    "Image background",
+                    "WearImageCard",
+                    "A title card over an image: RemoteCardDefaults.containerPainter draws the bitmap " +
+                        "under the content, with a scrim so the text stays readable.",
+                    listOf(
+                        text("title", "Sunset walk"),
+                        text("subtitle", "18:42"),
+                        float("imageAlpha", 1f, 0f, 1f, step = 0.05f),
+                        bool("scrim", true),
+                    ),
+                ) {
+                    WearImageCard(
+                        it.text("title"),
+                        it.text("subtitle"),
+                        it.float("imageAlpha"),
+                        it.bool("scrim"),
+                    )
                 },
             ),
         ),
@@ -290,19 +419,39 @@ internal val wearComponents =
                     "wear-app-card--default",
                     "App card",
                     "WearAppCard",
-                    "App name, time, title and body in Wear's card layout.",
+                    "App image, app name, time, title and content in Wear's card layout. Empty time or " +
+                        "content leaves the slot out. The colors are the five RemoteCardColors an app " +
+                        "card draws (it has no subtitle).",
                     listOf(
                         text("appName", "Messages"),
                         text("title", "Anna"),
-                        text("body", "On my way!"),
                         text("time", "now"),
+                        text("content", "On my way!"),
+                        bool("appImage", true),
+                        bool("enabled", true),
+                        shape(),
+                        contentPadding(),
+                        role("containerColor", WearColorRole.SurfaceContainer),
+                        role("contentColor", WearColorRole.OnSurfaceVariant),
+                        role("appNameColor", WearColorRole.OnSurface),
+                        role("timeColor", WearColorRole.OnSurfaceVariant),
+                        role("titleColor", WearColorRole.OnSurface),
                     ),
                 ) {
                     WearAppCard(
                         it.text("appName"),
                         it.text("title"),
-                        it.text("body"),
                         it.text("time"),
+                        it.text("content"),
+                        it.bool("appImage"),
+                        it.bool("enabled"),
+                        it["shape"],
+                        it.int("contentPadding"),
+                        it["containerColor"],
+                        it["contentColor"],
+                        it["appNameColor"],
+                        it["timeColor"],
+                        it["titleColor"],
                     )
                 },
             ),
@@ -317,14 +466,38 @@ internal val wearComponents =
                     "wear-title-card--default",
                     "Title card",
                     "WearTitleCard",
-                    "Title, time and subtitle.",
+                    "Title, time, subtitle and content; an empty time, subtitle or content leaves the " +
+                        "slot out. The colors are the five RemoteCardColors a title card draws (it has no " +
+                        "app name).",
                     listOf(
                         text("title", "Flight LH 123"),
-                        text("subtitle", "Gate B12"),
                         text("time", "14:05"),
+                        text("subtitle", "Gate B12"),
+                        text("content", "Boarding in 20 min"),
+                        bool("enabled", true),
+                        shape(),
+                        contentPadding(),
+                        role("containerColor", WearColorRole.SurfaceContainer),
+                        role("contentColor", WearColorRole.OnSurfaceVariant),
+                        role("timeColor", WearColorRole.OnSurfaceVariant),
+                        role("titleColor", WearColorRole.OnSurface),
+                        role("subtitleColor", WearColorRole.Tertiary),
                     ),
                 ) {
-                    WearTitleCard(it.text("title"), it.text("subtitle"), it.text("time"))
+                    WearTitleCard(
+                        it.text("title"),
+                        it.text("time"),
+                        it.text("subtitle"),
+                        it.text("content"),
+                        it.bool("enabled"),
+                        it["shape"],
+                        it.int("contentPadding"),
+                        it["containerColor"],
+                        it["contentColor"],
+                        it["timeColor"],
+                        it["titleColor"],
+                        it["subtitleColor"],
+                    )
                 },
             ),
         ),
@@ -342,10 +515,10 @@ internal val wearComponents =
                     listOf(
                         text("text", "Wear Material 3 on Remote Compose"),
                         int("maxLines", 2, 1, 4),
-                        bool("primaryColor", true),
+                        role("color", WearColorRole.Primary, textRoles),
                     ),
                 ) {
-                    WearText(it.text("text"), it.int("maxLines"), it.bool("primaryColor"))
+                    WearText(it.text("text"), it.int("maxLines"), it["color"])
                 },
             ),
         ),
@@ -353,16 +526,19 @@ internal val wearComponents =
             "wear-icon",
             "Icon",
             listOf("RemoteIcon"),
-            "A vector icon tinted with a color from the theme (primary or onSurface).",
+            "A vector icon tinted with a color role from the theme.",
             listOf(
                 watchStory(
                     "wear-icon--default",
                     "Icon",
                     "WearIcon",
                     "A vector icon at a size and tint.",
-                    listOf(int("size", 48, 16, 96, step = 4), bool("primaryTint", true)),
+                    listOf(
+                        int("size", 48, 16, 96, step = 4),
+                        role("tint", WearColorRole.Primary, textRoles),
+                    ),
                 ) {
-                    WearIcon(it.int("size"), it.bool("primaryTint"))
+                    WearIcon(it.int("size"), it["tint"])
                 },
             ),
         ),
@@ -418,19 +594,30 @@ internal val wearComponents =
                     "wear-curved-progress--default",
                     "Curved progress",
                     "WearCurvedProgress",
-                    "The edge indicator (from 135°, a 90° sweep by default) and the intro/outro variant " +
-                        "that animates in and out.",
+                    "The edge indicator, from 135° with a 90° sweep by default. Known limitation: at " +
+                        "100% with a 360° sweep the ring does not close. AndroidX starts the full arc " +
+                        "half a stroke after startAngle and shortens it by one stroke width, so the " +
+                        "rounded ends meet at a pinch instead of joining; there is no full-circle case.",
                     listOf(
                         float("progress", 0.7f, 0f, 1f, step = 0.05f),
                         int("sweepAngle", 90, 30, 360, step = 10),
-                        bool("introOutro", false),
                     ),
                 ) {
-                    WearCurvedProgress(
-                        it.float("progress"),
-                        it.int("sweepAngle"),
-                        it.bool("introOutro"),
-                    )
+                    WearCurvedProgress(it.float("progress"), it.int("sweepAngle"))
+                },
+                watchStory(
+                    "wear-curved-progress--intro-outro",
+                    "Intro and outro",
+                    "WearIntroOutroProgress",
+                    "Tap the screen to step the progress 0 → 50% → 100% → 0. The intro/outro indicator " +
+                        "is made for timers and goals (steps, a workout): when progress leaves 0, the " +
+                        "dot at the start grows in and pushes the track ahead of it; when progress " +
+                        "reaches 100%, the track's tail collapses and the arc runs to the end in about " +
+                        "0.85 s. The springs only play when the progress changes inside the document, " +
+                        "so the story keeps it in a MutableRemoteFloat and steps it on tap.",
+                    listOf(int("sweepAngle", 90, 30, 360, step = 10)),
+                ) {
+                    WearIntroOutroProgress(it.int("sweepAngle"))
                 },
             ),
         ),
@@ -472,21 +659,54 @@ internal val wearComponents =
         wear(
             "wear-theme",
             "Theme",
-            listOf("RemoteMaterialTheme", "RemoteColorScheme"),
-            "The Wear Material 3 theme: colors, type and shapes every Wear component reads. Override a " +
-                "few colors and every component inside the theme follows; here, a button.",
+            listOf(
+                "RemoteMaterialTheme",
+                "RemoteColorScheme",
+                "RemoteShapes",
+                "RemoteMotionScheme",
+            ),
+            "The Wear Material 3 theme: colors, type, shapes and motion every Wear component reads. " +
+                "Override a few and every component inside the theme follows.",
             listOf(
                 watchStory(
                     "wear-theme--colors",
-                    "Custom colors",
+                    "Colors, shapes and motion",
                     "WearTheme",
-                    "A copy of the default color scheme with another primary color.",
+                    "A copy of the default color scheme with the main roles replaced, a shape set and a " +
+                        "motion scheme, shown on a text, a title card, a progress bar, a warning and a " +
+                        "button. The motion scheme sets the springs of animated components (a button " +
+                        "group's press, for one), so it shows no change on a still screen.",
                     listOf(
                         color("primary", Color(0xFF80CBC4)),
                         color("onPrimary", Color(0xFF00332C)),
+                        color("secondary", Color(0xFFFFCC80)),
+                        color("tertiary", Color(0xFFF48FB1)),
+                        color("surfaceContainer", Color(0xFF263238)),
+                        color("onSurface", Color(0xFFECEFF1)),
+                        color("onSurfaceVariant", Color(0xFFB0BEC5)),
+                        color("error", Color(0xFFFF8A80)),
+                        choice(
+                            "motion",
+                            WearMotion.entries.map { option(it.name, "WearMotion.${it.name}", it) },
+                        ),
+                        choice(
+                            "shapes",
+                            WearShapes.entries.map { option(it.name, "WearShapes.${it.name}", it) },
+                        ),
                     ),
                 ) {
-                    WearTheme(it.color("primary"), it.color("onPrimary"))
+                    WearTheme(
+                        it.color("primary"),
+                        it.color("onPrimary"),
+                        it.color("secondary"),
+                        it.color("tertiary"),
+                        it.color("surfaceContainer"),
+                        it.color("onSurface"),
+                        it.color("onSurfaceVariant"),
+                        it.color("error"),
+                        it["motion"],
+                        it["shapes"],
+                    )
                 },
             ),
         ),
