@@ -587,7 +587,8 @@ internal val wearComponents =
                     "wear-circular-progress--default",
                     "Circular progress",
                     "WearCircularProgress",
-                    "Determinate progress, or the indeterminate spinner.",
+                    "Determinate progress, or the indeterminate spinner. At 100% the ring closes " +
+                        "into a full circle.",
                     listOf(
                         float("progress", 0.6f, 0f, 1f, step = 0.05f),
                         bool("enabled", true),
@@ -630,9 +631,11 @@ internal val wearComponents =
                     "Curved progress",
                     "WearCurvedProgress",
                     "The edge indicator, from 135° with a 90° sweep by default. Known limitation: at " +
-                        "100% with a 360° sweep the ring does not close. AndroidX starts the full arc " +
-                        "half a stroke after startAngle and shortens it by one stroke width, so the " +
-                        "rounded ends meet at a pinch instead of joining; there is no full-circle case.",
+                        "100% with a 360° sweep the ring does not close; its rounded ends meet at a " +
+                        "pinch near startAngle. This is a bug in RemoteCurvedProgressIndicator, not the " +
+                        "intended look. Circular progress had the same bug, and remote-material3 " +
+                        "1.0.0-alpha16 fixes it there; a fix for the curved indicator is not in " +
+                        "AndroidX yet.",
                     listOf(
                         float("progress", 0.7f, 0f, 1f, step = 0.05f),
                         sweepAngle(),
