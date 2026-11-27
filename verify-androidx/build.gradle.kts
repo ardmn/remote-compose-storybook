@@ -17,29 +17,27 @@ android.sourceSets.named("main") {
 }
 
 // The released versions in ../reference/androidx-api/RELEASE (`artifact=version` lines), or the
-// androidx.dev snapshot's 1.0.0-SNAPSHOT when there is no RELEASE file.
-val release =
+// androidx.dev snapshot's 1.0.0-SNAPSHOT when there is no RELEASE file. A RELEASE file must pin
+// every artifact: a missing line would otherwise compile that one against a snapshot.
+val releaseFile =
     rootProject
         .file("../reference/androidx-api/RELEASE")
         .takeIf { it.isFile }
+val releasePins =
+    releaseFile
         ?.readLines()
         .orEmpty()
         .filter { "=" in it }
         .associate { it.substringBefore("=").trim() to it.substringAfter("=").trim() }
 
+fun version(artifact: String): String =
+    if (releaseFile == null) "1.0.0-SNAPSHOT"
+    else releasePins[artifact]?.takeIf { it.isNotEmpty() } ?: error("$releaseFile does not pin $artifact")
+
 dependencies {
-    implementation(
-        "androidx.compose.remote:remote-creation-compose:" +
-            release.getOrDefault("remote-creation-compose", "1.0.0-SNAPSHOT")
-    )
-    implementation(
-        "androidx.compose.remote.foundation:foundation:" +
-            release.getOrDefault("foundation", "1.0.0-SNAPSHOT")
-    )
-    implementation(
-        "androidx.wear.compose.remote:remote-material3:" +
-            release.getOrDefault("remote-material3", "1.0.0-SNAPSHOT")
-    )
+    implementation("androidx.compose.remote:remote-creation-compose:" + version("remote-creation-compose"))
+    implementation("androidx.compose.remote.foundation:foundation:" + version("foundation"))
+    implementation("androidx.wear.compose.remote:remote-material3:" + version("remote-material3"))
     implementation("androidx.compose.runtime:runtime:1.11.0")
     implementation("androidx.compose.ui:ui-graphics:1.11.0")
 }
