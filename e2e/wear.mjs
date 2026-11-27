@@ -200,8 +200,10 @@ export async function wearChecks({ page, openStory, stableStage, stageChangesFro
     const open = await capture(id, "?progress=0.9");
     const geometry = full.png && ringGeometry(full.png);
     if (!full.png || !open.png) fail(`${id}: progress=1 ${full.result}, progress=0.9 ${open.result}`);
-    else if (!geometry) fail(`${id}: no indicator pixel in ${INDICATOR_RGB}`);
-    else {
+    else if (!geometry) {
+      save(id, "progress1", full.png);
+      fail(`${id}: no indicator pixel in ${INDICATOR_RGB}`);
+    } else {
       const fullGaps = ringGaps(full.png, geometry);
       const widths = strokeWidths(full.png, geometry).sort((x, y) => x - y); // sorted for the median
       const median = widths[widths.length >> 1];
@@ -233,8 +235,10 @@ export async function wearChecks({ page, openStory, stableStage, stageChangesFro
     const ring = await capture(id, "?progress=1&sweepAngle=360");
     const geometry = ring.png && ringGeometry(ring.png);
     if (!ring.png) fail(`${id}: progress=1 sweepAngle=360 ${ring.result}`);
-    else if (!geometry) fail(`${id}: no indicator pixel in ${INDICATOR_RGB}`);
-    else {
+    else if (!geometry) {
+      save(id, "progress1", ring.png);
+      fail(`${id}: no indicator pixel in ${INDICATOR_RGB}`);
+    } else {
       const gaps = ringGaps(ring.png, geometry);
       const atStart = strokeWidthAt(ring.png, geometry, CURVED_START_ANGLE);
       const opposite = strokeWidthAt(ring.png, geometry, CURVED_START_ANGLE + 180);
