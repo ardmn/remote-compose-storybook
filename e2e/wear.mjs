@@ -24,6 +24,29 @@ function runWidth(png, x, y) {
   return right - left + 1;
 }
 
+// The angles, in degrees out of 360, around a ring drawn in the light indicator colour (the
+// lavender primary of the default theme) where no indicator pixel lies on the ring's centre line:
+// the gaps of an open ring. The ring's centre and radius come from the indicator pixels themselves.
+function ringGaps(png) {
+  const isIndicator = (i) => png.data[i] > 170 && png.data[i + 2] > 200 && png.data[i + 2] > png.data[i + 1] + 10;
+  const pixels = [];
+  for (let y = 0; y < png.height; y++) {
+    for (let x = 0; x < png.width; x++) if (isIndicator((y * png.width + x) * 4)) pixels.push([x, y]);
+  }
+  if (pixels.length === 0) return [0, 360];
+  const cx = pixels.reduce((sum, [x]) => sum + x, 0) / pixels.length;
+  const cy = pixels.reduce((sum, [, y]) => sum + y, 0) / pixels.length;
+  const radius = pixels.reduce((sum, [x, y]) => sum + Math.hypot(x - cx, y - cy), 0) / pixels.length;
+  const gaps = [];
+  for (let step = 0; step < 720; step++) {
+    const angle = (step / 720) * 2 * Math.PI;
+    const x = Math.round(cx + radius * Math.cos(angle));
+    const y = Math.round(cy + radius * Math.sin(angle));
+    if (!isIndicator((y * png.width + x) * 4)) gaps.push(step / 2);
+  }
+  return gaps;
+}
+
 // The number of pixels that differ between two same-size PNG screenshots.
 function differingPixels(a, b) {
   const pa = PNG.sync.read(a);
@@ -93,5 +116,18 @@ export async function wearInteractions({ page, openStory, stableStage, stageChan
     await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
     if (!(await stageChangesFrom(rest))) fail(`${id}: a tap did not step the progress`);
     else console.log("  ok a tap steps the intro/outro progress");
+  }
+
+  // At 100% the circular indicator closes into a full ring (remote-material3 1.0.0-alpha16 fixed
+  // the gap it left at its start), and the story's description says so. At 90% the ring is open.
+  {
+    const id = "wear-circular-progress--default";
+    await openStory(id, "?progress=1");
+    const full = ringGaps(PNG.sync.read(await stableStage()));
+    await openStory(id, "?progress=0.9");
+    const open = ringGaps(PNG.sync.read(await stableStage()));
+    if (full.length > 0) fail(`${id}: at progress=1 the ring has gaps at ${full.slice(0, 5).join(", ")}°`);
+    else if (open.length === 0) fail(`${id}: at progress=0.9 the ring check found no gap`);
+    else console.log(`  ok circular progress closes at 100% (open over ${open.length / 2}° at 90%)`);
   }
 }
