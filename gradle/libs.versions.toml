@@ -6,13 +6,14 @@ kotlinx-coroutines = "1.11.0"
 # ee.schimke.composeai.rccreation) and the players. The Code tab shows the stories rewritten to
 # AndroidX's packages; reference/androidx-api holds the AndroidX API they are checked against.
 # Versioned through rc-players' BOM: a release republishes only the modules that changed, so the
-# creation fork and the players can be on different versions (3.12.1 has creation at 3.10.0).
-rc-players = "3.12.1"
+# creation fork and the players can be on different versions.
+rc-players = "4.0.0"
 
 [libraries]
 rc-players-bom = { module = "ee.schimke.composeai:rc-players-bom", version.ref = "rc-players" }
 rc-creation-compose = { module = "ee.schimke.composeai:rc-creation-compose" }
 rc-creation-foundation = { module = "ee.schimke.composeai:rc-creation-foundation" }
+rc-creation-wear-material3 = { module = "ee.schimke.composeai:rc-creation-wear-material3" }
 rc-player-compose = { module = "ee.schimke.composeai:rc-player-compose" }
 rc-player-embedded = { module = "ee.schimke.composeai:rc-player-embedded" }
 kotlinx-coroutines-core = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-core", version.ref = "kotlinx-coroutines" }

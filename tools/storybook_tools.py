@@ -4,7 +4,8 @@
 Subcommands:
   sources   Extract every story function's source, rewritten to AndroidX's packages, into
             sources.json for the Code tab; fail when a story imports anything from
-            androidx.compose.remote that AndroidX's api/current.txt does not declare public.
+            androidx.compose.remote or androidx.wear.compose.remote that AndroidX's api/current.txt
+            does not declare public.
   api       Extract the public signatures of each component's symbols from AndroidX's
             api/current.txt files into api.json for the Docs tab.
   coverage  List every public building block in AndroidX's current.txt, the stories and control
@@ -28,17 +29,27 @@ from typing import Any
 PACKAGE_REWRITES = [
     ("ee.schimke.composeai.rccreation.compose.", "androidx.compose.remote.creation.compose."),
     ("ee.schimke.composeai.rccreation.foundation.", "androidx.compose.remote.foundation."),
+    ("ee.schimke.composeai.rccreation.wear.material3.", "androidx.wear.compose.remote.material3."),
 ]
+# The AndroidX packages whose public API is in reference/androidx-api: a story's import from one of
+# them must be declared there.
+ANDROIDX_PREFIXES = ("androidx.compose.remote.", "androidx.wear.compose.remote.")
 ALLOWED_IMPORT_PREFIXES = (
     "ee.schimke.composeai.rccreation.compose.",
     "ee.schimke.composeai.rccreation.foundation.",
+    "ee.schimke.composeai.rccreation.wear.material3.",
     "androidx.compose.runtime.",
     "androidx.compose.ui.graphics.",
     "androidx.compose.ui.geometry.",
     "androidx.compose.ui.unit.",
     "kotlin.",
 )
-API_FILES = ["remote-creation-compose.txt", "remote-creation-expression.txt", "foundation.txt"]
+API_FILES = [
+    "remote-creation-compose.txt",
+    "remote-creation-expression.txt",
+    "foundation.txt",
+    "remote-material3.txt",
+]
 
 
 def read_text(path):
@@ -155,7 +166,7 @@ def import_needed(fq, body, imports, entries, index):
     the coverage rule (a parameter called `width` does not need `modifier.width`); anything else
     with import_used."""
     specs = []
-    if entries and fq.startswith("androidx.compose.remote."):
+    if entries and fq.startswith(ANDROIDX_PREFIXES):
         for e in entries:
             if e["kind"] == "class" or (e["owner"] or "").endswith("Kt") or e.get("static"):
                 hit = e["package"] + "." + e["name"] == fq
@@ -201,7 +212,7 @@ def cmd_sources(args):
                 errors.append(f"{os.path.basename(path)}: import {imp} is not AndroidX's public API")
             elif (
                 public is not None
-                and rewrite(imp).startswith("androidx.compose.remote.")
+                and rewrite(imp).startswith(ANDROIDX_PREFIXES)
                 and rewrite(imp) not in public
             ):
                 errors.append(
@@ -423,6 +434,10 @@ CANNOT_DEMONSTRATE = {
     "can show (RemoteLong.kt)",
     "MutableRemoteLong": "AndroidX's valueChangeAction handles Int, Float and String state only "
     "(ValueChangeAction.kt), and a dynamic long cannot be shown",
+    "RemoteTimeText": "draws its curved clock with drawTextOnCircle (RemoteTimeText.kt), whose "
+    "operation (57) no AndroidX capture profile lists; AndroidX's own tests capture it under a "
+    "test-only Wear widgets profile (TestProfiles.kt), and rc-players' embedded player captures under "
+    "PROFILE_ANDROIDX | PROFILE_EXPERIMENTAL (RcEmbeddedPlayerProfile)",
 }
 
 
@@ -483,6 +498,15 @@ def building_blocks(entries):
             add("Canvas drawing", e["name"], e)
         elif e["kind"] == "method" and e["owner"] == "RemoteTextMeasurer":
             add("Text measuring", e["name"], e)
+        elif (
+            e["kind"] == "method"
+            and pkg == "androidx.wear.compose.remote.material3"
+            and e["owner"]
+            and e["owner"].endswith("Kt")
+            and e["name"].startswith("Remote")
+            and "void " in sig
+        ):
+            add("Wear Material 3", e["name"], e)
         elif e["kind"] == "method" and e["owner"] == "RemoteComponentComposeKt":
             add("Composables", e["name"], e)
         elif e["kind"] == "method" and e["owner"] == "RemoteTextMeasureKt":
@@ -512,8 +536,10 @@ def building_blocks(entries):
 
 
 def short_package(pkg):
-    return pkg.replace("androidx.compose.remote.creation.compose", "creation.compose").replace(
-        "androidx.compose.remote.foundation", "foundation"
+    return (
+        pkg.replace("androidx.compose.remote.creation.compose", "creation.compose")
+        .replace("androidx.compose.remote.foundation", "foundation")
+        .replace("androidx.wear.compose.remote.material3", "wear.material3")
     )
 
 

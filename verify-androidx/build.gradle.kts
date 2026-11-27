@@ -36,6 +36,10 @@ dependencies {
         "androidx.compose.remote.foundation:foundation:" +
             release.getOrDefault("foundation", "1.0.0-SNAPSHOT")
     )
+    implementation(
+        "androidx.wear.compose.remote:remote-material3:" +
+            release.getOrDefault("remote-material3", "1.0.0-SNAPSHOT")
+    )
     implementation("androidx.compose.runtime:runtime:1.11.0")
     implementation("androidx.compose.ui:ui-graphics:1.11.0")
 }

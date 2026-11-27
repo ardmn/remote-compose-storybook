@@ -34,6 +34,7 @@ internal fun catalogJson(): String =
                                     "description" to story.description,
                                     "width" to story.width,
                                     "height" to story.height,
+                                    "round" to story.round,
                                     "args" to story.args.map(::argJson),
                                 )
                             },

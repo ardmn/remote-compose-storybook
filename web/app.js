@@ -286,6 +286,7 @@
     "Interaction",
     "Animation",
     "State & expressions",
+    "Wear Material 3",
     "Styling",
   ];
 
@@ -511,14 +512,24 @@
 
   function stageConfig() {
     const size = state.stageSize || { w: 360, h: 360 };
-    return { theme: $("playerTheme").value, width: size.w, height: size.h, layout: $("layout").value };
+    return {
+      theme: $("playerTheme").value,
+      width: size.w,
+      height: size.h,
+      layout: $("layout").value,
+      round: !!state.round,
+    };
   }
 
   function sizeStage() {
     if (!state.current) return;
     const v = $("viewport").value;
+    // A Wear story plays on a round watch screen: with its own size, or a watch viewport.
+    const round = !!state.current.story.round && (v === "auto" || v.startsWith("watch"));
     let w, h;
-    if (v === "auto") {
+    if (v.startsWith("watch")) {
+      w = h = Number(v.slice("watch".length));
+    } else if (v === "auto") {
       w = state.current.story.width;
       h = state.current.story.height;
     } else if (v === "fill") {
@@ -529,11 +540,15 @@
     }
     const max = Math.max(200, $("stageWrap").clientWidth - 50);
     w = Math.min(w, max);
+    if (round) h = w;
     const frame = $("stageFrame");
     frame.style.width = w + "px";
     frame.style.height = h + "px";
-    frame.style.background = $("playerTheme").value === "dark" ? "#121316" : "#ffffff";
-    $("stageSize").textContent = `${w} × ${h} dp`;
+    frame.classList.toggle("round", round);
+    state.round = round;
+    // A watch screen is black whatever the page theme: Wear OS is dark by design.
+    frame.style.background = round ? "#000000" : $("playerTheme").value === "dark" ? "#121316" : "#ffffff";
+    $("stageSize").textContent = round ? t("stage.round", { size: w }) : `${w} × ${h} dp`;
     state.stageSize = { w, h };
   }
 
@@ -860,6 +875,8 @@ dependencies {
     // Author documents (the API in this catalog)
     implementation("androidx.compose.remote:remote-creation-compose:${pinned["remote-creation-compose"]}")
     implementation("androidx.compose.remote.foundation:foundation:${pinned.foundation}")
+    // Wear OS Material 3 components (the Wear Material 3 section)
+    implementation("androidx.wear.compose.remote:remote-material3:${pinned["remote-material3"]}")
     // Play documents on Android
     implementation("androidx.compose.remote:remote-player-compose:${pinned["remote-creation-compose"]}")
 }`
@@ -873,6 +890,8 @@ dependencies {
     // Author documents (the API in this catalog)
     implementation("androidx.compose.remote:remote-creation-compose:1.0.0-SNAPSHOT")
     implementation("androidx.compose.remote.foundation:foundation:1.0.0-SNAPSHOT")
+    // Wear OS Material 3 components (the Wear Material 3 section)
+    implementation("androidx.wear.compose.remote:remote-material3:1.0.0-SNAPSHOT")
     // Play documents on Android
     implementation("androidx.compose.remote:remote-player-compose:1.0.0-SNAPSHOT")
 }`,

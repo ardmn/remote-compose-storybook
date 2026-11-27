@@ -273,3 +273,51 @@ class CoverageExitCodeTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class WearMaterial3Test(unittest.TestCase):
+    W = "androidx.wear.compose.remote.material3."
+
+    def test_package_is_rewritten_to_androidx(self):
+        self.assertEqual(
+            t.rewrite("import ee.schimke.composeai.rccreation.wear.material3.RemoteButton"),
+            "import " + self.W + "RemoteButton",
+        )
+
+    def test_every_wear_composable_is_a_building_block(self):
+        blocks = t.building_blocks(ENTRIES)
+        wear = {name for group, name in blocks if group == "Wear Material 3"}
+        self.assertIn("RemoteButton", wear)
+        self.assertIn("RemoteEdgeButton", wear)
+        self.assertIn("RemoteTimeText", wear)
+        # Defaults objects and state factories are reached through the composables, not blocks.
+        self.assertNotIn("RemoteButtonDefaults", wear)
+        self.assertNotIn("rememberRemotePageIndicatorState", wear)
+
+    def test_wear_text_is_not_the_layout_text(self):
+        # Same simple name in two packages: the Wear one counts only with the Wear import.
+        found = t.find_members(ENTRIES, "RemoteTextKt.RemoteText")
+        wear = t.block_specs([e for e in found if e["package"] + "." == self.W])
+        self.assertTrue(wear)
+        code = 'fun F() { RemoteText("a".rs) }'
+        self.assertTrue(used(wear, code, [self.W + "RemoteText"]))
+        self.assertFalse(used(wear, code, [C + "layout.RemoteText"]))
+
+    def test_import_outside_the_public_wear_api_fails(self):
+        with tempfile.TemporaryDirectory() as d:
+            stories = os.path.join(d, "stories")
+            os.makedirs(stories)
+            with open(os.path.join(stories, "S.kt"), "w", encoding="utf-8") as fh:
+                fh.write(
+                    "package rcstorybook.stories\n\n"
+                    "import ee.schimke.composeai.rccreation.wear.material3.RemoteSlider\n"
+                )
+            args = types.SimpleNamespace(
+                stories=stories,
+                api=API,
+                out=os.path.join(d, "out", "sources.json"),
+                verify_out=None,
+                snippets_out=None,
+            )
+            with mock.patch("sys.stderr"):
+                self.assertEqual(t.cmd_sources(args), 1)

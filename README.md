@@ -14,13 +14,13 @@ Remote Compose (`androidx.compose.remote`) is Jetpack's server-driven UI: a serv
 
 Playing Remote Compose in a React Native app? See [react-native-remote-compose](https://github.com/ardmn/react-native-remote-compose).
 
-A Storybook-like static site for the public `@RemoteComposable` creation API of Jetpack Remote Compose (`androidx.compose.remote.*`). Every building block has one or more stories: Kotlin `@RemoteComposable` functions compiled to Kotlin/Wasm against [rc-players](https://github.com/yschimke/rc-players) (a Compose Multiplatform port of AndroidX's creation API, package `ee.schimke.composeai.rccreation`) and played live in the browser by rc-players' `RcEmbeddedPlayer`.
+A Storybook-like static site for the public `@RemoteComposable` creation API of Jetpack Remote Compose (`androidx.compose.remote.*`) and its Wear OS Material 3 components (`androidx.wear.compose.remote.material3`). Every building block has one or more stories: Kotlin `@RemoteComposable` functions compiled to Kotlin/Wasm against [rc-players](https://github.com/yschimke/rc-players) (a Compose Multiplatform port of AndroidX's creation API, package `ee.schimke.composeai.rccreation`) and played live in the browser by rc-players' `RcEmbeddedPlayer`.
 
 ## Features
 
 Every component explains in plain words what it is and what to use it for, so designers and product managers can see what Remote Compose can do; developers get the code, signatures and documents behind it.
 
-The stage has a viewport size, a light or dark player theme and a centered or top-start layout. Each story has these tabs:
+The stage has a viewport size, a light or dark player theme and a centered or top-start layout. The Wear Material 3 stories play on a round, black watch screen (227 dp by default; the Viewport menu also has 192 dp). Each story has these tabs:
 
 - **Controls**: edit the story's args; the story is re-created and replayed live.
 - **Code**: the story's source rewritten to `androidx.compose.remote.*` imports, with the call for the current control values.
@@ -47,7 +47,7 @@ Pages:
 
 ## Versions
 
-The catalog shows the API of the newest AndroidX release that rc-players' fork is cut from: `reference/androidx-api` is AndroidX's `api/current.txt` at the commit `1.0.0-alpha24` was cut from (`COMMIT`; the released versions are in `RELEASE`), and the stories run on the newest rc-players release (3.12.1, whose creation fork, 3.10.0, is cut from `cb8e6388acf` (one merge before alpha24's `a9dc564e55c`; the API files are identical)). `scripts/verify-androidx.sh` compiles every story against the released artifacts on Google Maven, and the Overview page shows the Gradle setup for them. What changed in the API since the previous release is in [`docs/alpha24-api-diff.md`](docs/alpha24-api-diff.md).
+The catalog shows the API of the newest AndroidX release that rc-players' fork is cut from: `reference/androidx-api` is AndroidX's `api/current.txt` at the commit `1.0.0-alpha24` was cut from (`COMMIT`; the released versions are in `RELEASE`), and the stories run on the newest rc-players release (4.0.0, whose creation fork has the same sources as 3.10.0, cut from `cb8e6388acf`, one merge before alpha24's `a9dc564e55c`; the API files are identical). The Wear Material 3 stories use AndroidX's `androidx.wear.compose.remote:remote-material3` (1.0.0-alpha16, cut from the same commit as alpha24); in the browser they run on rc-players' port of it, `rc-creation-wear-material3` (package `ee.schimke.composeai.rccreation.wear.material3`, rewritten to `androidx.wear.compose.remote.material3` like the rest). `scripts/verify-androidx.sh` compiles every story against the released artifacts on Google Maven, and the Overview page shows the Gradle setup for them. What changed in the API since the previous release is in [`docs/alpha24-api-diff.md`](docs/alpha24-api-diff.md).
 
 ## Local development
 
@@ -103,7 +103,7 @@ Story(
 
 ## Updating versions
 
-- AndroidX API: `scripts/update-androidx-api.sh <sha> <release>` (for example `a9dc564e55c 1.0.0-alpha24`) refreshes `reference/androidx-api/*.txt` from the commit an AndroidX release was cut from, records it in `reference/androidx-api/COMMIT` and the released versions in `RELEASE`, which `verify-androidx` compiles against. The commit is the one whose `remote-*-sources.jar` files match the tree (the release notes' commit range can end earlier). Without arguments it follows `androidx-main` and the newest androidx.dev snapshot instead (`SNAPSHOT_BUILD`). Rebuild afterwards: new public building blocks without a story fail the coverage check.
+- AndroidX API: `scripts/update-androidx-api.sh <sha> <release>` (for example `a9dc564e55c 1.0.0-alpha24`) refreshes `reference/androidx-api/*.txt` (the creation modules, foundation and Wear's `remote-material3`) from the commit an AndroidX release was cut from, records it in `reference/androidx-api/COMMIT` and the released versions in `RELEASE`, which `verify-androidx` compiles against. The commit is the one whose `remote-*-sources.jar` files match the tree (the release notes' commit range can end earlier). Without arguments it follows `androidx-main` and the newest androidx.dev snapshot instead (`SNAPSHOT_BUILD`). Rebuild afterwards: new public building blocks without a story fail the coverage check.
 - rc-players: change `rc-players` in `gradle/libs.versions.toml` (the BOM's version; it pins each module, and a release republishes only the modules that changed), rebuild, and re-check `CANNOT_DEMONSTRATE`.
 - Any library that ships in the site (rc-players, Kotlin, Compose, coroutines, ktor): after the change run `./gradlew :storybook:dependencies --write-locks` and commit `storybook/gradle.lockfile`. Until then an upgrade fails the build, and CI's lint job fails on a lock that doesn't match.
 

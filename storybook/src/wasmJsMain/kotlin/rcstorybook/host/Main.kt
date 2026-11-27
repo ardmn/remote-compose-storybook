@@ -54,6 +54,9 @@ private const val ARGB_HEX_DIGITS = 8
 
 private val DarkStageBackground = Color(0xFF121316)
 
+/** A round watch screen is black whatever the page theme: Wear OS is dark by design. */
+private val WatchStageBackground = Color.Black
+
 /** What the stage shows: a story and the values of its args. */
 private data class Selection(val story: Story, val args: Args)
 
@@ -63,7 +66,17 @@ private data class StageConfig(
     val widthDp: Int = 360,
     val heightDp: Int = 360,
     val centered: Boolean = true,
-)
+    /** A round watch screen (Wear stories): the page clips it to a circle, the stage is black. */
+    val round: Boolean = false,
+) {
+    val background: Color
+        get() =
+            when {
+                round -> WatchStageBackground
+                dark -> DarkStageBackground
+                else -> Color.White
+            }
+}
 
 private var selection by mutableStateOf<Selection?>(null)
 private var stageConfig by mutableStateOf(StageConfig())
@@ -117,6 +130,7 @@ fun main() {
                             ?.toInt()
                             ?.coerceIn(MIN_STAGE_DP, MAX_STAGE_DP) ?: 360,
                     centered = jsProperty(config, "layout") != "topstart",
+                    round = jsProperty(config, "round") == "true",
                 )
         },
         hostValue = { name, type, value -> setHostValue(name.toString(), type, value.toString()) },
@@ -207,7 +221,7 @@ private fun Stage() {
                 replay,
                 modifier =
                     Modifier.size(config.widthDp.dp, config.heightDp.dp)
-                        .background(if (config.dark) DarkStageBackground else Color.White),
+                        .background(config.background),
                 theme = if (config.dark) RcPlayerTheme.Dark else RcPlayerTheme.Light,
                 namedValues = hostValues,
                 onEvent = { event ->
@@ -220,8 +234,7 @@ private fun Stage() {
         RcEmbeddedPlayer(
             display = display,
             modifier =
-                Modifier.size(config.widthDp.dp, config.heightDp.dp)
-                    .background(if (config.dark) DarkStageBackground else Color.White),
+                Modifier.size(config.widthDp.dp, config.heightDp.dp).background(config.background),
             theme = if (config.dark) RcPlayerTheme.Dark else RcPlayerTheme.Light,
             typefaces = typefaces,
             encodePng = ::encodePng,

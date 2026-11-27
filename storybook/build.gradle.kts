@@ -57,6 +57,7 @@ kotlin {
             implementation(project.dependencies.platform(libs.rc.players.bom))
             implementation(libs.rc.creation.compose)
             implementation(libs.rc.creation.foundation)
+            implementation(libs.rc.creation.wear.material3)
             implementation(libs.rc.player.compose)
             implementation(libs.rc.player.embedded)
             implementation(libs.kotlinx.coroutines.core)

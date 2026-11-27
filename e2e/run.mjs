@@ -109,6 +109,26 @@ async function setLayout(value) {
 
 const { stableStage, stageChangesFrom, localArgs, openStory } = stageTools(page, base);
 
+// The stage frame's shape and size as the page drew it.
+async function stageFrame() {
+  return page.evaluate(() => {
+    const el = document.getElementById("stageFrame");
+    return {
+      round: el.classList.contains("round") && getComputedStyle(el).borderTopLeftRadius === "50%",
+      width: el.offsetWidth,
+      height: el.offsetHeight,
+    };
+  });
+}
+
+async function setViewport(value) {
+  await page.evaluate((v) => {
+    const el = document.getElementById("viewport");
+    el.value = v;
+    el.dispatchEvent(new Event("change"));
+  }, value);
+}
+
 for (const s of stories) {
   if (only && !s.id.includes(only)) continue;
   const errorsBefore = pageErrors.length;
@@ -159,6 +179,10 @@ for (const s of stories) {
   // Docs tab: every symbol must resolve.
   const docs = await page.textContent("#docs");
   if (docs.includes("No signature found")) fail(`${s.id}: Docs tab has a symbol with no AndroidX signature`);
+  // A Wear story opens on a round watch screen; every other story on a rectangle.
+  const frame = await stageFrame();
+  if (frame.round !== !!s.round || (s.round && frame.width !== frame.height))
+    fail(`${s.id}: stage is ${frame.width}×${frame.height}, round ${frame.round}; the story says round ${!!s.round}`);
   if (pageErrors.length > errorsBefore)
     fail(`${s.id}: page errors: ${pageErrors.slice(errorsBefore).join(" | ").slice(0, 300)}`);
   console.log(`  ok ${s.id}`);
@@ -230,6 +254,24 @@ if (!only) {
     const bad = audit.violations.filter((v) => v.impact === "serious" || v.impact === "critical");
     if (bad.length) fail(`${hash}: ${bad.map((v) => `${v.id} (${v.nodes.length})`).join(", ")}`);
     else console.log(`  ok accessibility ${hash}`);
+  }
+
+  // The round watch frame follows the story and the viewport: on for a Wear story, off for a
+  // rectangular viewport or the next non-Wear story, and on again for a watch viewport.
+  {
+    const wearStory = stories.find((x) => x.round);
+    const shapes = [];
+    await openStory(wearStory.id);
+    shapes.push((await stageFrame()).round);
+    for (const v of ["360x640", "watch192", "auto"]) {
+      await setViewport(v);
+      shapes.push((await stageFrame()).round);
+    }
+    await openStory("remote-box--layering");
+    shapes.push((await stageFrame()).round);
+    const want = [true, false, true, true, false];
+    if (shapes.join() !== want.join()) fail(`round frame across viewports and stories: ${shapes} (want ${want})`);
+    else console.log("  ok round frame follows the story and the viewport");
   }
 
   // Returning to the same story from a page without a stage shows its document again.

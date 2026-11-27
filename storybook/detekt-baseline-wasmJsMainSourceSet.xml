@@ -13,16 +13,19 @@
     <ID>MatchingDeclarationName:MoreOptions.kt:More</ID>
     <ID>MatchingDeclarationName:PlainLanguage.kt:Plain</ID>
     <ID>MatchingDeclarationName:State.kt:Screen</ID>
+    <ID>MatchingDeclarationName:WearMaterial3.kt:WearButtonStyle</ID>
     <ID>ReturnCount:DocumentText.kt:internal fun unifiedDiff: String</ID>
     <ID>TooManyFunctions:Canvas.kt:rcstorybook.stories.Canvas.kt</ID>
     <ID>TooManyFunctions:Content.kt:rcstorybook.stories.Content.kt</ID>
     <ID>TooManyFunctions:Layout.kt:rcstorybook.stories.Layout.kt</ID>
     <ID>TooManyFunctions:Modifiers.kt:rcstorybook.stories.Modifiers.kt</ID>
     <ID>TooManyFunctions:State.kt:rcstorybook.stories.State.kt</ID>
+    <ID>TooManyFunctions:WearMaterial3.kt:rcstorybook.stories.WearMaterial3.kt</ID>
     <ID>WildcardImport:Catalog.kt:import rcstorybook.stories.*</ID>
     <ID>WildcardImport:ContentCatalog.kt:import rcstorybook.stories.*</ID>
     <ID>WildcardImport:LayoutCatalog.kt:import rcstorybook.stories.*</ID>
     <ID>WildcardImport:ModifierCatalog.kt:import rcstorybook.stories.*</ID>
     <ID>WildcardImport:RecipeCatalog.kt:import rcstorybook.stories.*</ID>
+    <ID>WildcardImport:WearCatalog.kt:import rcstorybook.stories.*</ID>
   </CurrentIssues>
 </SmellBaseline>

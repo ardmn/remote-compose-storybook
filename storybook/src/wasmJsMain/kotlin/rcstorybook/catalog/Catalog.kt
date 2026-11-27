@@ -11,5 +11,6 @@ object Catalog {
             interactionComponents +
             animationComponents +
             stateComponents +
-            recipeComponents
+            recipeComponents +
+            wearComponents
 }

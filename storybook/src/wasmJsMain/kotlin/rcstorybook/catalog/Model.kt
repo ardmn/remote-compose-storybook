@@ -35,6 +35,8 @@ class Story(
     /** Hints for the stage: the preferred viewport, in dp. */
     val width: Int = 360,
     val height: Int = 360,
+    /** The stage is a round watch screen ([width] is its diameter): Wear OS stories. */
+    val round: Boolean = false,
     val content: @Composable @RemoteComposable (Args) -> Unit,
 )
 

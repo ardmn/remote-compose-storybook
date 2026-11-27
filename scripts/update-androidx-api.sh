@@ -22,6 +22,8 @@ trap 'rm -rf "$TMP"' EXIT
 curl -sf "$BASE/remote-creation-compose/api/current.txt" -o "$TMP/remote-creation-compose.txt"
 curl -sf "$BASE/remote-creation-expression/api/current.txt" -o "$TMP/remote-creation-expression.txt"
 curl -sf "$BASE/foundation/foundation/api/current.txt" -o "$TMP/foundation.txt"
+curl -sf "https://raw.githubusercontent.com/androidx/androidx/$SHA/wear/compose/remote/remote-material3/api/current.txt" \
+  -o "$TMP/remote-material3.txt"
 echo "$SHA" >"$TMP/COMMIT"
 if [[ -n "$RELEASE" ]]; then
   curl -sf "https://raw.githubusercontent.com/androidx/androidx/$SHA/libraryversions.toml" |
@@ -31,17 +33,19 @@ text, release = sys.stdin.read(), sys.argv[1]
 def version(key):
     return re.search(r"^" + key + r" = \"([^\"]+)\"", text, re.M).group(1)
 compose, foundation = version("REMOTECOMPOSE"), version("COMPOSE_REMOTE_FOUNDATION")
+wear = version("REMOTECOMPOSE_WEAR")
 if compose != release:
     sys.exit(f"libraryversions.toml at this commit names remote-creation-compose {compose}, not {release}")
-print(f"remote-creation-compose={compose}\nfoundation={foundation}")' "$RELEASE" >"$TMP/RELEASE"
+print(f"remote-creation-compose={compose}\nfoundation={foundation}\nremote-material3={wear}")' "$RELEASE" >"$TMP/RELEASE"
   while IFS='=' read -r artifact version; do
     group=androidx/compose/remote
     [[ "$artifact" == foundation ]] && group=androidx/compose/remote/foundation
+    [[ "$artifact" == remote-material3 ]] && group=androidx/wear/compose/remote
     curl -sfI "https://dl.google.com/android/maven2/$group/$artifact/$version/$artifact-$version.pom" >/dev/null ||
       { echo "$group/$artifact:$version is not on Google Maven" >&2; exit 1; }
   done <"$TMP/RELEASE"
   mv "$TMP"/remote-creation-compose.txt "$TMP"/remote-creation-expression.txt "$TMP"/foundation.txt \
-    "$TMP"/COMMIT "$TMP"/RELEASE "$OUT"/
+    "$TMP"/remote-material3.txt "$TMP"/COMMIT "$TMP"/RELEASE "$OUT"/
   rm -f "$OUT/SNAPSHOT_BUILD"
   echo "reference/androidx-api now at $RELEASE (androidx $SHA): $(tr '\n' ' ' <"$OUT/RELEASE")"
   exit 0
@@ -54,6 +58,6 @@ curl -sL -o /dev/null -w "%{url_effective}" https://androidx.dev/snapshots/lates
 curl -sfI "https://androidx.dev/snapshots/builds/$(cat "$TMP/SNAPSHOT_BUILD")/artifacts/repository/androidx/compose/remote/remote-creation-compose/maven-metadata.xml" >/dev/null ||
   { echo "androidx.dev build $(cat "$TMP/SNAPSHOT_BUILD") has no remote-creation-compose" >&2; exit 1; }
 mv "$TMP"/remote-creation-compose.txt "$TMP"/remote-creation-expression.txt "$TMP"/foundation.txt \
-  "$TMP"/COMMIT "$TMP"/SNAPSHOT_BUILD "$OUT"/
+  "$TMP"/remote-material3.txt "$TMP"/COMMIT "$TMP"/SNAPSHOT_BUILD "$OUT"/
 rm -f "$OUT/RELEASE"
 echo "reference/androidx-api now at androidx-main $SHA, snapshot build $(cat "$OUT/SNAPSHOT_BUILD")"
