@@ -54,7 +54,7 @@ internal val wearComponents =
             listOf(
                 watchStory(
                     "wear-button--variants",
-                    "Variants",
+                    "Button variants",
                     "WearButton",
                     "Every color set of RemoteButtonDefaults, with or without an icon and a secondary label.",
                     listOf(
@@ -122,7 +122,7 @@ internal val wearComponents =
             listOf(
                 watchStory(
                     "wear-icon-button--variants",
-                    "Variants",
+                    "Icon button variants",
                     "WearIconButtons",
                     "Filled, filled tonal and outlined icon buttons side by side.",
                     listOf(bool("enabled", true)),
@@ -139,7 +139,7 @@ internal val wearComponents =
             listOf(
                 watchStory(
                     "wear-text-button--variants",
-                    "Variants",
+                    "Text button variants",
                     "WearTextButtons",
                     "A filled tonal and a plain text button.",
                     listOf(text("text", "ABC"), bool("enabled", true)),
@@ -271,9 +271,9 @@ internal val wearComponents =
             listOf(
                 watchStory(
                     "wear-card--variants",
-                    "Filled and outlined",
+                    "Filled or outlined",
                     "WearCard",
-                    "A card and an outlined card with the same content.",
+                    "A card, or an outlined card when outlined is on, with the same content.",
                     listOf(text("text", "Next: Team sync at 10:30"), bool("outlined", false)),
                 ) {
                     WearCard(it.text("text"), it.bool("outlined"))

@@ -727,6 +727,8 @@ input:focus-visible {
 .cov-table td:first-child {
   font-family: var(--mono);
   width: 34%;
+  /* Long names (RemoteIntroOutroCurvedProgressIndicator) wrap instead of widening a phone's page. */
+  overflow-wrap: anywhere;
 }
 .cov-table a {
   margin-right: 8px;

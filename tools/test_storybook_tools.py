@@ -271,10 +271,6 @@ class CoverageExitCodeTest(unittest.TestCase):
         self.assertEqual(self.run_coverage([self.NAME], {self.NAME: "why"}, report_only=True), 0)
 
 
-if __name__ == "__main__":
-    unittest.main()
-
-
 class WearMaterial3Test(unittest.TestCase):
     W = "androidx.wear.compose.remote.material3."
 
@@ -321,3 +317,7 @@ class WearMaterial3Test(unittest.TestCase):
             )
             with mock.patch("sys.stderr"):
                 self.assertEqual(t.cmd_sources(args), 1)
+
+
+if __name__ == "__main__":
+    unittest.main()

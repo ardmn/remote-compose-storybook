@@ -524,8 +524,8 @@
   function sizeStage() {
     if (!state.current) return;
     const v = $("viewport").value;
-    // A Wear story plays on a round watch screen: with its own size, or a watch viewport.
-    const round = !!state.current.story.round && (v === "auto" || v.startsWith("watch"));
+    // A watch viewport is a round watch screen for any story; "Story default" is round for a Wear story.
+    const round = v.startsWith("watch") || (v === "auto" && !!state.current.story.round);
     let w, h;
     if (v.startsWith("watch")) {
       w = h = Number(v.slice("watch".length));
@@ -875,9 +875,13 @@ dependencies {
     // Author documents (the API in this catalog)
     implementation("androidx.compose.remote:remote-creation-compose:${pinned["remote-creation-compose"]}")
     implementation("androidx.compose.remote.foundation:foundation:${pinned.foundation}")
-    // Wear OS Material 3 components (the Wear Material 3 section)
+${
+  pinned["remote-material3"]
+    ? `    // Wear OS Material 3 components (the Wear Material 3 section)
     implementation("androidx.wear.compose.remote:remote-material3:${pinned["remote-material3"]}")
-    // Play documents on Android
+`
+    : ""
+}    // Play documents on Android
     implementation("androidx.compose.remote:remote-player-compose:${pinned["remote-creation-compose"]}")
 }`
           : `repositories {

@@ -257,7 +257,7 @@ if (!only) {
   }
 
   // The round watch frame follows the story and the viewport: on for a Wear story, off for a
-  // rectangular viewport or the next non-Wear story, and on again for a watch viewport.
+  // rectangular viewport or the next non-Wear story, on for a watch viewport whatever the story.
   {
     const wearStory = stories.find((x) => x.round);
     const shapes = [];
@@ -269,7 +269,10 @@ if (!only) {
     }
     await openStory("remote-box--layering");
     shapes.push((await stageFrame()).round);
-    const want = [true, false, true, true, false];
+    await setViewport("watch227");
+    shapes.push((await stageFrame()).round);
+    await setViewport("auto");
+    const want = [true, false, true, true, false, true];
     if (shapes.join() !== want.join()) fail(`round frame across viewports and stories: ${shapes} (want ${want})`);
     else console.log("  ok round frame follows the story and the viewport");
   }

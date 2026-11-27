@@ -33,6 +33,7 @@ import ee.schimke.composeai.rccreation.compose.text.RemoteTextOverflow
 import ee.schimke.composeai.rccreation.wear.material3.RemoteAppCard
 import ee.schimke.composeai.rccreation.wear.material3.RemoteBorderStroke
 import ee.schimke.composeai.rccreation.wear.material3.RemoteButton
+import ee.schimke.composeai.rccreation.wear.material3.RemoteButtonColors
 import ee.schimke.composeai.rccreation.wear.material3.RemoteButtonDefaults
 import ee.schimke.composeai.rccreation.wear.material3.RemoteButtonGroup
 import ee.schimke.composeai.rccreation.wear.material3.RemoteCard
@@ -67,7 +68,8 @@ import ee.schimke.composeai.rccreation.wear.material3.RemoteVerticalPageIndicato
 import ee.schimke.composeai.rccreation.wear.material3.rememberRemotePageIndicatorState
 
 // Wear OS Material 3 on Remote Compose (androidx.wear.compose.remote:remote-material3). Wear is
-// dark by design: every component here draws with the default RemoteMaterialTheme (dark colors).
+// dark by design: the components draw with the default RemoteMaterialTheme (dark colors), except
+// WearTheme, which overrides it.
 
 /** The color sets every Wear Material 3 button offers, from most to least emphasis. */
 enum class WearButtonStyle {
@@ -77,6 +79,18 @@ enum class WearButtonStyle {
     Outlined,
     Child,
 }
+
+/** The RemoteButtonDefaults colors for [style]. */
+@Composable
+@RemoteComposable
+fun buttonColors(style: WearButtonStyle): RemoteButtonColors =
+    when (style) {
+        WearButtonStyle.Filled -> RemoteButtonDefaults.buttonColors()
+        WearButtonStyle.FilledVariant -> RemoteButtonDefaults.filledVariantButtonColors()
+        WearButtonStyle.FilledTonal -> RemoteButtonDefaults.filledTonalButtonColors()
+        WearButtonStyle.Outlined -> RemoteButtonDefaults.outlinedButtonColors()
+        WearButtonStyle.Child -> RemoteButtonDefaults.childButtonColors()
+    }
 
 /** A heart, 24×24: the icon the Wear stories put in their buttons. */
 fun heartIcon(): RemoteImageVector =
@@ -127,20 +141,12 @@ fun WearButton(
     withIcon: Boolean,
     enabled: Boolean,
 ) {
-    val colors =
-        when (style) {
-            WearButtonStyle.Filled -> RemoteButtonDefaults.buttonColors()
-            WearButtonStyle.FilledVariant -> RemoteButtonDefaults.filledVariantButtonColors()
-            WearButtonStyle.FilledTonal -> RemoteButtonDefaults.filledTonalButtonColors()
-            WearButtonStyle.Outlined -> RemoteButtonDefaults.outlinedButtonColors()
-            WearButtonStyle.Child -> RemoteButtonDefaults.childButtonColors()
-        }
     WatchScreen {
         RemoteButton(
             onClick = hostAction("button_click".rs),
             modifier = RemoteModifier.fillMaxWidth(),
             enabled = enabled.rb,
-            colors = colors,
+            colors = buttonColors(style),
             border = if (style == WearButtonStyle.Outlined) outlinedBorder() else null,
             icon =
                 if (withIcon) {
@@ -168,18 +174,10 @@ fun WearButton(
 @Composable
 @RemoteComposable
 fun WearCompactButton(label: String, style: WearButtonStyle) {
-    val colors =
-        when (style) {
-            WearButtonStyle.Filled -> RemoteButtonDefaults.buttonColors()
-            WearButtonStyle.FilledVariant -> RemoteButtonDefaults.filledVariantButtonColors()
-            WearButtonStyle.FilledTonal -> RemoteButtonDefaults.filledTonalButtonColors()
-            WearButtonStyle.Outlined -> RemoteButtonDefaults.outlinedButtonColors()
-            WearButtonStyle.Child -> RemoteButtonDefaults.childButtonColors()
-        }
     WatchScreen {
         RemoteCompactButton(
             onClick = hostAction("compact_click".rs),
-            colors = colors,
+            colors = buttonColors(style),
             border = if (style == WearButtonStyle.Outlined) outlinedBorder() else null,
             icon = {
                 RemoteIcon(
