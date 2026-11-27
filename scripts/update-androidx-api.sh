@@ -20,21 +20,22 @@ SHA=$(curl -sf "https://api.github.com/repos/androidx/androidx/commits/$REF" |
   python3 -c 'import json,sys; print(json.load(sys.stdin)["sha"])')
 BASE="https://raw.githubusercontent.com/androidx/androidx/$SHA/compose/remote"
 OUT=reference/androidx-api
+TMP=""
+# Set from just before this refresh moves $OUT aside until the new one is in its place.
+SWAPPING=0
+# Puts this refresh's backup back if it stopped mid-swap, then removes its staging dir and lock.
+cleanup() {
+  if [[ $SWAPPING == 1 && ! -d "$OUT" && -d "$OUT.old" ]]; then mv "$OUT.old" "$OUT"; fi
+  if [[ -n "$TMP" ]]; then rm -rf "$TMP"; fi
+  rmdir "$LOCK"
+}
 # One refresh at a time per checkout: they share the $OUT.old backup slot.
 LOCK="$OUT.lock"
 mkdir "$LOCK" 2>/dev/null || { echo "another refresh holds $LOCK (remove it if none is running)" >&2; exit 1; }
+trap cleanup EXIT
 # A refresh killed between publish()'s two renames (no trap ran) left only the backup: restore it.
 if [[ ! -d "$OUT" && -d "$OUT.old" ]]; then mv "$OUT.old" "$OUT"; fi
 TMP=$(mktemp -d "$OUT.new.XXXXXX")
-# Set while this refresh has moved $OUT aside and not yet put the new one in its place.
-SWAPPING=0
-# An interruption between the two renames puts this refresh's backup back before cleaning up.
-cleanup() {
-  if [[ $SWAPPING == 1 && ! -d "$OUT" ]]; then mv "$OUT.old" "$OUT"; fi
-  rm -rf "$TMP"
-  rmdir "$LOCK"
-}
-trap cleanup EXIT
 API_FILES=(remote-creation-compose.txt remote-creation-expression.txt foundation.txt remote-material3.txt)
 
 # Publishes $TMP as $OUT once every API file, COMMIT and the version marker $1 are there and not
@@ -52,8 +53,8 @@ publish() {
   cp "$OUT/README.md" "$TMP/"
   chmod 755 "$TMP"
   rm -rf "$OUT.old"
-  mv "$OUT" "$OUT.old"
   SWAPPING=1
+  mv "$OUT" "$OUT.old"
   mv "$TMP" "$OUT"
   SWAPPING=0
   rm -rf "$OUT.old"
