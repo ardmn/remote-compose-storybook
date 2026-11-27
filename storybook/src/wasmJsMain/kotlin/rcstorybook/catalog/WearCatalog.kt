@@ -49,8 +49,8 @@ private val textRoles =
 private fun shape(name: String = "shape") =
     choice(
         name,
-        WearShape.entries.map { option(it.name, "WearShape.${it.name}", it) },
-        default = WearShape.entries.indexOf(WearShape.Large),
+        WearShapeSize.entries.map { option(it.name, "WearShapeSize.${it.name}", it) },
+        default = WearShapeSize.entries.indexOf(WearShapeSize.Large),
         doc = "A RemoteShapes size; cards default to large.",
     )
 
@@ -82,11 +82,21 @@ private fun contentPadding() =
         doc = "All sides, in dp; RemoteCardDefaults.ContentPadding is $CARD_PADDING.",
     )
 
-/** What no Wear story can show yet, in the words every interactive story description ends with. */
+/** The press-feedback limitation in full: the Button story's description ends with it. */
 private const val NO_PRESS_FEEDBACK =
     " Known limitation: a press shows no feedback. remote-material3 has no pressed state, and the " +
         "Compose players (this one included) draw a ripple only where the document asks for one; " +
         "AndroidX's View player draws a temporary ripple on any click (b/585818680)."
+
+/** The same limitation in short: every other tappable Wear story's description ends with it. */
+private const val NO_PRESS_FEEDBACK_SHORT =
+    " Known limitation: no press feedback (remote-material3 has no pressed state; see Button)."
+
+/** RemoteCardDefaults.OutlinedBorderSize, in dp. */
+private const val OUTLINED_BORDER = 1
+
+/** The widest border the outlined card's control offers, in dp. */
+private const val MAX_BORDER = 4
 
 /** A story on a round watch screen. */
 private fun watchStory(
@@ -153,7 +163,8 @@ internal val wearComponents =
                     "wear-compact-button--default",
                     "Compact button",
                     "WearCompactButton",
-                    "An icon and a label in the compact size, in each color set.",
+                    "An icon and a label in the compact size, in each color set." +
+                        NO_PRESS_FEEDBACK_SHORT,
                     listOf(text("label", "Like"), choice("style", buttonStyles, default = 2)),
                 ) {
                     WearCompactButton(it.text("label"), it["style"])
@@ -172,9 +183,9 @@ internal val wearComponents =
                     "Sizes",
                     "WearEdgeButton",
                     "Tap it: the count above is document state, updated by the player. The story adds " +
-                        "RemoteEdgeButtonDefaults.VerticalPadding (3 dp) below the button, as Wear Material " +
+                        "RemoteEdgeButtonDefaults.VerticalPadding below the button, as Wear Material " +
                         "3's EdgeButton does; RemoteEdgeButton itself omits it and touches the screen's edge." +
-                        NO_PRESS_FEEDBACK,
+                        NO_PRESS_FEEDBACK_SHORT,
                     listOf(
                         text("label", "Tap"),
                         choice("size", edgeButtonSizes, default = 2),
@@ -195,7 +206,8 @@ internal val wearComponents =
                     "wear-icon-button--variants",
                     "Icon button variants",
                     "WearIconButtons",
-                    "Filled, filled tonal and outlined icon buttons side by side.",
+                    "Filled, filled tonal and outlined icon buttons side by side." +
+                        NO_PRESS_FEEDBACK_SHORT,
                     listOf(bool("enabled", true)),
                 ) {
                     WearIconButtons(it.bool("enabled"))
@@ -212,7 +224,7 @@ internal val wearComponents =
                     "wear-text-button--variants",
                     "Text button variants",
                     "WearTextButtons",
-                    "A filled tonal and a plain text button.",
+                    "A filled tonal and a plain text button." + NO_PRESS_FEEDBACK_SHORT,
                     listOf(text("text", "ABC"), bool("enabled", true)),
                 ) {
                     WearTextButtons(it.text("text"), it.bool("enabled"))
@@ -234,7 +246,8 @@ internal val wearComponents =
                     "wear-toggle-buttons--default",
                     "Icon and text",
                     "WearToggleButtons",
-                    "Tap either button to toggle it; the variant shapes change the checked shape.",
+                    "Tap either button to toggle it; the variant shapes change the checked shape." +
+                        NO_PRESS_FEEDBACK_SHORT,
                     listOf(bool("initiallyChecked", true), bool("variantShapes", false)),
                 ) {
                     WearToggleButtons(it.bool("initiallyChecked"), it.bool("variantShapes"))
@@ -252,9 +265,10 @@ internal val wearComponents =
                     "wear-button-group--default",
                     "Button group",
                     "WearButtonGroup",
-                    "Two or three icon buttons that share the row by weight (the middle of three is 1.5×). " +
+                    "Two or three icon buttons that share the row by weight (the middle of three is wider). " +
                         "Press and hold one: animateWidth widens it with a spring and squeezes the others, " +
-                        "then lets go when you release.",
+                        "then lets go when you release." +
+                        NO_PRESS_FEEDBACK_SHORT,
                     listOf(int("buttons", 3, 2, 3)),
                 ) {
                     WearButtonGroup(it.int("buttons"))
@@ -276,7 +290,8 @@ internal val wearComponents =
                     "wear-checkbox-button--default",
                     "Checkbox and split",
                     "WearCheckboxButtons",
-                    "Tap to toggle; the split button's label sends a host action instead.",
+                    "Tap to toggle; the split button's label sends a host action instead." +
+                        NO_PRESS_FEEDBACK_SHORT,
                     listOf(
                         text("label", "Wi-Fi"),
                         bool("initiallyChecked", true),
@@ -301,7 +316,8 @@ internal val wearComponents =
                     "wear-switch-button--default",
                     "Switch and split",
                     "WearSwitchButtons",
-                    "Tap to switch; the split button's label sends a host action instead.",
+                    "Tap to switch; the split button's label sends a host action instead." +
+                        NO_PRESS_FEEDBACK_SHORT,
                     listOf(
                         text("label", "Bluetooth"),
                         bool("initiallyChecked", true),
@@ -326,7 +342,8 @@ internal val wearComponents =
                     "wear-radio-button--default",
                     "Radio and split",
                     "WearRadioButtons",
-                    "One selected index in the document: selecting one option deselects the other.",
+                    "One selected index in the document: selecting one option deselects the other." +
+                        NO_PRESS_FEEDBACK_SHORT,
                     listOf(
                         text("first", "Metric"),
                         text("second", "Imperial"),
@@ -344,12 +361,12 @@ internal val wearComponents =
             "A tappable surface for a block of content: filled, outlined, or over an image.",
             listOf(
                 watchStory(
-                    "wear-card--filled",
+                    "wear-card--variants",
                     "Filled",
                     "WearCard",
                     "RemoteCard with its shape, padding and the two colors it draws (container and " +
                         "content). Turning enabled off only stops the tap: cards have no disabled colors." +
-                        NO_PRESS_FEEDBACK,
+                        NO_PRESS_FEEDBACK_SHORT,
                     listOf(
                         text("text", CARD_TEXT),
                         bool("enabled", true),
@@ -373,7 +390,8 @@ internal val wearComponents =
                     "Outlined",
                     "WearOutlinedCard",
                     "RemoteOutlinedCard: a transparent container inside a border, whose color and width " +
-                        "come from outlinedCardBorder.",
+                        "come from outlinedCardBorder." +
+                        NO_PRESS_FEEDBACK_SHORT,
                     listOf(
                         text("text", CARD_TEXT),
                         bool("enabled", true),
@@ -383,10 +401,11 @@ internal val wearComponents =
                         role("borderColor", WearColorRole.Outline),
                         int(
                             "borderWidth",
+                            OUTLINED_BORDER,
                             1,
-                            1,
-                            4,
-                            doc = "In dp; RemoteCardDefaults.OutlinedBorderSize is 1.",
+                            MAX_BORDER,
+                            doc =
+                                "In dp; RemoteCardDefaults.OutlinedBorderSize is $OUTLINED_BORDER.",
                         ),
                     ),
                 ) {
@@ -405,7 +424,8 @@ internal val wearComponents =
                     "Image background",
                     "WearImageCard",
                     "A title card over an image: RemoteCardDefaults.containerPainter draws the bitmap " +
-                        "under the content, with a scrim so the text stays readable.",
+                        "under the content, with a scrim so the text stays readable." +
+                        NO_PRESS_FEEDBACK_SHORT,
                     listOf(
                         text("title", "Sunset walk"),
                         text("subtitle", "18:42"),
@@ -434,7 +454,8 @@ internal val wearComponents =
                     "WearAppCard",
                     "App image, app name, time, title and content in Wear's card layout. Empty time or " +
                         "content leaves the slot out. The colors are the five RemoteCardColors an app " +
-                        "card draws (it has no subtitle).",
+                        "card draws (it has no subtitle)." +
+                        NO_PRESS_FEEDBACK_SHORT,
                     listOf(
                         text("appName", "Messages"),
                         text("title", "Anna"),
@@ -481,7 +502,8 @@ internal val wearComponents =
                     "WearTitleCard",
                     "Title, time, subtitle and content; an empty time, subtitle or content leaves the " +
                         "slot out. The colors are the five RemoteCardColors a title card draws (it has no " +
-                        "app name).",
+                        "app name)." +
+                        NO_PRESS_FEEDBACK_SHORT,
                     listOf(
                         text("title", "Flight LH 123"),
                         text("time", "14:05"),
@@ -627,7 +649,8 @@ internal val wearComponents =
                         "dot at the start grows in and pushes the track ahead of it; when progress " +
                         "reaches 100%, the track's tail collapses and the arc runs to the end in about " +
                         "0.85 s. The springs only play when the progress changes inside the document, " +
-                        "so the story keeps it in a MutableRemoteFloat and steps it on tap.",
+                        "so the story keeps it in a MutableRemoteFloat and steps it on tap." +
+                        NO_PRESS_FEEDBACK_SHORT,
                     listOf(sweepAngle()),
                 ) {
                     WearIntroOutroProgress(it.int("sweepAngle"))
@@ -688,7 +711,8 @@ internal val wearComponents =
                     "A copy of the default color scheme with the main roles replaced, a shape set and a " +
                         "motion scheme, shown on a text, a title card, a progress bar, a warning and a " +
                         "button. The motion scheme sets the springs of animated components (a button " +
-                        "group's press, for one), so it shows no change on a still screen.",
+                        "group's press, for one), so it shows no change on a still screen." +
+                        NO_PRESS_FEEDBACK_SHORT,
                     listOf(
                         color("primary", Color(0xFF80CBC4)),
                         color("onPrimary", Color(0xFF00332C)),
@@ -704,7 +728,9 @@ internal val wearComponents =
                         ),
                         choice(
                             "shapes",
-                            WearShapes.entries.map { option(it.name, "WearShapes.${it.name}", it) },
+                            WearShapeSet.entries.map {
+                                option(it.name, "WearShapeSet.${it.name}", it)
+                            },
                         ),
                     ),
                 ) {

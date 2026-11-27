@@ -21,7 +21,8 @@ SHA=$(curl -sf "https://api.github.com/repos/androidx/androidx/commits/$REF" |
 BASE="https://raw.githubusercontent.com/androidx/androidx/$SHA/compose/remote"
 OUT=reference/androidx-api
 TMP=$(mktemp -d "$OUT.new.XXXXXX")
-trap 'rm -rf "$TMP"' EXIT
+# An interruption between publish()'s two renames puts the old reference back before cleaning up.
+trap '[[ -d "$OUT" ]] || mv "$OUT.old" "$OUT"; rm -rf "$TMP"' EXIT
 API_FILES=(remote-creation-compose.txt remote-creation-expression.txt foundation.txt remote-material3.txt)
 
 # Publishes $TMP as $OUT once every API file, COMMIT and the version marker $1 are there and not

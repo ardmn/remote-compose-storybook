@@ -143,7 +143,7 @@ fun themeColor(role: WearColorRole): RemoteColor {
 }
 
 /** The five corner sizes of RemoteShapes; cards default to Large. */
-enum class WearShape {
+enum class WearShapeSize {
     ExtraSmall,
     Small,
     Medium,
@@ -154,14 +154,14 @@ enum class WearShape {
 /** The theme's shape for [shape]. */
 @Composable
 @RemoteComposable
-fun themeShape(shape: WearShape): RemoteShape {
+fun themeShape(shape: WearShapeSize): RemoteShape {
     val shapes = RemoteMaterialTheme.shapes
     return when (shape) {
-        WearShape.ExtraSmall -> shapes.extraSmall
-        WearShape.Small -> shapes.small
-        WearShape.Medium -> shapes.medium
-        WearShape.Large -> shapes.large
-        WearShape.ExtraLarge -> shapes.extraLarge
+        WearShapeSize.ExtraSmall -> shapes.extraSmall
+        WearShapeSize.Small -> shapes.small
+        WearShapeSize.Medium -> shapes.medium
+        WearShapeSize.Large -> shapes.large
+        WearShapeSize.ExtraLarge -> shapes.extraLarge
     }
 }
 
@@ -487,7 +487,7 @@ fun WearRadioButtons(first: String, second: String, enabled: Boolean) {
 fun WearCard(
     text: String,
     enabled: Boolean,
-    shape: WearShape,
+    shape: WearShapeSize,
     contentPadding: Int,
     containerColor: WearColorRole,
     contentColor: WearColorRole,
@@ -515,7 +515,7 @@ fun WearCard(
 fun WearOutlinedCard(
     text: String,
     enabled: Boolean,
-    shape: WearShape,
+    shape: WearShapeSize,
     contentPadding: Int,
     contentColor: WearColorRole,
     borderColor: WearColorRole,
@@ -541,13 +541,17 @@ fun WearOutlinedCard(
     }
 }
 
-/** A sunset, 160×90, drawn into a bitmap the document carries: the image card's background. */
+/**
+ * A sunset over a hill, 160×90, drawn into a bitmap the document carries: the image card's
+ * background.
+ */
 fun sunsetBitmap(): RemoteImageBitmap {
     val image = ImageBitmap(160, 90)
     Canvas(image).apply {
         drawRect(0f, 0f, 160f, 90f, Paint().apply { color = Color(0xFFFF7043) })
-        drawCircle(Offset(110f, 60f), 22f, Paint().apply { color = Color(0xFFFFD54F) })
-        drawRect(0f, 64f, 160f, 90f, Paint().apply { color = Color(0xFF4E342E) })
+        drawCircle(Offset(110f, 46f), 16f, Paint().apply { color = Color(0xFFFFD54F) })
+        // A hill in front of the sun: the top of a large circle below the image.
+        drawCircle(Offset(60f, 192f), 130f, Paint().apply { color = Color(0xFF5D4037) })
     }
     return RemoteImageBitmap(image)
 }
@@ -584,7 +588,7 @@ fun WearAppCard(
     content: String,
     appImage: Boolean,
     enabled: Boolean,
-    shape: WearShape,
+    shape: WearShapeSize,
     contentPadding: Int,
     containerColor: WearColorRole,
     contentColor: WearColorRole,
@@ -636,7 +640,7 @@ fun WearTitleCard(
     subtitle: String,
     content: String,
     enabled: Boolean,
-    shape: WearShape,
+    shape: WearShapeSize,
     contentPadding: Int,
     containerColor: WearColorRole,
     contentColor: WearColorRole,
@@ -733,7 +737,10 @@ fun WearCurvedProgress(progress: Float, sweepAngle: Int) {
             modifier = RemoteModifier.fillMaxSize(),
             sweepAngle = sweepAngle.toFloat().rf,
         )
-        RemoteText("${(progress * 100).roundToInt()}%".rs)
+        RemoteText(
+            "${(progress * 100).roundToInt()}%".rs,
+            style = RemoteMaterialTheme.typography.titleMedium,
+        )
     }
 }
 
@@ -754,7 +761,7 @@ fun WearIntroOutroProgress(sweepAngle: Int) {
             modifier = RemoteModifier.fillMaxSize(),
             sweepAngle = sweepAngle.toFloat().rf,
         )
-        RemoteText("Tap to step".rs)
+        RemoteText("Tap to step".rs, style = RemoteMaterialTheme.typography.titleMedium)
     }
 }
 
@@ -783,18 +790,18 @@ enum class WearMotion {
 }
 
 /** Shape sets for the theme story: Wear's default corners, or all corners at one size. */
-enum class WearShapes {
+enum class WearShapeSet {
     Default,
     Square,
     Round,
 }
 
 /** The RemoteShapes for [shapes]. */
-fun remoteShapes(shapes: WearShapes): RemoteShapes =
+fun remoteShapes(shapes: WearShapeSet): RemoteShapes =
     when (shapes) {
-        WearShapes.Default -> RemoteShapes()
-        WearShapes.Square -> uniformShapes(RemoteRoundedCornerShape(2.rdp))
-        WearShapes.Round -> uniformShapes(RemoteRoundedCornerShape(36.rdp))
+        WearShapeSet.Default -> RemoteShapes()
+        WearShapeSet.Square -> uniformShapes(RemoteRoundedCornerShape(2.rdp))
+        WearShapeSet.Round -> uniformShapes(RemoteRoundedCornerShape(36.rdp))
     }
 
 private fun uniformShapes(shape: RemoteRoundedCornerShape) =
@@ -818,7 +825,7 @@ fun WearTheme(
     onSurfaceVariant: Color,
     error: Color,
     motion: WearMotion,
-    shapes: WearShapes,
+    shapes: WearShapeSet,
 ) {
     val colors =
         RemoteMaterialTheme.colorScheme.copy(
@@ -840,38 +847,58 @@ fun WearTheme(
                 WearMotion.Expressive -> RemoteMotionScheme.expressive()
             },
     ) {
-        // Every component below reads the theme: the text (secondary), the card (surfaceContainer,
-        // onSurface, tertiary, onSurfaceVariant, large shape), the progress (primary) and the
-        // button (primary, onPrimary); the warning uses error.
-        RemoteColumn(
-            modifier = RemoteModifier.fillMaxSize().padding(horizontal = 24.rdp),
-            verticalArrangement =
-                RemoteArrangement.spacedBy(4.rdp, RemoteAlignment.CenterVertically),
-            horizontalAlignment = RemoteAlignment.CenterHorizontally,
+        ThemedRunScreen()
+    }
+}
+
+/**
+ * A run screen for the theme story: a text, a card, a progress bar, a warning and a button group.
+ */
+@Composable
+@RemoteComposable
+fun ThemedRunScreen() {
+    // Every component below reads the theme: the text (secondary), the card (surfaceContainer,
+    // onSurface, tertiary, onSurfaceVariant, large shape), the progress (primary) and the
+    // button group (primary, onPrimary, and the motion
+    // scheme's press spring); the warning uses error.
+    RemoteColumn(
+        // Wide side padding keeps the card's corners inside the round screen.
+        modifier = RemoteModifier.fillMaxSize().padding(horizontal = 30.rdp),
+        verticalArrangement = RemoteArrangement.spacedBy(2.rdp, RemoteAlignment.CenterVertically),
+        horizontalAlignment = RemoteAlignment.CenterHorizontally,
+    ) {
+        RemoteText(
+            "Morning run".rs,
+            color = RemoteMaterialTheme.colorScheme.secondary,
+            style = RemoteMaterialTheme.typography.titleSmall,
+        )
+        RemoteTitleCard(
+            onClick = hostAction("themed_card".rs),
+            title = { RemoteText("5 km".rs) },
+            subtitle = { RemoteText("Goal".rs) },
+            modifier = RemoteModifier.fillMaxWidth(),
         ) {
-            RemoteText(
-                "Morning run".rs,
-                color = RemoteMaterialTheme.colorScheme.secondary,
-                style = RemoteMaterialTheme.typography.titleSmall,
-            )
-            RemoteTitleCard(
-                onClick = hostAction("themed_card".rs),
-                title = { RemoteText("5 km".rs) },
-                subtitle = { RemoteText("Goal".rs) },
-                modifier = RemoteModifier.fillMaxWidth(),
-            ) {
-                RemoteText("3.2 km done".rs)
+            RemoteText("3.2 km done".rs)
+        }
+        RemoteLinearProgressIndicator(
+            progress = 0.64f.rf,
+            modifier = RemoteModifier.fillMaxWidth(),
+        )
+        RemoteText(
+            "Battery low".rs,
+            color = RemoteMaterialTheme.colorScheme.error,
+            style = RemoteMaterialTheme.typography.labelSmall,
+        )
+        // Press and hold a button: the group's spring comes from the motion scheme.
+        RemoteButtonGroup(modifier = RemoteModifier.fillMaxWidth()) {
+            listOf("Start", "Pause").forEach { label ->
+                RemoteCompactButton(
+                    onClick = hostAction("themed_click".rs, label.rs),
+                    modifier = RemoteModifier.weight(1f.rf).animateWidth(),
+                ) {
+                    RemoteText(label.rs)
+                }
             }
-            RemoteLinearProgressIndicator(
-                progress = 0.64f.rf,
-                modifier = RemoteModifier.fillMaxWidth(),
-            )
-            RemoteText(
-                "Battery low".rs,
-                color = RemoteMaterialTheme.colorScheme.error,
-                style = RemoteMaterialTheme.typography.labelSmall,
-            )
-            RemoteCompactButton(onClick = hostAction("themed_click".rs)) { RemoteText("Start".rs) }
         }
     }
 }
