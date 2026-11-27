@@ -54,6 +54,19 @@ private fun shape(name: String = "shape") =
         doc = "A RemoteShapes size; cards default to large.",
     )
 
+/** What the filled and outlined card stories show. */
+private const val CARD_TEXT = "Next: Team sync at 10:30"
+
+/** RemoteCurvedProgressIndicator's default sweep, in degrees. */
+private const val DEFAULT_SWEEP = 90
+
+private const val MIN_SWEEP = 30
+
+private const val FULL_CIRCLE = 360
+
+/** The curved indicators' sweep, in degrees: AndroidX's default, up to a full circle. */
+private fun sweepAngle() = int("sweepAngle", DEFAULT_SWEEP, MIN_SWEEP, FULL_CIRCLE, step = 10)
+
 /** RemoteCardDefaults.ContentPadding, in dp. */
 private const val CARD_PADDING = 12
 
@@ -338,7 +351,7 @@ internal val wearComponents =
                         "content). Turning enabled off only stops the tap: cards have no disabled colors." +
                         NO_PRESS_FEEDBACK,
                     listOf(
-                        text("text", "Next: Team sync at 10:30"),
+                        text("text", CARD_TEXT),
                         bool("enabled", true),
                         shape(),
                         contentPadding(),
@@ -362,7 +375,7 @@ internal val wearComponents =
                     "RemoteOutlinedCard: a transparent container inside a border, whose color and width " +
                         "come from outlinedCardBorder.",
                     listOf(
-                        text("text", "Next: Team sync at 10:30"),
+                        text("text", CARD_TEXT),
                         bool("enabled", true),
                         shape(),
                         contentPadding(),
@@ -600,7 +613,7 @@ internal val wearComponents =
                         "rounded ends meet at a pinch instead of joining; there is no full-circle case.",
                     listOf(
                         float("progress", 0.7f, 0f, 1f, step = 0.05f),
-                        int("sweepAngle", 90, 30, 360, step = 10),
+                        sweepAngle(),
                     ),
                 ) {
                     WearCurvedProgress(it.float("progress"), it.int("sweepAngle"))
@@ -615,7 +628,7 @@ internal val wearComponents =
                         "reaches 100%, the track's tail collapses and the arc runs to the end in about " +
                         "0.85 s. The springs only play when the progress changes inside the document, " +
                         "so the story keeps it in a MutableRemoteFloat and steps it on tap.",
-                    listOf(int("sweepAngle", 90, 30, 360, step = 10)),
+                    listOf(sweepAngle()),
                 ) {
                     WearIntroOutroProgress(it.int("sweepAngle"))
                 },
