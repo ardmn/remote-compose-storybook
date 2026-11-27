@@ -30,9 +30,17 @@ val releasePins =
         .filter { "=" in it }
         .associate { it.substringBefore("=").trim() to it.substringAfter("=").trim() }
 
+// Without RELEASE the snapshot needs its pinned build (settings.gradle.kts adds that repository);
+// with neither file the reference is missing or half-published, so nothing is compiled.
+val snapshotPinned = rootProject.file("../reference/androidx-api/SNAPSHOT_BUILD").isFile
+
 fun version(artifact: String): String =
-    if (releaseFile == null) "1.0.0-SNAPSHOT"
-    else releasePins[artifact]?.takeIf { it.isNotEmpty() } ?: error("$releaseFile does not pin $artifact")
+    when {
+        releaseFile != null ->
+            releasePins[artifact]?.takeIf { it.isNotEmpty() } ?: error("$releaseFile does not pin $artifact")
+        snapshotPinned -> "1.0.0-SNAPSHOT"
+        else -> error("reference/androidx-api has neither RELEASE nor SNAPSHOT_BUILD")
+    }
 
 dependencies {
     implementation("androidx.compose.remote:remote-creation-compose:" + version("remote-creation-compose"))
