@@ -92,6 +92,22 @@ private const val NO_PRESS_FEEDBACK =
 private const val NO_PRESS_FEEDBACK_SHORT =
     " Known limitation: no press feedback (remote-material3 has no pressed state; see Button)."
 
+/**
+ * The curved indicators' full-ring limitation in full: the default curved story's description ends
+ * with it. e2e/wear.mjs fails when the pinch is gone, so this text gets updated.
+ */
+private const val CURVED_PINCH =
+    " Known limitation: at 100% with a 360° sweep the ring does not join up. The full arc starts " +
+        "half a stroke after startAngle and is one stroke width short, so its rounded ends meet at " +
+        "a pinch at startAngle. This is a bug in the curved indicators (this one and the " +
+        "intro/outro one), not the intended look. Circular progress had a related bug, a gap at " +
+        "100%, which remote-material3 1.0.0-alpha16 fixes. The curved indicators still pinch, and " +
+        "a fix for them is not in AndroidX yet."
+
+/** The same limitation in short, for the intro/outro story. */
+private const val CURVED_PINCH_SHORT =
+    " Known limitation: at 100% with a 360° sweep the ring meets at a pinch (see Curved progress)."
+
 /** RemoteCardDefaults.OutlinedBorderSize, in dp. */
 private const val OUTLINED_BORDER = 1
 
@@ -587,7 +603,8 @@ internal val wearComponents =
                     "wear-circular-progress--default",
                     "Circular progress",
                     "WearCircularProgress",
-                    "Determinate progress, or the indeterminate spinner.",
+                    "Determinate progress, or the indeterminate spinner. At 100% the ring closes " +
+                        "into a full circle.",
                     listOf(
                         float("progress", 0.6f, 0f, 1f, step = 0.05f),
                         bool("enabled", true),
@@ -629,10 +646,7 @@ internal val wearComponents =
                     "wear-curved-progress--default",
                     "Curved progress",
                     "WearCurvedProgress",
-                    "The edge indicator, from 135° with a 90° sweep by default. Known limitation: at " +
-                        "100% with a 360° sweep the ring does not close. AndroidX starts the full arc " +
-                        "half a stroke after startAngle and shortens it by one stroke width, so the " +
-                        "rounded ends meet at a pinch instead of joining; there is no full-circle case.",
+                    "The edge indicator, from 135° with a 90° sweep by default." + CURVED_PINCH,
                     listOf(
                         float("progress", 0.7f, 0f, 1f, step = 0.05f),
                         sweepAngle(),
@@ -650,6 +664,7 @@ internal val wearComponents =
                         "reaches 100%, the track's tail collapses and the arc runs to the end in about " +
                         "0.85 s. The springs only play when the progress changes inside the document, " +
                         "so the story keeps it in a MutableRemoteFloat and steps it on tap." +
+                        CURVED_PINCH_SHORT +
                         NO_PRESS_FEEDBACK_SHORT,
                     listOf(sweepAngle()),
                 ) {
