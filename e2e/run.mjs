@@ -6,7 +6,7 @@
 //  5. tapping a host-action story reaches the Actions tab;
 //  6. pages (overview, coverage) render;
 //  7. each story's static page for search engines (s/<id>/, s/<id>/ru/), sitemap.xml and llms.txt;
-//  8. Wear interactions (wear.mjs): a flipped control, a pressed button group, a stepped progress,
+//  8. Wear checks (wear.mjs): a flipped control, a pressed button group, a stepped progress,
 //     circular progress closing into a full ring at 100%, the curved one's pinch at a 360° sweep.
 // Screenshots of every story land in e2e/out/ for review.
 //
@@ -19,7 +19,7 @@ import pixelmatch from "pixelmatch";
 import { PNG } from "pngjs";
 import AxeBuilder from "@axe-core/playwright";
 import { serveSite, stageTools } from "./lib.mjs";
-import { wearInteractions } from "./wear.mjs";
+import { wearChecks } from "./wear.mjs";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const args = process.argv.slice(2);
@@ -352,7 +352,7 @@ if (!only) {
   if (!(await stageChangesFrom(shotA))) fail("tapping the counter's − changed nothing on the stage");
   else console.log("  ok valueChangeAction redraws");
 
-  await wearInteractions({ page, openStory, stableStage, stageChangesFrom, fail, outDir });
+  await wearChecks({ page, openStory, stableStage, stageChangesFrom, fail, outDir });
 }
 
 // Link previews, written by social.mjs: a page per story whose Open Graph tags name its own card,
