@@ -517,7 +517,7 @@
       width: size.w,
       height: size.h,
       layout: $("layout").value,
-      round: !!state.round,
+      wear: !!state.current?.story.round,
     };
   }
 
@@ -545,9 +545,10 @@
     frame.style.width = w + "px";
     frame.style.height = h + "px";
     frame.classList.toggle("round", round);
-    state.round = round;
-    // A watch screen is black whatever the page theme: Wear OS is dark by design.
-    frame.style.background = round ? "#000000" : $("playerTheme").value === "dark" ? "#121316" : "#ffffff";
+    // A Wear story's stage is black whatever its shape or the page theme: Wear OS components draw
+    // in dark-theme colors only. Other stories keep the player theme's background, round or not.
+    const wear = !!state.current.story.round;
+    frame.style.background = wear ? "#000000" : $("playerTheme").value === "dark" ? "#121316" : "#ffffff";
     $("stageSize").textContent = round ? t("stage.round", { size: w }) : `${w} × ${h} dp`;
     state.stageSize = { w, h };
   }

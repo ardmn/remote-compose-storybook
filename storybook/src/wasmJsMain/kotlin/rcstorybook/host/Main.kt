@@ -54,8 +54,11 @@ private const val ARGB_HEX_DIGITS = 8
 
 private val DarkStageBackground = Color(0xFF121316)
 
-/** A round watch screen is black whatever the page theme: Wear OS is dark by design. */
-private val WatchStageBackground = Color.Black
+/**
+ * A Wear story's stage is black whatever its shape or the page theme: Wear OS components draw in
+ * dark-theme colors only (the same value as web/app.js sizeStage).
+ */
+private val WearStageBackground = Color.Black
 
 /** What the stage shows: a story and the values of its args. */
 private data class Selection(val story: Story, val args: Args)
@@ -66,13 +69,13 @@ private data class StageConfig(
     val widthDp: Int = 360,
     val heightDp: Int = 360,
     val centered: Boolean = true,
-    /** A round watch screen (Wear stories): the page clips it to a circle, the stage is black. */
-    val round: Boolean = false,
+    /** The story is a Wear OS story: the stage is black (the page decides the round clip). */
+    val wear: Boolean = false,
 ) {
     val background: Color
         get() =
             when {
-                round -> WatchStageBackground
+                wear -> WearStageBackground
                 dark -> DarkStageBackground
                 else -> Color.White
             }
@@ -130,7 +133,7 @@ fun main() {
                             ?.toInt()
                             ?.coerceIn(MIN_STAGE_DP, MAX_STAGE_DP) ?: 360,
                     centered = jsProperty(config, "layout") != "topstart",
-                    round = jsProperty(config, "round") == "true",
+                    wear = jsProperty(config, "wear") == "true",
                 )
         },
         hostValue = { name, type, value -> setHostValue(name.toString(), type, value.toString()) },

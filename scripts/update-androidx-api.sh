@@ -57,6 +57,8 @@ curl -sL -o /dev/null -w "%{url_effective}" https://androidx.dev/snapshots/lates
 [[ -s "$TMP/SNAPSHOT_BUILD" ]] || { echo "could not resolve the latest androidx.dev snapshot build" >&2; exit 1; }
 curl -sfI "https://androidx.dev/snapshots/builds/$(cat "$TMP/SNAPSHOT_BUILD")/artifacts/repository/androidx/compose/remote/remote-creation-compose/maven-metadata.xml" >/dev/null ||
   { echo "androidx.dev build $(cat "$TMP/SNAPSHOT_BUILD") has no remote-creation-compose" >&2; exit 1; }
+curl -sfI "https://androidx.dev/snapshots/builds/$(cat "$TMP/SNAPSHOT_BUILD")/artifacts/repository/androidx/wear/compose/remote/remote-material3/maven-metadata.xml" >/dev/null ||
+  { echo "androidx.dev build $(cat "$TMP/SNAPSHOT_BUILD") has no remote-material3" >&2; exit 1; }
 mv "$TMP"/remote-creation-compose.txt "$TMP"/remote-creation-expression.txt "$TMP"/foundation.txt \
   "$TMP"/remote-material3.txt "$TMP"/COMMIT "$TMP"/SNAPSHOT_BUILD "$OUT"/
 rm -f "$OUT/RELEASE"

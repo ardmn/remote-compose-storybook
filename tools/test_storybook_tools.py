@@ -299,6 +299,26 @@ class WearMaterial3Test(unittest.TestCase):
         self.assertTrue(used(wear, code, [self.W + "RemoteText"]))
         self.assertFalse(used(wear, code, [C + "layout.RemoteText"]))
 
+    def test_public_wear_import_is_accepted_and_rewritten(self):
+        with tempfile.TemporaryDirectory() as d:
+            stories = os.path.join(d, "stories")
+            os.makedirs(stories)
+            with open(os.path.join(stories, "S.kt"), "w", encoding="utf-8") as fh:
+                fh.write(
+                    "package rcstorybook.stories\n\n"
+                    "import ee.schimke.composeai.rccreation.compose.layout.RemoteComposable\n"
+                    "import ee.schimke.composeai.rccreation.wear.material3.RemoteIcon\n\n"
+                    "@RemoteComposable\nfun S() {\n    RemoteIcon(icon(), null)\n}\n"
+                )
+            out = os.path.join(d, "out", "sources.json")
+            args = types.SimpleNamespace(
+                stories=stories, api=API, out=out, verify_out=None, snippets_out=None
+            )
+            with mock.patch("sys.stdout"):
+                self.assertEqual(t.cmd_sources(args), 0)
+            with open(out, encoding="utf-8") as fh:
+                self.assertIn(self.W + "RemoteIcon", json.load(fh)["S"]["imports"])
+
     def test_import_outside_the_public_wear_api_fails(self):
         with tempfile.TemporaryDirectory() as d:
             stories = os.path.join(d, "stories")

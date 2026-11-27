@@ -117,6 +117,7 @@ async function stageFrame() {
       round: el.classList.contains("round") && getComputedStyle(el).borderTopLeftRadius === "50%",
       width: el.offsetWidth,
       height: el.offsetHeight,
+      background: getComputedStyle(el).backgroundColor,
     };
   });
 }
@@ -266,11 +267,25 @@ if (!only) {
     for (const v of ["360x640", "watch192", "auto"]) {
       await setViewport(v);
       shapes.push((await stageFrame()).round);
+      if (v === "360x640") {
+        // Wear components draw in dark colors: the stage stays black on a rectangle too, in the
+        // page frame and in the player (a pixel in the stage's empty top-left corner).
+        const box = await page.locator("#stageFrame").boundingBox();
+        await page.waitForTimeout(500);
+        const png = PNG.sync.read(await page.screenshot({ clip: { x: box.x + 4, y: box.y + 4, width: 1, height: 1 } }));
+        const dark = png.data[0] < 16 && png.data[1] < 16 && png.data[2] < 16;
+        const frameBg = (await stageFrame()).background;
+        if (!dark || frameBg !== "rgb(0, 0, 0)")
+          fail(`${wearStory.id} on 360x640: stage pixel ${[...png.data.slice(0, 3)]}, frame ${frameBg} (want black)`);
+      }
     }
     await openStory("remote-box--layering");
     shapes.push((await stageFrame()).round);
     await setViewport("watch227");
     shapes.push((await stageFrame()).round);
+    // A non-Wear story on a watch viewport keeps its player theme's background (light here).
+    const plainBg = (await stageFrame()).background;
+    if (plainBg !== "rgb(255, 255, 255)") fail(`remote-box--layering on watch227: frame ${plainBg} (want white)`);
     await setViewport("auto");
     const want = [true, false, true, true, false, true];
     if (shapes.join() !== want.join()) fail(`round frame across viewports and stories: ${shapes} (want ${want})`);

@@ -353,7 +353,7 @@ internal val wearComponents =
             "wear-icon",
             "Icon",
             listOf("RemoteIcon"),
-            "A vector icon tinted with the theme's content color.",
+            "A vector icon tinted with a color from the theme (primary or onSurface).",
             listOf(
                 watchStory(
                     "wear-icon--default",
@@ -451,7 +451,13 @@ internal val wearComponents =
                     "Horizontal or vertical dots for a page count and a selected page.",
                     listOf(
                         int("pageCount", 4, 2, 6),
-                        int("selectedPage", 1, 0, 5),
+                        int(
+                            "selectedPage",
+                            1,
+                            0,
+                            5,
+                            doc = "0-based; the story clamps it to pageCount - 1.",
+                        ),
                         bool("vertical", false),
                     ),
                 ) {
@@ -467,8 +473,8 @@ internal val wearComponents =
             "wear-theme",
             "Theme",
             listOf("RemoteMaterialTheme", "RemoteColorScheme"),
-            "The Wear Material 3 theme: colors, type and shapes every component reads. Override a few " +
-                "colors and every component below follows.",
+            "The Wear Material 3 theme: colors, type and shapes every Wear component reads. Override a " +
+                "few colors and every component inside the theme follows; here, a button.",
             listOf(
                 watchStory(
                     "wear-theme--colors",

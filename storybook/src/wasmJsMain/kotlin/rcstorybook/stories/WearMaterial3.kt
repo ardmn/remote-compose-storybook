@@ -66,6 +66,7 @@ import ee.schimke.composeai.rccreation.wear.material3.RemoteTextToggleButton
 import ee.schimke.composeai.rccreation.wear.material3.RemoteTitleCard
 import ee.schimke.composeai.rccreation.wear.material3.RemoteVerticalPageIndicator
 import ee.schimke.composeai.rccreation.wear.material3.rememberRemotePageIndicatorState
+import kotlin.math.roundToInt
 
 // Wear OS Material 3 on Remote Compose (androidx.wear.compose.remote:remote-material3). Wear is
 // dark by design: the components draw with the default RemoteMaterialTheme (dark colors), except
@@ -323,7 +324,7 @@ fun WearButtonGroup(buttons: Int) {
 @RemoteComposable
 fun WearCheckboxButtons(label: String, initiallyChecked: Boolean, enabled: Boolean) {
     val checked = remember { MutableRemoteBoolean(initiallyChecked) }
-    val split = remember { MutableRemoteBoolean(!initiallyChecked) }
+    val split = remember { MutableRemoteBoolean(initiallyChecked) }
     WatchScreen {
         RemoteColumn(verticalArrangement = RemoteArrangement.spacedBy(4.rdp)) {
             RemoteCheckboxButton(
@@ -351,7 +352,7 @@ fun WearCheckboxButtons(label: String, initiallyChecked: Boolean, enabled: Boole
 @RemoteComposable
 fun WearSwitchButtons(label: String, initiallyChecked: Boolean, enabled: Boolean) {
     val checked = remember { MutableRemoteBoolean(initiallyChecked) }
-    val split = remember { MutableRemoteBoolean(!initiallyChecked) }
+    val split = remember { MutableRemoteBoolean(initiallyChecked) }
     WatchScreen {
         RemoteColumn(verticalArrangement = RemoteArrangement.spacedBy(4.rdp)) {
             RemoteSwitchButton(
@@ -538,7 +539,7 @@ fun WearCurvedProgress(progress: Float, sweepAngle: Int, introOutro: Boolean) {
                 sweepAngle = sweepAngle.toFloat().rf,
             )
         }
-        RemoteText("${(progress * 100).toInt()}%".rs)
+        RemoteText("${(progress * 100).roundToInt()}%".rs)
     }
 }
 
