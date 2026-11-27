@@ -1,5 +1,6 @@
-// Interaction checks of the Wear Material 3 stories: what a tap or a control change must do to
-// what the player draws. Called from run.mjs with the page laid out "topstart".
+// Checks of the Wear Material 3 stories: what a tap or a control change must do to what the
+// player draws, and geometry a story's description promises. Called from run.mjs with the page
+// laid out "topstart".
 import fs from "node:fs";
 import path from "node:path";
 import pixelmatch from "pixelmatch";
@@ -24,27 +25,69 @@ function runWidth(png, x, y) {
   return right - left + 1;
 }
 
-// The angles, in degrees out of 360, around a ring drawn in the light indicator colour (the
-// lavender primary of the default theme) where no indicator pixel lies on the ring's centre line:
-// the gaps of an open ring. The ring's centre and radius come from the indicator pixels themselves.
-function ringGaps(png) {
-  const isIndicator = (i) => png.data[i] > 170 && png.data[i + 2] > 200 && png.data[i + 2] > png.data[i + 1] + 10;
-  const pixels = [];
+// The default theme's primary, the colour of a progress indicator, as the player draws it.
+const INDICATOR_RGB = [233, 221, 255];
+// Per channel. Tight enough to leave out the stage's white and grey checkerboard (each off by 16
+// or more in one channel) and the ring's anti-aliased edges.
+const INDICATOR_TOLERANCE = 12;
+
+// Whether the pixel at (x, y) of a decoded PNG is the indicator colour.
+function isIndicator(png, x, y) {
+  const i = (y * png.width + x) * 4;
+  return INDICATOR_RGB.every((c, k) => Math.abs(png.data[i + k] - c) < INDICATOR_TOLERANCE);
+}
+
+// The centre and centre-line radius of a ring drawn in INDICATOR_RGB, from the bounding box of its
+// pixels; null when there are none. Exact only for a closed ring: an open one's box is cut short.
+function ringGeometry(png) {
+  let [left, top, right, bottom] = [png.width, png.height, -1, -1];
   for (let y = 0; y < png.height; y++) {
-    for (let x = 0; x < png.width; x++) if (isIndicator((y * png.width + x) * 4)) pixels.push([x, y]);
+    for (let x = 0; x < png.width; x++) {
+      if (!isIndicator(png, x, y)) continue;
+      left = Math.min(left, x);
+      right = Math.max(right, x);
+      top = Math.min(top, y);
+      bottom = Math.max(bottom, y);
+    }
   }
-  if (pixels.length === 0) return [0, 360];
-  const cx = pixels.reduce((sum, [x]) => sum + x, 0) / pixels.length;
-  const cy = pixels.reduce((sum, [, y]) => sum + y, 0) / pixels.length;
-  const radius = pixels.reduce((sum, [x, y]) => sum + Math.hypot(x - cx, y - cy), 0) / pixels.length;
-  const gaps = [];
-  for (let step = 0; step < 720; step++) {
-    const angle = (step / 720) * 2 * Math.PI;
-    const x = Math.round(cx + radius * Math.cos(angle));
-    const y = Math.round(cy + radius * Math.sin(angle));
-    if (!isIndicator((y * png.width + x) * 4)) gaps.push(step / 2);
+  if (right < 0) return null;
+  const cx = (left + right) / 2;
+  const cy = (top + bottom) / 2;
+  // Walk from the top edge inwards along the centre column to find the stroke's inner edge.
+  let inner = Math.round(top);
+  while (inner < cy && isIndicator(png, Math.round(cx), inner)) inner++;
+  return { cx, cy, radius: cy - (top + inner) / 2 };
+}
+
+// The gaps of a ring with the given geometry: runs of [from, to] degrees, clockwise from 3 o'clock,
+// where the ring's centre line has no indicator pixel.
+function ringGaps(png, { cx, cy, radius }) {
+  const steps = 720;
+  const missing = Array.from({ length: steps }, (_, step) => {
+    const angle = (step / steps) * 2 * Math.PI;
+    return !isIndicator(png, Math.round(cx + radius * Math.cos(angle)), Math.round(cy + radius * Math.sin(angle)));
+  });
+  const runs = [];
+  for (let step = 0; step < steps; step++) {
+    if (!missing[step]) continue;
+    const last = runs.at(-1);
+    if (last && last[1] === step - 1) last[1] = step;
+    else runs.push([step, step]);
   }
-  return gaps;
+  // A run through 0° is one gap, not two.
+  if (runs.length > 1 && runs[0][0] === 0 && runs.at(-1)[1] === steps - 1) runs[0][0] = runs.pop()[0] - steps;
+  return runs.map(([from, to]) => [(from * 360) / steps, ((to + 1) * 360) / steps]);
+}
+
+// The stroke's radial width, in pixels, at `degrees` clockwise from 3 o'clock on a ring with the
+// given geometry: indicator pixels along the radius, sampled every quarter pixel.
+function strokeWidthAt(png, { cx, cy, radius }, degrees) {
+  const angle = (degrees * Math.PI) / 180;
+  let hits = 0;
+  for (let d = radius - 10; d <= radius + 10; d += 0.25) {
+    if (isIndicator(png, Math.round(cx + d * Math.cos(angle)), Math.round(cy + d * Math.sin(angle)))) hits++;
+  }
+  return hits / 4;
 }
 
 // The number of pixels that differ between two same-size PNG screenshots.
@@ -119,15 +162,40 @@ export async function wearInteractions({ page, openStory, stableStage, stageChan
   }
 
   // At 100% the circular indicator closes into a full ring (remote-material3 1.0.0-alpha16 fixed
-  // the gap it left at its start), and the story's description says so. At 90% the ring is open.
+  // the gap it left at its start), as the story's description says. At 90% it is open by one gap
+  // at the top, which shows the check sees a real gap.
   {
     const id = "wear-circular-progress--default";
-    await openStory(id, "?progress=1");
-    const full = ringGaps(PNG.sync.read(await stableStage()));
-    await openStory(id, "?progress=0.9");
-    const open = ringGaps(PNG.sync.read(await stableStage()));
-    if (full.length > 0) fail(`${id}: at progress=1 the ring has gaps at ${full.slice(0, 5).join(", ")}°`);
-    else if (open.length === 0) fail(`${id}: at progress=0.9 the ring check found no gap`);
-    else console.log(`  ok circular progress closes at 100% (open over ${open.length / 2}° at 90%)`);
+    const render = async (progress) =>
+      (await openStory(id, `?progress=${progress}`)) === "ok" ? PNG.sync.read(await stableStage()) : null;
+    const fullPng = await render(1);
+    const openPng = await render(0.9);
+    const geometry = fullPng && ringGeometry(fullPng);
+    const full = geometry && ringGaps(fullPng, geometry);
+    const open = geometry && openPng && ringGaps(openPng, geometry);
+    const describe = (runs) => runs.map(([from, to]) => `${from}..${to}°`).join(", ");
+    if (!full || !open) fail(`${id}: did not render, or no indicator pixel in ${INDICATOR_RGB}`);
+    else if (full.length > 0) fail(`${id}: at progress=1 the ring has gaps at ${describe(full)}`);
+    else if (open.length !== 1 || open[0][1] - open[0][0] < 30 || open[0][1] - open[0][0] > 60)
+      fail(`${id}: at progress=0.9 expected one gap of 30-60°, found ${describe(open)}`);
+    else console.log(`  ok circular progress closes at 100% (one gap, ${describe(open)}, at 90%)`);
+  }
+
+  // The curved indicators do not join up at 100% with a 360° sweep: the stroke pinches at
+  // startAngle (135°), as the curved stories' descriptions say. When an rc-players release brings
+  // an AndroidX fix, this fails: update those descriptions and turn this check around.
+  {
+    const id = "wear-curved-progress--default";
+    const png =
+      (await openStory(id, "?progress=1&sweepAngle=360")) === "ok" ? PNG.sync.read(await stableStage()) : null;
+    const geometry = png && ringGeometry(png);
+    if (!geometry) fail(`${id}: did not render, or no indicator pixel in ${INDICATOR_RGB}`);
+    else {
+      const atStart = strokeWidthAt(png, geometry, 135);
+      const opposite = strokeWidthAt(png, geometry, 315);
+      if (atStart * 2 >= opposite)
+        fail(`${id}: no pinch at startAngle any more (${atStart} vs ${opposite}px): update the curved descriptions`);
+      else console.log(`  ok curved progress pinches at startAngle at 100% (${atStart} vs ${opposite}px)`);
+    }
   }
 }

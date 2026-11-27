@@ -6,7 +6,8 @@
 //  5. tapping a host-action story reaches the Actions tab;
 //  6. pages (overview, coverage) render;
 //  7. each story's static page for search engines (s/<id>/, s/<id>/ru/), sitemap.xml and llms.txt;
-//  8. Wear interactions (wear.mjs): a flipped control, a pressed button group, a stepped progress.
+//  8. Wear interactions (wear.mjs): a flipped control, a pressed button group, a stepped progress,
+//     circular progress closing into a full ring at 100%, the curved one's pinch at a 360° sweep.
 // Screenshots of every story land in e2e/out/ for review.
 //
 //   node e2e/run.mjs [--site build/site] [--only <story-id-substring>]

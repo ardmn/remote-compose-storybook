@@ -636,8 +636,7 @@ internal val wearComponents =
                         "at a pinch at startAngle. This is a bug in the curved indicators (this one and " +
                         "the intro/outro one), not the intended look. Circular progress had a related " +
                         "bug, a gap at 100%, which remote-material3 1.0.0-alpha16 fixes. The curved " +
-                        "indicators still have it in 1.0.0-alpha16, the version this catalog uses, and " +
-                        "a fix for them is not in AndroidX yet.",
+                        "indicators still pinch, and a fix for them is not in AndroidX yet.",
                     listOf(
                         float("progress", 0.7f, 0f, 1f, step = 0.05f),
                         sweepAngle(),
