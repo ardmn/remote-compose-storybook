@@ -7,7 +7,10 @@ import ee.schimke.composeai.rccreation.compose.layout.RemoteComposable
 private const val HEX_RADIX = 16
 
 /** `AARRGGBB`. */
-private const val ARGB_HEX_DIGITS = 8
+internal const val ARGB_HEX_DIGITS = 8
+
+/** `RRGGBB`. */
+internal const val RGB_HEX_DIGITS = 6
 
 /** One building block of the public `@RemoteComposable` API, with its stories. */
 class Component(
@@ -117,8 +120,8 @@ class ColorArg(name: String, default: Color, doc: String = "") : Arg<Color>(name
         val hex = raw.removePrefix("#")
         val argb =
             when (hex.length) {
-                6 -> hex.takeIf { it.all(Char::isHexDigit) }?.let { ("FF$it").toLong(HEX_RADIX) }
-                ARGB_HEX_DIGITS -> hex.takeIf { it.all(Char::isHexDigit) }?.toLong(HEX_RADIX)
+                RGB_HEX_DIGITS -> hexOrNull("FF$hex", ARGB_HEX_DIGITS)
+                ARGB_HEX_DIGITS -> hexOrNull(hex, ARGB_HEX_DIGITS)
                 else -> null
             } ?: return default
         return Color(argb.toInt())
@@ -159,7 +162,14 @@ class Args(private val values: Map<String, Any?>) {
     override fun hashCode() = values.hashCode()
 }
 
-internal fun Char.isHexDigit() = this in '0'..'9' || this in 'a'..'f' || this in 'A'..'F'
+private fun Char.isHexDigit() = this in '0'..'9' || this in 'a'..'f' || this in 'A'..'F'
+
+/**
+ * [hex] as a number when it is exactly [digits] hex digits, else null: no sign, prefix or space,
+ * which `toLongOrNull(16)` would accept. The one colour parser for args, host values and the stage.
+ */
+internal fun hexOrNull(hex: String, digits: Int): Long? =
+    hex.takeIf { it.length == digits && it.all { c -> c.isHexDigit() } }?.toLong(HEX_RADIX)
 
 internal fun argbHex(color: Color): String {
     val argb = (color.value shr 32).toLong() and 0xFFFFFFFFL

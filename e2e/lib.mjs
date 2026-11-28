@@ -130,9 +130,13 @@ export function stageTools(page, base) {
   }
 
   // Opens a story and waits until it has rendered its args or failed: "ok", "failed" or "timeout".
+  // Opening the address the page is already on changes no hash, so nothing would be shown again:
+  // the page goes to the overview first.
   async function openStory(id, query = "") {
+    const target = base + "#/story/" + id + query;
+    if (page.url() === target) await page.goto(base + "#/");
     await forgetRendered();
-    await page.goto(base + "#/story/" + id + query);
+    await page.goto(target);
     return waitRendered(id);
   }
 

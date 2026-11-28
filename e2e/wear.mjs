@@ -122,20 +122,13 @@ function differingPixels(a, b) {
 export async function wearChecks({
   page,
   openStory,
-  stableStage,
+  settledStage,
   stageChangesFrom,
   forgetRendered,
   waitRendered,
   fail,
   outDir,
 }) {
-  // The settled stage the checks below measure; one that kept changing fails the check it is for.
-  const settledStage = async (what) => {
-    const { png, settled } = await stableStage();
-    if (!settled) fail(`${what}: the stage kept changing`);
-    return png;
-  };
-
   // A flipped control reaches state the story remembers: the toggles drawn after initiallyChecked
   // goes true -> false match a fresh story opened with false.
   {

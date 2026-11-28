@@ -13,7 +13,8 @@ import { serveSite, stageTools } from "./lib.mjs";
 
 // The page: "#/story/<id>?c=<css colour>" shows story <id> painted in that colour. On every new hash
 // it reports the previous args' document at once (and draws it), and the new one after LATE_MS.
-// "#/story/clock" never stops changing.
+// "#/story/clock" never stops changing; "#/story/broken" fails. window.control(c) changes the colour
+// in place, as a control does (no hash change), with the same late document.
 const LATE_MS = 600;
 const PAGE = `<!doctype html>
 <html><body>
@@ -26,12 +27,18 @@ const PAGE = `<!doctype html>
     const [path, query] = location.hash.slice(1).split("?");
     const id = path.replace("/story/", "");
     clearTimeout(timer);
+    if (id === "broken") {
+      document.body.dataset.failed = id;
+      return;
+    }
     if (id === "clock") {
       let n = 0;
       setInterval(() => (frame.style.background = "rgb(" + (n++ % 256) + ", 0, 0)"), 50);
       return;
     }
-    const color = new URLSearchParams(query || "").get("c") || "white";
+    play(id, new URLSearchParams(query || "").get("c") || "white");
+  }
+  function play(id, color) {
     const args = JSON.stringify({ c: color });
     document.body.dataset.showing = id + " " + args;
     if (previous && previous.id === id) {
@@ -44,6 +51,7 @@ const PAGE = `<!doctype html>
       previous = { id, color, args };
     }, ${LATE_MS});
   }
+  window.control = (color) => play("ring", color);
   addEventListener("hashchange", show);
   show();
 </script>
@@ -81,6 +89,24 @@ test("openStory waits for the document of the new args, not the previous args' o
   const { png, settled } = await tools.stableStage();
   assert.equal(settled, true);
   assert.deepEqual(centre(png), [0, 0, 255]);
+});
+
+test("openStory of the address the page is already on still renders it", async () => {
+  assert.equal(await tools.openStory("ring", "?c=rgb(0,128,0)"), "ok");
+  assert.equal(await tools.openStory("ring", "?c=rgb(0,128,0)"), "ok");
+  assert.deepEqual(centre((await tools.stableStage()).png), [0, 128, 0]);
+});
+
+test("waitRendered after a control change waits for the new args", async () => {
+  assert.equal(await tools.openStory("ring", "?c=rgb(255,0,0)"), "ok");
+  await tools.forgetRendered();
+  await page.evaluate(() => window.control("rgb(0,0,255)"));
+  assert.equal(await tools.waitRendered("ring", 5000), "ok");
+  assert.deepEqual(centre((await tools.stableStage()).png), [0, 0, 255]);
+});
+
+test("openStory reports a story that failed", async () => {
+  assert.equal(await tools.openStory("broken"), "failed");
 });
 
 test("stableStage says when the stage never settled", async () => {

@@ -146,9 +146,22 @@ async function setPlayerTheme(value) {
   }, value);
 }
 
-// The player's pixel near the stage's bottom-right corner (empty in the stories checked, centred
-// or laid out from the top start), as CSS rgb():
-// polled until it is `want` or the deadline passes, and then the last one seen.
+// The settled stage a check measures; one that kept changing fails the check it is for.
+async function settledStage(what) {
+  const { png, settled } = await stableStage();
+  if (!settled) fail(`${what}: the stage kept changing`);
+  return png;
+}
+
+// Stage backgrounds as the spec gives them (web/app.js STAGE_BACKGROUNDS), written out on purpose:
+// the expected values must not be read from the code under test.
+const WEAR_STAGE = "rgb(0, 0, 0)";
+const DARK_STAGE = "rgb(18, 19, 22)";
+
+// The pixel the player itself draws near the stage's bottom-right corner (empty in the stories
+// checked, centred or laid out from the top start), as CSS rgb(), polled until it is `want` or the
+// deadline passes, and then the last one seen. The player's canvas is opaque (white where nothing
+// is painted), so this is the player's colour, not the page frame's behind it.
 async function stageCornerPixel(want, timeoutMs = 5000) {
   const deadline = Date.now() + timeoutMs;
   for (;;) {
@@ -250,11 +263,23 @@ if (!only) {
   await page.screenshot({ path: path.join(outDir, "_changes.png") });
   console.log(`  ok control change (${before} → ${await page.textContent("#docStats")})`);
 
+  // New args that draw the same document still reach the page as a document of those args, or a
+  // test waiting for them would time out (remembered only swaps the call that builds the image;
+  // swap changes only the bitmap's pixels, not the document's structure).
+  for (const query of ["?remembered=true", "?remembered=false", "?remembered=false&swap=true"]) {
+    const shown = await openStory("named-state--mutable-image", query);
+    if (shown !== "ok") fail(`named-state--mutable-image${query}: ${shown}`);
+  }
+  // Opening the story the page already shows (no hash change) still waits for its document.
+  if ((await openStory("named-state--mutable-image", "?remembered=false&swap=true")) !== "ok")
+    fail("reopening the story the page shows did not render it");
+  else console.log("  ok new args with the same document, and the same story again, render");
+
   // Taps below aim at fixed points of the story, so lay it out from the top start.
   await setLayout("topstart");
   // A tap on a host action reaches the Actions tab.
   await openStory("host-action--named");
-  await stableStage();
+  await settledStage("host-action--named");
   const box = await page.locator("#stageFrame").boundingBox();
   await page.mouse.click(box.x + 40, box.y + 25);
   const raised = await page
@@ -309,9 +334,9 @@ if (!only) {
       if (v === "360x640") {
         // Wear components draw in dark colors: the stage stays black on a rectangle too, in the
         // page frame and in the player (a pixel in the stage's empty corner).
-        const pixel = await stageCornerPixel("rgb(0, 0, 0)");
+        const pixel = await stageCornerPixel(WEAR_STAGE);
         const frameBg = (await stageFrame()).background;
-        if (pixel !== "rgb(0, 0, 0)" || frameBg !== "rgb(0, 0, 0)")
+        if (pixel !== WEAR_STAGE || frameBg !== WEAR_STAGE)
           fail(`${wearStory.id} on 360x640: stage pixel ${pixel}, frame ${frameBg} (want black)`);
       }
     }
@@ -327,10 +352,9 @@ if (!only) {
     // the dark theme's, behind the document as around it. Checked on the story's own rectangle, as
     // a round frame clips the corner.
     await setPlayerTheme("dark");
-    // #121316 written out on purpose: the expected value is the spec, not read from the code under test.
-    const darkPixel = await stageCornerPixel("rgb(18, 19, 22)");
+    const darkPixel = await stageCornerPixel(DARK_STAGE);
     const darkFrame = (await stageFrame()).background;
-    if (darkPixel !== "rgb(18, 19, 22)" || darkFrame !== "rgb(18, 19, 22)")
+    if (darkPixel !== DARK_STAGE || darkFrame !== DARK_STAGE)
       fail(`remote-box--layering in the dark theme: stage pixel ${darkPixel}, frame ${darkFrame} (want #121316)`);
     await setPlayerTheme("light");
     const want = [true, false, true, true, false, true];
@@ -377,7 +401,7 @@ if (!only) {
   await setLayout("centered");
   await openStory("named-state--card");
   const statsBefore = await page.textContent("#docStats");
-  const cardBefore = (await stableStage()).png;
+  const cardBefore = await settledStage("named-state--card");
   await page.click('[data-tab="host"]');
   await page.fill('[data-host="USER:title"]', "Live from the host");
   const cardChanged = await stageChangesFrom(cardBefore);
@@ -389,13 +413,13 @@ if (!only) {
 
   // A tap on a valueChangeAction changes what is drawn.
   await openStory("clickable--counter");
-  const shotA = (await stableStage()).png;
+  const shotA = await settledStage("clickable--counter");
   const c = await page.locator("#stageFrame").boundingBox();
   await page.mouse.click(c.x + 28, c.y + 28); // the "−" button at the row's start
   if (!(await stageChangesFrom(shotA))) fail("tapping the counter's − changed nothing on the stage");
   else console.log("  ok valueChangeAction redraws");
 
-  await wearChecks({ page, openStory, stableStage, stageChangesFrom, forgetRendered, waitRendered, fail, outDir });
+  await wearChecks({ page, openStory, settledStage, stageChangesFrom, forgetRendered, waitRendered, fail, outDir });
 }
 
 // Link previews, written by social.mjs: a page per story whose Open Graph tags name its own card,
