@@ -178,7 +178,8 @@ for (const s of stories) {
   }
   const shot = timeDriven(s.function) ? null : await stableStage();
   await page.locator("#stageWrap").screenshot({ path: path.join(outDir, s.id + ".png") });
-  if (shot && !shot.settled) fail(`${s.id}: the stage kept changing, so it has no baseline to compare`);
+  if (shot && !shot.settled)
+    fail(`${s.id}: the stage kept changing, so it has no baseline to compare (an always-moving story: see timeDriven)`);
   else if (shot) {
     const stage = shot.png;
     const baseline = path.join(baselinesDir, s.id + ".png");
@@ -326,6 +327,7 @@ if (!only) {
     // the dark theme's, behind the document as around it. Checked on the story's own rectangle, as
     // a round frame clips the corner.
     await setPlayerTheme("dark");
+    // #121316 written out on purpose: the expected value is the spec, not read from the code under test.
     const darkPixel = await stageCornerPixel("rgb(18, 19, 22)");
     const darkFrame = (await stageFrame()).background;
     if (darkPixel !== "rgb(18, 19, 22)" || darkFrame !== "rgb(18, 19, 22)")

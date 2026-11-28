@@ -159,7 +159,7 @@ class Args(private val values: Map<String, Any?>) {
     override fun hashCode() = values.hashCode()
 }
 
-private fun Char.isHexDigit() = this in '0'..'9' || this in 'a'..'f' || this in 'A'..'F'
+internal fun Char.isHexDigit() = this in '0'..'9' || this in 'a'..'f' || this in 'A'..'F'
 
 internal fun argbHex(color: Color): String {
     val argb = (color.value shr 32).toLong() and 0xFFFFFFFFL

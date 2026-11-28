@@ -43,6 +43,7 @@ import org.jetbrains.skia.Image
 import rcstorybook.catalog.Args
 import rcstorybook.catalog.Catalog
 import rcstorybook.catalog.Story
+import rcstorybook.catalog.isHexDigit
 
 /** The stage size a page may ask for, in dp. */
 private const val MIN_STAGE_DP = 16
@@ -73,7 +74,8 @@ private data class StageConfig(
     val centered: Boolean = true,
     /**
      * The stage's background, as the page paints the frame around it (web/app.js
-     * `STAGE_BACKGROUNDS` is the one owner of these colours); unspecified paints nothing.
+     * `STAGE_BACKGROUNDS` is the one owner of these colours). Unspecified (no or a malformed colour
+     * from the page) paints nothing: the player has no colour of its own to fall back to.
      */
     val background: Color = Color.Unspecified,
 )
@@ -192,8 +194,8 @@ private fun Modifier.stageBackground(color: Color): Modifier =
 /** `#RRGGBB` from the page, opaque; anything else is [Color.Unspecified]. */
 private fun parseStageBackground(raw: String?): Color =
     raw?.removePrefix("#")
-        ?.takeIf { it.length == RGB_HEX_DIGITS }
-        ?.let { runCatching { it.hexToLong() }.getOrNull() }
+        ?.takeIf { it.length == RGB_HEX_DIGITS && it.all { c -> c.isHexDigit() } }
+        ?.toLongOrNull(HEX_RADIX)
         ?.let { Color((OPAQUE or it).toInt()) } ?: Color.Unspecified
 
 private fun setHostValue(name: String, type: Int, raw: String) {

@@ -112,6 +112,8 @@ export function stageTools(page, base) {
   // Waits until the page shows story `id` and the stage has its document for exactly the args the
   // page asked for (web/app.js: data-showing and data-rendered are "<story> <args>"), or the story
   // failed: "ok", "failed" or "timeout". Call forgetRendered() before the action that shows it.
+  // Assumes no document for older args arrives after the current one: args going A -> B -> A
+  // within one wait could match the first A's late document (no e2e flow does that).
   async function waitRendered(id, timeoutMs = 20000) {
     return page
       .waitForFunction(

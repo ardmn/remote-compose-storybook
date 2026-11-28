@@ -564,8 +564,6 @@
     frame.style.width = w + "px";
     frame.style.height = h + "px";
     frame.classList.toggle("round", round);
-    // A Wear story's stage is black whatever its shape or the page theme: Wear OS components draw
-    // in dark-theme colors only. Other stories keep the player theme's background, round or not.
     frame.style.background = stageBackground();
     $("stageSize").textContent = round ? t("stage.round", { size: w }) : `${w} × ${h} dp`;
     state.stageSize = { w, h };

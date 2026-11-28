@@ -233,7 +233,7 @@ for (const component of catalog.components) {
         description: lang === "ru" ? ruDescription : description,
         url: siteUrl + pagePath(story.id, lang),
         image: common.card,
-        alt: `${title}: a live Remote Compose document`,
+        alt: lang === "ru" ? `${ruTitle}: живой документ Remote Compose` : `${title}: a live Remote Compose document`,
         locale: lang === "ru" ? "ru_RU" : "en_US",
       });
     fs.writeFileSync(
