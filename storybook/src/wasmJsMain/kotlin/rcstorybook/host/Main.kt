@@ -61,6 +61,9 @@ private const val DOCUMENT_EVENT = "rcstorybook:document"
 private const val REPORT_ARGS = "args"
 private const val REPORT_DIFF = "diff"
 
+/** The document report's bytes, base64. */
+private const val REPORT_BASE64 = "base64"
+
 /**
  * What the stage shows: a story and the values of its args. [canonicalArgs] is the args as the page
  * gets them back (JSON); the document report carries it, so the page and the end-to-end test can
@@ -320,7 +323,7 @@ private fun report(shown: Selection, document: RcDocument) {
             "operations" to document.operations.size,
             "structure" to lines.joinToString("\n"),
             REPORT_DIFF to diff,
-            "base64" to Base64.encode(bytes),
+            REPORT_BASE64 to Base64.encode(bytes),
             // The document's constant texts: the page offers them to screen readers, which
             // cannot read a canvas.
             "texts" to screenReaderTexts(document),
@@ -339,12 +342,17 @@ private fun report(shown: Selection, document: RcDocument) {
  * The player rendered [shown] and made no new document (new args that draw the same thing): the
  * last report again, labelled with these args and with no diff, as the page waits for them.
  */
+@OptIn(ExperimentalEncodingApi::class)
 private fun reportSameDocument(shown: Selection) {
     val id = shown.story.id
     val last = lastReports[id] ?: return
     if (last[REPORT_ARGS] == shown.canonicalArgs) return
     val report = last + mapOf(REPORT_ARGS to shown.canonicalArgs, REPORT_DIFF to null)
     lastReports[id] = report
+    // show() dropped the replay document for the new args; it is this same document, so host
+    // values set from now on replay it, as they do after a new one.
+    if (shown == selection)
+        (last[REPORT_BASE64] as? String)?.let { hostDocument = Base64.decode(it) }
     emit(DOCUMENT_EVENT, toJson(report))
 }
 
