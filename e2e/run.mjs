@@ -69,6 +69,16 @@ const catalog = JSON.parse(await page.evaluate(() => window.rcStorybook.catalog(
 const stories = catalog.components.flatMap((c) => c.stories.map((s) => ({ ...s, component: c })));
 console.log(`${catalog.components.length} components, ${stories.length} stories at ${base}`);
 
+// Every story has its Russian name and description, and nothing is translated that is not a story.
+{
+  const translated = await page.evaluate(() => Object.keys(window.RcI18n.keys.storiesRu));
+  const ids = new Set(stories.map((s) => s.id));
+  const missing = stories.filter((s) => !translated.includes(s.id)).map((s) => s.id);
+  const extra = translated.filter((id) => !ids.has(id));
+  if (missing.length || extra.length)
+    fail(`web/i18n.js storiesRu: missing ${missing.join(", ") || "none"}; not a story ${extra.join(", ") || "none"}`);
+}
+
 // Pages.
 await page.waitForSelector("#page h1");
 if (!(await page.textContent("#page h1")).includes("Remote Compose Storybook")) fail("overview page did not render");
@@ -110,7 +120,10 @@ async function setLayout(value) {
   }, value);
 }
 
-const { stableStage, stageChangesFrom, localArgs, openStory } = stageTools(page, base);
+const { stageShot, stableStage, stageChangesFrom, localArgs, openStory, forgetRendered, waitRendered } = stageTools(
+  page,
+  base,
+);
 
 // The stage frame's shape and size as the page drew it.
 async function stageFrame() {
@@ -123,6 +136,28 @@ async function stageFrame() {
       background: getComputedStyle(el).backgroundColor,
     };
   });
+}
+
+async function setPlayerTheme(value) {
+  await page.evaluate((v) => {
+    const el = document.getElementById("playerTheme");
+    el.value = v;
+    el.dispatchEvent(new Event("change"));
+  }, value);
+}
+
+// The player's pixel near the stage's bottom-right corner (empty in the stories checked, centred
+// or laid out from the top start), as CSS rgb():
+// polled until it is `want` or the deadline passes, and then the last one seen.
+async function stageCornerPixel(want, timeoutMs = 5000) {
+  const deadline = Date.now() + timeoutMs;
+  for (;;) {
+    const img = PNG.sync.read(await stageShot());
+    const i = ((img.height - 5) * img.width + img.width - 5) * 4;
+    const pixel = `rgb(${img.data[i]}, ${img.data[i + 1]}, ${img.data[i + 2]})`;
+    if (pixel === want || Date.now() >= deadline) return pixel;
+    await page.waitForTimeout(100);
+  }
 }
 
 async function setViewport(value) {
@@ -141,10 +176,11 @@ for (const s of stories) {
     const overlay = await page.textContent("#stageOverlay").catch(() => "");
     fail(`${s.id}: ${result} ${overlay.trim().slice(0, 300)}`);
   }
-  const settled = timeDriven(s.function) ? null : await stableStage();
+  const shot = timeDriven(s.function) ? null : await stableStage();
   await page.locator("#stageWrap").screenshot({ path: path.join(outDir, s.id + ".png") });
-  if (settled) {
-    const stage = settled;
+  if (shot && !shot.settled) fail(`${s.id}: the stage kept changing, so it has no baseline to compare`);
+  else if (shot) {
+    const stage = shot.png;
     const baseline = path.join(baselinesDir, s.id + ".png");
     if (updateBaselines) {
       fs.mkdirSync(baselinesDir, { recursive: true });
@@ -196,11 +232,10 @@ for (const s of stories) {
 if (!only) {
   await openStory("remote-row--weights");
   const before = await page.textContent("#docStats");
-  await page.evaluate(() => {
-    delete document.body.dataset.rendered;
-  });
+  await forgetRendered();
   await page.locator('[data-arg="firstWeight"]').fill("4");
-  await page.waitForFunction(() => document.body.dataset.rendered === "remote-row--weights", null, { timeout: 10000 });
+  const changed = await waitRendered("remote-row--weights", 10000);
+  if (changed !== "ok") fail(`changing firstWeight: ${changed}`);
   await page.click('[data-tab="changes"]');
   const diff = await page.textContent("#changes");
   // A hunk header and at least one changed line of the document.
@@ -272,14 +307,11 @@ if (!only) {
       shapes.push((await stageFrame()).round);
       if (v === "360x640") {
         // Wear components draw in dark colors: the stage stays black on a rectangle too, in the
-        // page frame and in the player (a pixel in the stage's empty top-left corner).
-        const box = await page.locator("#stageFrame").boundingBox();
-        await page.waitForTimeout(500);
-        const png = PNG.sync.read(await page.screenshot({ clip: { x: box.x + 4, y: box.y + 4, width: 1, height: 1 } }));
-        const dark = png.data[0] < 16 && png.data[1] < 16 && png.data[2] < 16;
+        // page frame and in the player (a pixel in the stage's empty corner).
+        const pixel = await stageCornerPixel("rgb(0, 0, 0)");
         const frameBg = (await stageFrame()).background;
-        if (!dark || frameBg !== "rgb(0, 0, 0)")
-          fail(`${wearStory.id} on 360x640: stage pixel ${[...png.data.slice(0, 3)]}, frame ${frameBg} (want black)`);
+        if (pixel !== "rgb(0, 0, 0)" || frameBg !== "rgb(0, 0, 0)")
+          fail(`${wearStory.id} on 360x640: stage pixel ${pixel}, frame ${frameBg} (want black)`);
       }
     }
     await openStory("remote-box--layering");
@@ -290,6 +322,15 @@ if (!only) {
     const plainBg = (await stageFrame()).background;
     if (plainBg !== "rgb(255, 255, 255)") fail(`remote-box--layering on watch227: frame ${plainBg} (want white)`);
     await setViewport("auto");
+    // The player paints the colour the page sends with the stage (web/app.js STAGE_BACKGROUNDS):
+    // the dark theme's, behind the document as around it. Checked on the story's own rectangle, as
+    // a round frame clips the corner.
+    await setPlayerTheme("dark");
+    const darkPixel = await stageCornerPixel("rgb(18, 19, 22)");
+    const darkFrame = (await stageFrame()).background;
+    if (darkPixel !== "rgb(18, 19, 22)" || darkFrame !== "rgb(18, 19, 22)")
+      fail(`remote-box--layering in the dark theme: stage pixel ${darkPixel}, frame ${darkFrame} (want #121316)`);
+    await setPlayerTheme("light");
     const want = [true, false, true, true, false, true];
     if (shapes.join() !== want.join()) fail(`round frame across viewports and stories: ${shapes} (want ${want})`);
     else console.log("  ok round frame follows the story and the viewport");
@@ -334,7 +375,7 @@ if (!only) {
   await setLayout("centered");
   await openStory("named-state--card");
   const statsBefore = await page.textContent("#docStats");
-  const cardBefore = await stableStage();
+  const cardBefore = (await stableStage()).png;
   await page.click('[data-tab="host"]');
   await page.fill('[data-host="USER:title"]', "Live from the host");
   const cardChanged = await stageChangesFrom(cardBefore);
@@ -346,13 +387,13 @@ if (!only) {
 
   // A tap on a valueChangeAction changes what is drawn.
   await openStory("clickable--counter");
-  const shotA = await stableStage();
+  const shotA = (await stableStage()).png;
   const c = await page.locator("#stageFrame").boundingBox();
   await page.mouse.click(c.x + 28, c.y + 28); // the "−" button at the row's start
   if (!(await stageChangesFrom(shotA))) fail("tapping the counter's − changed nothing on the stage");
   else console.log("  ok valueChangeAction redraws");
 
-  await wearChecks({ page, openStory, stableStage, stageChangesFrom, fail, outDir });
+  await wearChecks({ page, openStory, stableStage, stageChangesFrom, forgetRendered, waitRendered, fail, outDir });
 }
 
 // Link previews, written by social.mjs: a page per story whose Open Graph tags name its own card,
@@ -409,10 +450,7 @@ if (only) {
   const a = s.args.find((x) => x.type === "boolean");
   const value = a.default === "true" ? "false" : "true";
   await page.goto(`${base}s/${s.id}/?${a.name}=${value}`);
-  const landed = await page
-    .waitForFunction((sid) => document.body.dataset.rendered === sid, s.id, { timeout: 20000 })
-    .then(() => true)
-    .catch(() => false);
+  const landed = (await waitRendered(s.id)) === "ok";
   const hash = await page.evaluate(() => location.hash);
   if (!landed || hash !== `#/story/${s.id}?${a.name}=${value}`) fail(`share page led to ${hash}`);
   else console.log("  ok a share link opens its story with the link's args");

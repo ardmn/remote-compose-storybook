@@ -14,6 +14,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asSkiaBitmap
+import androidx.compose.ui.graphics.isSpecified
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.ComposeViewport
@@ -52,16 +53,17 @@ private const val HEX_RADIX = 16
 /** `AARRGGBB`. */
 private const val ARGB_HEX_DIGITS = 8
 
-private val DarkStageBackground = Color(0xFF121316)
+/** `RRGGBB`, the stage background the page sends. */
+private const val RGB_HEX_DIGITS = 6
+
+private const val OPAQUE = 0xFF000000L
 
 /**
- * A Wear story's stage is black whatever its shape or the page theme: Wear OS components draw in
- * dark-theme colors only (the same value as web/app.js sizeStage).
+ * What the stage shows: a story and the values of its args. [canonicalArgs] is the args as the page
+ * gets them back (JSON); the document report carries it, so the page and the end-to-end test can
+ * tell a document for these args from one for the story's previous args.
  */
-private val WearStageBackground = Color.Black
-
-/** What the stage shows: a story and the values of its args. */
-private data class Selection(val story: Story, val args: Args)
+private data class Selection(val story: Story, val args: Args, val canonicalArgs: String)
 
 /** The stage as the page sizes it: the player's viewport in dp, and its theme. */
 private data class StageConfig(
@@ -69,17 +71,12 @@ private data class StageConfig(
     val widthDp: Int = 360,
     val heightDp: Int = 360,
     val centered: Boolean = true,
-    /** The story is a Wear OS story: the stage is black (the page decides the round clip). */
-    val wear: Boolean = false,
-) {
-    val background: Color
-        get() =
-            when {
-                wear -> WearStageBackground
-                dark -> DarkStageBackground
-                else -> Color.White
-            }
-}
+    /**
+     * The stage's background, as the page paints the frame around it (web/app.js
+     * `STAGE_BACKGROUNDS` is the one owner of these colours); unspecified paints nothing.
+     */
+    val background: Color = Color.Unspecified,
+)
 
 private var selection by mutableStateOf<Selection?>(null)
 private var stageConfig by mutableStateOf(StageConfig())
@@ -133,7 +130,7 @@ fun main() {
                             ?.toInt()
                             ?.coerceIn(MIN_STAGE_DP, MAX_STAGE_DP) ?: 360,
                     centered = jsProperty(config, "layout") != "topstart",
-                    wear = jsProperty(config, "wear") == "true",
+                    background = parseStageBackground(jsProperty(config, "background")),
                 )
         },
         hostValue = { name, type, value -> setHostValue(name.toString(), type, value.toString()) },
@@ -174,7 +171,8 @@ private fun show(id: String, rawArgs: JsAny, fresh: Boolean): String {
             arg.name to (jsProperty(rawArgs, arg.name)?.let { arg.parse(it) } ?: arg.default)
         }
     if (fresh) lastDocuments.remove(id)
-    val next = Selection(story, Args(values))
+    val canonical = toJson(story.args.associate { it.name to it.canonicalOf(values[it.name]) })
+    val next = Selection(story, Args(values), canonical)
     if (next == selection) {
         // Nothing to recompose, so no new document will come: send the page the current one again
         // (it may have been away from this story, on a page with no stage).
@@ -185,8 +183,18 @@ private fun show(id: String, rawArgs: JsAny, fresh: Boolean): String {
         hostDocument = null
         selection = next
     }
-    return toJson(story.args.associate { it.name to it.canonicalOf(values[it.name]) })
+    return canonical
 }
+
+private fun Modifier.stageBackground(color: Color): Modifier =
+    if (color.isSpecified) background(color) else this
+
+/** `#RRGGBB` from the page, opaque; anything else is [Color.Unspecified]. */
+private fun parseStageBackground(raw: String?): Color =
+    raw?.removePrefix("#")
+        ?.takeIf { it.length == RGB_HEX_DIGITS }
+        ?.let { runCatching { it.hexToLong() }.getOrNull() }
+        ?.let { Color((OPAQUE or it).toInt()) } ?: Color.Unspecified
 
 private fun setHostValue(name: String, type: Int, raw: String) {
     val value: RcNamedValue? =
@@ -224,7 +232,7 @@ private fun Stage() {
                 replay,
                 modifier =
                     Modifier.size(config.widthDp.dp, config.heightDp.dp)
-                        .background(config.background),
+                        .stageBackground(config.background),
                 theme = if (config.dark) RcPlayerTheme.Dark else RcPlayerTheme.Light,
                 namedValues = hostValues,
                 onEvent = { event ->
@@ -237,14 +245,15 @@ private fun Stage() {
         RcEmbeddedPlayer(
             display = display,
             modifier =
-                Modifier.size(config.widthDp.dp, config.heightDp.dp).background(config.background),
+                Modifier.size(config.widthDp.dp, config.heightDp.dp)
+                    .stageBackground(config.background),
             theme = if (config.dark) RcPlayerTheme.Dark else RcPlayerTheme.Light,
             typefaces = typefaces,
             encodePng = ::encodePng,
             onEvent = { event ->
                 emit("rcstorybook:event", toJson(describe(current.story.id, event)))
             },
-            onDocument = { document -> report(current.story, document) },
+            onDocument = { document -> report(current, document) },
             onFailure = { error ->
                 emit(
                     "rcstorybook:failure",
@@ -276,7 +285,8 @@ private fun Stage() {
 }
 
 @OptIn(ExperimentalEncodingApi::class)
-private fun report(story: Story, document: RcDocument) {
+private fun report(shown: Selection, document: RcDocument) {
+    val story = shown.story
     val bytes = RcDocumentCodec.encode(document)
     val lines = document.structureLines()
     val previous = lastDocuments[story.id]
@@ -289,6 +299,8 @@ private fun report(story: Story, document: RcDocument) {
         toJson(
             mapOf(
                 "story" to story.id,
+                // The args this document was made from, as show() returned them.
+                "args" to shown.canonicalArgs,
                 "bytes" to bytes.size,
                 "operations" to document.operations.size,
                 "structure" to lines.joinToString("\n"),

@@ -119,23 +119,38 @@ function differingPixels(a, b) {
   return pixelmatch(pa.data, pb.data, null, pa.width, pa.height, { threshold: 0.1 });
 }
 
-export async function wearChecks({ page, openStory, stableStage, stageChangesFrom, fail, outDir }) {
+export async function wearChecks({
+  page,
+  openStory,
+  stableStage,
+  stageChangesFrom,
+  forgetRendered,
+  waitRendered,
+  fail,
+  outDir,
+}) {
+  // The settled stage the checks below measure; one that kept changing fails the check it is for.
+  const settledStage = async (what) => {
+    const { png, settled } = await stableStage();
+    if (!settled) fail(`${what}: the stage kept changing`);
+    return png;
+  };
+
   // A flipped control reaches state the story remembers: the toggles drawn after initiallyChecked
   // goes true -> false match a fresh story opened with false.
   {
     const id = "wear-toggle-buttons--default";
     await openStory(id, "?initiallyChecked=false");
-    const fresh = await stableStage();
+    const fresh = await settledStage(`${id} initiallyChecked=false`);
     await openStory(id, "?initiallyChecked=true");
-    const checked = await stableStage();
-    await page.evaluate(() => {
-      delete document.body.dataset.rendered;
-    });
+    const checked = await settledStage(`${id} initiallyChecked=true`);
+    await forgetRendered();
     // The switch's input is invisible; a user clicks the track drawn next to it.
     await page.click('[data-tab="controls"]');
     await page.locator('[data-arg="initiallyChecked"] + span').click();
-    await page.waitForFunction((sid) => document.body.dataset.rendered === sid, id, { timeout: 10000 });
-    const flipped = await stableStage();
+    const shown = await waitRendered(id, 10000);
+    if (shown !== "ok") fail(`${id}: flipping initiallyChecked: ${shown}`);
+    const flipped = await settledStage(`${id} flipped`);
     // Anti-aliasing can differ by a few pixels between two plays of one document, so the flipped
     // render must be far closer to the fresh unchecked one than to the checked one it came from.
     const toFresh = differingPixels(flipped, fresh);
@@ -153,7 +168,7 @@ export async function wearChecks({ page, openStory, stableStage, stageChangesFro
   {
     const id = "wear-button-group--default";
     await openStory(id);
-    const rest = await stableStage();
+    const rest = await settledStage(id);
     const box = await page.locator("#stageFrame").boundingBox();
     const restPng = PNG.sync.read(rest);
     const cx = Math.round(restPng.width / 2);
@@ -162,10 +177,10 @@ export async function wearChecks({ page, openStory, stableStage, stageChangesFro
     await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
     await page.mouse.down();
     const moved = await stageChangesFrom(rest);
-    const pressed = PNG.sync.read(await stableStage());
+    const pressed = PNG.sync.read(await settledStage(`${id} pressed`));
     const during = runWidth(pressed, cx, cy);
     await page.mouse.up();
-    const released = runWidth(PNG.sync.read(await stableStage()), cx, cy);
+    const released = runWidth(PNG.sync.read(await settledStage(`${id} released`)), cx, cy);
     if (!moved || during <= before + 2)
       fail(`${id}: pressing the middle button left its width at ${before}px -> ${during}px`);
     else if (Math.abs(released - before) > 1) fail(`${id}: released at ${released}px, not back to ${before}px`);
@@ -176,7 +191,7 @@ export async function wearChecks({ page, openStory, stableStage, stageChangesFro
   {
     const id = "wear-curved-progress--intro-outro";
     await openStory(id);
-    const rest = await stableStage();
+    const rest = await settledStage(id);
     const box = await page.locator("#stageFrame").boundingBox();
     await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
     if (!(await stageChangesFrom(rest))) fail(`${id}: a tap did not step the progress`);
@@ -186,7 +201,7 @@ export async function wearChecks({ page, openStory, stableStage, stageChangesFro
   // Geometry checks below save the stage they judged when they fail, for the CI artifact.
   const capture = async (id, query) => {
     const result = await openStory(id, query);
-    return { result, png: result === "ok" ? PNG.sync.read(await stableStage()) : null };
+    return { result, png: result === "ok" ? PNG.sync.read(await settledStage(`${id}${query}`)) : null };
   };
   const save = (id, name, png) => fs.writeFileSync(path.join(outDir, `${id}-${name}.png`), PNG.sync.write(png));
   const describe = (runs) => runs.map(([from, to]) => `${from}..${to}°`).join(", ") || "none";

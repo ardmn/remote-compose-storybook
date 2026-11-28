@@ -3,10 +3,14 @@
 // The catalog, the stories and the player live in Kotlin/Wasm (storybook.js), which installs
 // `window.rcStorybook` and reports back through window events:
 //   rcstorybook:ready     the bridge is installed
-//   rcstorybook:document  a story produced a document  {story, bytes, operations, structure, diff, base64}
+//   rcstorybook:document  a story produced a document  {story, args, bytes, operations, structure, diff, base64}
 //   rcstorybook:event     the player raised an event    {story, type, detail}
 //   rcstorybook:failure   a story failed to compose      {story, message}
 // Everything else here (navigation, controls, code, docs) is plain DOM.
+//
+// For tests, <body> carries data-showing ("<story> <args>": what the page last asked the player to
+// show) and data-rendered (the same for the last document the player made): the stage shows what
+// the page asked for when the two are equal. data-failed names a story that failed to compose.
 (function () {
   "use strict";
 
@@ -15,6 +19,11 @@
   const I18n = window.RcI18n;
   const t = I18n.t;
   const esc = H.escape;
+  // A story's name in the page's language.
+  const storyName = (story) => I18n.story(story).name;
+  // Search finds a story by its name in either language, or by its function.
+  const storyMatches = (story, q) =>
+    [story.name, storyName(story), story.function].some((x) => x.toLowerCase().includes(q));
 
   // ------------------------------------------------------------------------------------------
   // HTML: escaped by default
@@ -53,6 +62,8 @@
 
   // Items joined by `separator` (a plain string is escaped, like any interpolation).
   const joinHtml = (items, separator) => new SafeHtml(items.map(htmlPart).join(htmlPart(separator)));
+  // A qualified name that a narrow screen wraps after a dot rather than inside a word.
+  const breakable = (name) => joinHtml(name.split("."), html`.<wbr>`);
 
   // A translation whose text holds markup (i18n.js: bundled, never user data). Its {vars} are
   // escaped like any interpolation. Plain-text translations go through t() and html`` instead.
@@ -295,10 +306,7 @@
     const nav = $("nav");
     const byCategory = new Map();
     for (const c of state.components) {
-      const matches =
-        !q ||
-        c.title.toLowerCase().includes(q) ||
-        c.stories.some((s) => s.name.toLowerCase().includes(q) || s.function.toLowerCase().includes(q));
+      const matches = !q || c.title.toLowerCase().includes(q) || c.stories.some((s) => storyMatches(s, q));
       if (!matches) continue;
       if (!byCategory.has(c.category)) byCategory.set(c.category, []);
       byCategory.get(c.category).push(c);
@@ -326,17 +334,9 @@
         );
         if (open) {
           for (const s of c.stories) {
-            if (
-              q &&
-              !(
-                c.title.toLowerCase().includes(q) ||
-                s.name.toLowerCase().includes(q) ||
-                s.function.toLowerCase().includes(q)
-              )
-            )
-              continue;
+            if (q && !(c.title.toLowerCase().includes(q) || storyMatches(s, q))) continue;
             parts.push(
-              html`<a class="nav-link" href="#/story/${s.id}" ${s.id === currentId ? current : ""}>${s.name}</a>`,
+              html`<a class="nav-link" href="#/story/${s.id}" ${s.id === currentId ? current : ""}>${storyName(s)}</a>`,
             );
           }
         }
@@ -414,8 +414,9 @@
     $("stageWrap").classList.remove("offstage");
     $("panel").hidden = false;
     $("crumbs").textContent = I18n.category(component.category) + " / " + component.title;
-    $("storyTitle").textContent = story.name;
-    $("storyDesc").textContent = story.description;
+    const words = I18n.story(story);
+    $("storyTitle").textContent = words.name;
+    $("storyDesc").textContent = words.description;
     const plain = I18n.plain(component);
     setHtml(
       $("storyPlain"),
@@ -431,12 +432,12 @@
     // `how` is the hand-written HTML for this component, bundled in i18n.js.
     // eslint-disable-next-line no-restricted-syntax -- how is I18n.how(): bundled markup from i18n.js
     setHtml($("storyHow"), how ? html`<summary>${t("how.title")}</summary>${raw(how)}` : html``);
-    document.title = component.title + " · " + story.name + " — Remote Compose Storybook";
+    document.title = component.title + " · " + words.name + " — Remote Compose Storybook";
     sizeStage();
     // Stage and story go to the player together, so it never re-renders the previous story at the
     // new size; the values come back canonical (clamped, defaulted) for the controls and the code.
     window.rcStorybook.stage(stageConfig());
-    state.current.values = JSON.parse(window.rcStorybook.show(id, requested, switching));
+    play(requested, switching);
     renderControls();
     renderCode();
     renderDocs();
@@ -455,11 +456,19 @@
     requestAnimationFrame(() => {
       pending = false;
       if (!state.current) return;
-      const { story, values } = state.current;
-      state.current.values = JSON.parse(window.rcStorybook.show(story.id, values, false));
+      play(state.current.values, false);
       renderCode();
       syncUrl();
     });
+  }
+
+  // Sends the current story with `values` to the player; the values come back canonical (clamped,
+  // defaulted) for the controls and the code. `fresh`: the page has just switched to this story.
+  function play(values, fresh) {
+    const id = state.current.story.id;
+    const canonical = window.rcStorybook.show(id, values, fresh);
+    state.current.values = JSON.parse(canonical);
+    document.body.dataset.showing = id + " " + canonical;
   }
 
   function sendStage() {
@@ -517,8 +526,18 @@
       width: size.w,
       height: size.h,
       layout: $("layout").value,
-      wear: !!state.current?.story.round,
+      // The player paints the same colour behind the document as the frame around it.
+      background: stageBackground(),
     };
+  }
+
+  // The stage's background, for the frame here and for the player (the one owner of these colours).
+  // A Wear story's stage is black whatever its shape or the page theme: Wear OS components draw in
+  // dark-theme colors only. Other stories keep the player theme's background, round or not.
+  const STAGE_BACKGROUNDS = { wear: "#000000", dark: "#121316", light: "#ffffff" };
+  function stageBackground() {
+    if (state.current?.story.round) return STAGE_BACKGROUNDS.wear;
+    return $("playerTheme").value === "dark" ? STAGE_BACKGROUNDS.dark : STAGE_BACKGROUNDS.light;
   }
 
   function sizeStage() {
@@ -547,8 +566,7 @@
     frame.classList.toggle("round", round);
     // A Wear story's stage is black whatever its shape or the page theme: Wear OS components draw
     // in dark-theme colors only. Other stories keep the player theme's background, round or not.
-    const wear = !!state.current.story.round;
-    frame.style.background = wear ? "#000000" : $("playerTheme").value === "dark" ? "#121316" : "#ffffff";
+    frame.style.background = stageBackground();
     $("stageSize").textContent = round ? t("stage.round", { size: w }) : `${w} × ${h} dp`;
     state.stageSize = { w, h };
   }
@@ -696,19 +714,19 @@
     for (const sym of component.symbols) {
       const sigs = state.api[sym];
       const short = sym.replace(/^androidx\.compose\.remote\./, "");
-      parts.push(html`<h3><code>${short}</code></h3>`);
+      parts.push(html`<h3><code>${breakable(short)}</code></h3>`);
       if (sigs && sigs.length) parts.push(codeBlock("", sigs.join("\n"), "plain"));
       else parts.push(html`<p class="empty">${t("docs.noSignature")}</p>`);
     }
     const otherStories = joinHtml(
-      component.stories.map((s) => html`<a href="#/story/${s.id}">${s.name}</a>`),
+      component.stories.map((s) => html`<a href="#/story/${s.id}">${storyName(s)}</a>`),
       " · ",
     );
     parts.push(html`<h3>${t("docs.stories")}</h3><p>${otherStories}</p>`);
     const pkgs = [...new Set(component.symbols.map((s) => s.replace(/\.[^.]+$/, "")))];
     const refs = pkgs.map(
       (p) =>
-        html`<a href="https://developer.android.com/reference/kotlin/${p.replace(/\./g, "/")}/package-summary" target="_blank" rel="noopener"><code>${p}</code></a>`,
+        html`<a href="https://developer.android.com/reference/kotlin/${p.replace(/\./g, "/")}/package-summary" target="_blank" rel="noopener"><code>${breakable(p)}</code></a>`,
     );
     parts.push(html`<h3>${t("docs.reference")}</h3><p>${joinHtml(refs, html`<br>`)}</p></div>`);
     setHtml($("docs"), html`${parts}`);
@@ -964,7 +982,7 @@ dependencies {
       for (const b of items) {
         const direct = b.stories.map((fn) => storyFor.get(fn)).filter(Boolean);
         const opts = viaOptions(b.optionCodes).filter((s) => !direct.includes(s));
-        const links = [...direct, ...opts].map((s) => html`<a href="#/story/${s.id}">${s.name}</a>`);
+        const links = [...direct, ...opts].map((s) => html`<a href="#/story/${s.id}">${storyName(s)}</a>`);
         // A covered block with no story page to link: its stories are helper functions only.
         const note =
           b.status === "pending"
@@ -1074,8 +1092,7 @@ dependencies {
     });
     $("resetArgs").addEventListener("click", () => {
       if (!state.current) return;
-      const { story } = state.current;
-      state.current.values = JSON.parse(window.rcStorybook.show(story.id, defaultValues(story), false));
+      play(defaultValues(state.current.story), false);
       renderControls();
       renderCode();
       syncUrl();
@@ -1104,17 +1121,17 @@ dependencies {
       overlay(null);
       $("docStats").textContent = t("stats", { bytes: doc.bytes.toLocaleString(), ops: doc.operations });
       const { component, story } = state.current;
-      $("stage").setAttribute("aria-label", `Stage: ${component.title}, ${story.name}`);
+      $("stage").setAttribute("aria-label", `Stage: ${component.title}, ${storyName(story)}`);
       $("stageText").textContent = (doc.texts || []).length
         ? t("stage.text", { texts: doc.texts.join("; ") })
-        : (I18n.plain(component) && I18n.plain(component).what) || story.description;
+        : (I18n.plain(component) && I18n.plain(component).what) || I18n.story(story).description;
       $("downloadRc").disabled = false;
       renderDocument();
       renderChanges();
       renderHostValues();
       $("hostState").textContent = "";
       if (doc.diff && state.tab !== "changes") $("changesDot").hidden = false;
-      document.body.dataset.rendered = doc.story;
+      document.body.dataset.rendered = doc.story + " " + doc.args;
     });
     window.addEventListener("rcstorybook:event", (e) => {
       const ev = JSON.parse(e.detail);

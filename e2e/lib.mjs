@@ -61,19 +61,20 @@ export function stageTools(page, base) {
     return page.screenshot({ clip, fullPage: true });
   }
 
-  // The stage once it has stopped changing: two screenshots in a row that match. A document
-  // arriving is not the same as its first frame being drawn, so a fixed pause would race the
-  // player. A stage that keeps moving (a clock) is returned as it was when time ran out.
+  // The stage once it has stopped changing: two screenshots in a row that match, as
+  // { png, settled: true }. A document arriving is not the same as its first frame being drawn, so
+  // a fixed pause would race the player. A stage that keeps moving (a clock) is returned as it was
+  // when time ran out, with settled: false, so a caller that compares pixels can refuse it.
   async function stableStage(timeoutMs = 10000) {
     let previous = await stageShot();
     const deadline = Date.now() + timeoutMs;
     while (Date.now() < deadline) {
       await page.waitForTimeout(150);
       const next = await stageShot();
-      if (Buffer.compare(previous, next) === 0) return next;
+      if (Buffer.compare(previous, next) === 0) return { png: next, settled: true };
       previous = next;
     }
-    return previous;
+    return { png: previous, settled: false };
   }
 
   // Polls until the stage differs from `before`; returns whether it did within the timeout.
@@ -98,23 +99,40 @@ export function stageTools(page, base) {
     return q ? "?" + q : "";
   }
 
-  // Opens a story and waits until it has rendered or failed: "ok", "failed" or "timeout".
-  async function openStory(id, query = "") {
+  // Forgets what the page last showed and rendered, before an action that shows something new: a
+  // document from before it can then never pass for the new one.
+  async function forgetRendered() {
     await page.evaluate(() => {
+      delete document.body.dataset.showing;
       delete document.body.dataset.rendered;
       delete document.body.dataset.failed;
     });
-    await page.goto(base + "#/story/" + id + query);
+  }
+
+  // Waits until the page shows story `id` and the stage has its document for exactly the args the
+  // page asked for (web/app.js: data-showing and data-rendered are "<story> <args>"), or the story
+  // failed: "ok", "failed" or "timeout". Call forgetRendered() before the action that shows it.
+  async function waitRendered(id, timeoutMs = 20000) {
     return page
       .waitForFunction(
-        (sid) =>
-          document.body.dataset.rendered === sid ? "ok" : document.body.dataset.failed === sid ? "failed" : null,
+        (sid) => {
+          const { showing, rendered, failed } = document.body.dataset;
+          if (failed === sid) return "failed";
+          return showing?.startsWith(sid + " ") && rendered === showing ? "ok" : null;
+        },
         id,
-        { timeout: 20000 },
+        { timeout: timeoutMs },
       )
       .then((h) => h.jsonValue())
       .catch(() => "timeout");
   }
 
-  return { stageShot, stableStage, stageChangesFrom, localArgs, openStory };
+  // Opens a story and waits until it has rendered its args or failed: "ok", "failed" or "timeout".
+  async function openStory(id, query = "") {
+    await forgetRendered();
+    await page.goto(base + "#/story/" + id + query);
+    return waitRendered(id);
+  }
+
+  return { stageShot, stableStage, stageChangesFrom, localArgs, openStory, forgetRendered, waitRendered };
 }
