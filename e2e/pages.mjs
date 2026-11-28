@@ -2,7 +2,7 @@
 // The storybook itself draws everything with JavaScript and Wasm behind "#/story/..." addresses,
 // which search engines index as one empty page. So every story also gets a plain HTML page,
 //   s/<story-id>/      English
-//   s/<story-id>/ru/   Russian (the page's own words; the API, code and story names stay in English)
+//   s/<story-id>/ru/   Russian (the page's own words and story names; the API and code stay in English)
 // with the component's explanation, a picture of its stage, its Kotlin code and API signatures,
 // structured data (JSON-LD) and links to its neighbours; plus sitemap.xml and llms.txt, and a static
 // list of every component inside index.html for crawlers that do not run the app.
@@ -135,14 +135,14 @@ export function storyPage(s) {
   const signatures = s.signatures
     .map(
       (g) =>
-        `<h3><code>${esc(g.symbol)}</code></h3>` +
+        `<h3><code>${breakable(g.symbol)}</code></h3>` +
         (g.lines.length ? `<div class="code-block"><pre><code>${esc(g.lines.join("\n"))}</code></pre></div>` : ""),
     )
     .join("\n");
   const reference = s.packages
     .map(
       (p) =>
-        `<li><a href="https://developer.android.com/reference/kotlin/${p.replace(/\./g, "/")}/package-summary"><code>${esc(p)}</code></a></li>`,
+        `<li><a href="https://developer.android.com/reference/kotlin/${p.replace(/\./g, "/")}/package-summary"><code>${breakable(p)}</code></a></li>`,
     )
     .join("");
   const linkList = (items) => `<ul class="links">${items.join("")}</ul>`;
@@ -228,6 +228,11 @@ ${ld(data)}
   </body>
 </html>
 `;
+}
+
+// A qualified name, escaped, that a narrow screen wraps after a dot rather than inside a word.
+function breakable(name) {
+  return esc(name).replace(/\./g, ".<wbr>");
 }
 
 // From one story's page to another story's page in the same language.

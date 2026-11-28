@@ -169,6 +169,12 @@ jobs:
           npm ci --omit=dev
           npx playwright install --with-deps chromium
 
+      # The harness the two steps below rely on: openStory and stableStage against a page that
+      # reports the previous args' document first.
+      - name: Harness test
+        working-directory: e2e
+        run: npm run test:harness
+
       # A page and a preview card per story, for links shared in chats and social networks.
       - name: Link previews
         working-directory: e2e

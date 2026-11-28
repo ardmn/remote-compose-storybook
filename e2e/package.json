@@ -4,6 +4,7 @@
   "type": "module",
   "scripts": {
     "test": "node run.mjs",
+    "test:harness": "node --test lib.test.mjs",
     "social": "node social.mjs",
     "lint": "cd .. && eslint --config e2e/eslint.config.mjs web e2e/*.mjs && prettier --check web e2e/*.mjs e2e/package.json .github && cd e2e && knip && node i18n-markup.mjs",
     "lint:prune-directives": "cd .. && eslint --config e2e/eslint.config.mjs --fix --fix-type directive web e2e/*.mjs && prettier --write web e2e/*.mjs",

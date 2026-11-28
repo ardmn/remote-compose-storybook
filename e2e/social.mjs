@@ -136,7 +136,12 @@ const russian = await page.evaluate((components) => {
   I18n.lang = "ru";
   const out = {};
   for (const c of components)
-    out[c.id] = { plain: I18n.plain(c), how: I18n.how(c), category: I18n.category(c.category) };
+    out[c.id] = {
+      plain: I18n.plain(c),
+      how: I18n.how(c),
+      category: I18n.category(c.category),
+      stories: Object.fromEntries(c.stories.map((s) => [s.id, I18n.story(s)])),
+    };
   I18n.lang = "en";
   for (const c of components) out[c.id].howEn = I18n.how(c);
   I18n.lang = saved;
@@ -165,7 +170,8 @@ for (const component of catalog.components) {
       failures.push(`${story.id}: ${result}`);
       continue;
     }
-    const shot = await stableStage(4000);
+    // A stage that keeps moving (a clock) still makes a card: its frame when time ran out.
+    const shot = (await stableStage(4000)).png;
     if (story.id.startsWith("recipe-") && recipeShots.length < 4 && story === component.stories[0]) {
       recipeShots.push(shot);
     }
@@ -215,13 +221,19 @@ for (const component of catalog.components) {
       imageSize: { width: Math.round(px.width / 2), height: Math.round(px.height / 2) },
       dateModified: today,
     };
+    const ru = russian[component.id];
+    const ruStory = ru.stories[story.id];
+    const ruTitle = multiple ? `${component.title} · ${ruStory.name}` : component.title;
+    const ruWhat = ru.plain?.what || ruStory.description || "";
+    const ruDescription =
+      ruStory.description && ruStory.description !== ruWhat ? `${ruWhat} ${ruStory.description}` : ruWhat;
     const tags = (lang) =>
       ogTags({
-        title,
-        description,
+        title: lang === "ru" ? ruTitle : title,
+        description: lang === "ru" ? ruDescription : description,
         url: siteUrl + pagePath(story.id, lang),
         image: common.card,
-        alt: `${title}: a live Remote Compose document`,
+        alt: lang === "ru" ? `${ruTitle}: живой документ Remote Compose` : `${title}: a live Remote Compose document`,
         locale: lang === "ru" ? "ru_RU" : "en_US",
       });
     fs.writeFileSync(
@@ -235,13 +247,16 @@ for (const component of catalog.components) {
         ogTags: tags("en"),
       }),
     );
-    const ru = russian[component.id];
     fs.mkdirSync(path.join(dir, "ru"), { recursive: true });
     fs.writeFileSync(
       path.join(dir, "ru", "index.html"),
       storyPage({
         ...common,
         lang: "ru",
+        title: ruTitle,
+        storyName: ruStory.name,
+        description: ruStory.description || "",
+        siblings: common.siblings.map((x) => ({ id: x.id, name: ru.stories[x.id].name })),
         category: ru.category,
         plain: ru.plain || component.plain || { what, useWhen: [] },
         how: ru.how,

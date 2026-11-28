@@ -1,5 +1,5 @@
-// The page's own words in English and Russian. The API, the code and the story names stay in
-// English, as they are in Android Studio; everything that explains them is translated.
+// The page's own words in English and Russian. The API and the code stay in English, as they are in
+// Android Studio; everything that explains them, story names included, is translated.
 // Strings may hold markup: they are the page's own text, never user data. app.js escapes every
 // translation by default; a key whose text holds markup must be rendered with tHtml() there.
 (function () {
@@ -139,7 +139,7 @@
     "top.repo": "Исходники на GitHub",
     "top.lang": "English",
     "tool.viewport": "Размер",
-    "tool.viewport.auto": "Как в story",
+    "tool.viewport.auto": "По умолчанию", // lint-ok: a translation key: each language dictionary names it once
     "tool.viewport.fill": "Во всю ширину",
     "tool.viewport.watch192": "Часы 192, круглые",
     "tool.viewport.watch227": "Часы 227, круглые",
@@ -259,6 +259,299 @@
     Animation: "Анимация",
     "State & expressions": "Состояние и выражения",
     "Wear Material 3": "Wear Material 3",
+  };
+
+  // Each story's name and description in Russian, by story id: [name, description]. API names in
+  // them stay as they are in the code. The end-to-end test fails when a story has no entry here.
+  // The press-feedback limitation in short, as WearCatalog.kt NO_PRESS_FEEDBACK_SHORT: the tappable
+  // Wear stories' descriptions end with it.
+  const NO_PRESS_FEEDBACK_SHORT =
+    " Известное ограничение: нажатие не даёт отклика (в remote-material3 нет состояния pressed; см. Button).";
+  const storiesRu = {
+    "remote-box--content-alignment": [
+      "Выравнивание содержимого",
+      "Все значения RemoteAlignment и RemoteAbsoluteAlignment на одном дочернем элементе.",
+    ],
+    "remote-box--layering": ["Слои", "Более поздние дочерние элементы рисуются поверх более ранних."],
+    "remote-box--empty": [
+      "Без содержимого",
+      "RemoteBox(modifier) без лямбды содержимого: прямоугольник с размером и заливкой.",
+    ],
+    "remote-row--arrangement": [
+      "Расстановка и выравнивание",
+      "Меняйте, как ряд распределяет свободное место и выравнивает элементы разной высоты.",
+    ],
+    "remote-row--weights": ["Веса", "weight() делит ширину ряда пропорционально."],
+    "remote-column--arrangement": [
+      "Расстановка и выравнивание",
+      "Распределение свободной высоты и выравнивание элементов разной ширины.",
+    ],
+    "remote-column--weight": [
+      "Вес заполняет остаток",
+      "Элемент с весом занимает высоту, которую оставили соседи фиксированного размера.",
+    ],
+    "remote-arrangement--spaced-by": ["spacedBy", "Один и тот же отступ для ряда и для колонки."],
+    "remote-spacer--between": [
+      "Фиксированный или с весом",
+      "Spacer фиксированной ширины или с весом, который отодвигает следующий элемент к концу.",
+    ],
+    "remote-collapsible--column": [
+      "Приоритеты в колонке",
+      "Три элемента по 80dp в колонке, высоту которой задаёте вы.",
+    ],
+    "remote-collapsible--row": [
+      "Приоритеты в ряду",
+      "Четыре элемента в ряду, ширину которого задаёте вы; у последнего есть вес.",
+    ],
+    "remote-fit-box--responsive": [
+      "Адаптивность",
+      "Меняйте размер контейнера: плеер выбирает большой, средний или маленький вариант.",
+    ],
+    "remote-text--basics": ["Основы", "Текст, размер, цвет, начертание и стиль."],
+    "remote-text--overflow": [
+      "Переполнение и выравнивание",
+      "maxLines и overflow решают, чем заканчивается длинный текст; textAlign размещает его по ширине.",
+    ],
+    "remote-text--families": ["Семейства шрифтов", "Общие семейства, которые плеер сопоставляет со своими шрифтами."],
+    "remote-text--weights": ["Начертания", "Все именованные RemoteFontWeight."],
+    "remote-text--style": [
+      "RemoteTextStyle",
+      "Межбуквенный интервал, высота строки, оформление и фон через один RemoteTextStyle.",
+    ],
+    "remote-text--variation": [
+      "Вариативный шрифт",
+      "Оси вариативного шрифта (weight, width), которые плеер применяет, если они есть у выбранного шрифта: у Roboto Flex, шрифта по умолчанию здесь, они есть.",
+    ],
+    "remote-basic-text--basics": ["Основы", "RemoteBasicText с размером, цветом и стилем."],
+    "remote-image--content-scale": [
+      "Масштабирование",
+      "Картинка 160×90 в рамке другой формы, с каждым RemoteContentScale.",
+    ],
+    "remote-image--url": [
+      "По URL",
+      "Документ несёт только URL, картинку загружает плеер. Именованную картинку может подменить приложение.",
+    ],
+    "remote-basic-image--basics": ["Основы", "RemoteBasicImage с масштабированием."],
+    "remote-basic-icon--vector": [
+      "Векторная иконка",
+      "Сердце, построенное через RemoteImageVector.Builder и path { }.",
+    ],
+    "remote-basic-icon--fill-type": [
+      "Правило заливки контура",
+      "Один контур из двух квадратов, залитый с каждым RemotePathFillType.",
+    ],
+    "remote-canvas--shapes": ["Фигуры", "drawRect, drawRoundRect, drawCircle, drawOval, drawArc, drawLine."],
+    "remote-canvas--strokes": ["Обводка", "Толщина линии, концы и соединения."],
+    "remote-canvas--text": ["drawText", "Текст, нарисованный от заданной базовой линии."],
+    "remote-canvas--transforms": ["Трансформации", "Блоки translate, rotate и scale вокруг опорной точки."],
+    "remote-canvas--clip": [
+      "clipRect & withTransform",
+      "Рисование внутри прямоугольника обрезки через одну составную трансформацию.",
+    ],
+    "remote-canvas--image": ["drawImage", "Встроенная картинка, нарисованная в заданной позиции."],
+    "remote-canvas--use-paint": ["usePaint и режимы наложения", "Текущая кисть для блока и все RemoteBlendMode."],
+    "remote-canvas--animated": [
+      "Рисование по времени",
+      "Позиции, которые каждый кадр вычисляются из RemoteTimeVariables.",
+    ],
+    "remote-brush--gradients": [
+      "Градиенты",
+      "Линейный, горизонтальный, вертикальный, радиальный и круговой градиенты.",
+    ],
+    "remote-brush--image": ["Кисть из картинки", "Картинка в роли кисти, с каждым RemoteTileMode."],
+    "remote-outline--draw": ["drawOutline", "Фигура со скруглёнными углами, нарисованная на канвасе."],
+    "draw-with-content--ring": ["Под или поверх", "Круг, нарисованный до или после drawContent()."],
+    "remote-component--size": ["Размер от родителя", "Дочерний элемент размером в долю измеренной высоты родителя."],
+    "remote-component--position": [
+      "Положение в родителе и в корне",
+      "positionInParent и positionInRoot колонки — там, где её разместил плеер.",
+    ],
+    "remote-text-measurer--metrics": [
+      "Границы строки, шрифта и букв",
+      "measureSingleLine, measureFontMetrics и measurePaintBounds, нарисованные вокруг текста на канвасе.",
+    ],
+    "remote-text-measurer--badge": [
+      "Бейдж по размеру текста",
+      "«Таблетка» по размеру из measureSingleLine или из measureMonospaceWidth для цифр без скачков ширины.",
+    ],
+    "size-modifiers--fixed": ["size()", "Фиксированный размер в dp."],
+    "size-modifiers--fill": ["fillMax*", "fillMaxWidth / fillMaxHeight с долей от родителя."],
+    "size-modifiers--fill-parent": ["fillParentMax*", "fillParentMaxWidth / Height и fillMaxSize(fraction)."],
+    "size-modifiers--constraints": [
+      "widthIn / heightIn / defaultMinSize",
+      "Границы для размера, который запрашивает содержимое.",
+    ],
+    "size-modifiers--wrap": ["wrapContent*", "Содержимое само выбирает размер внутри большего ограничения."],
+    "padding-offset--padding": [
+      "padding",
+      "Отступы по сторонам, по горизонтали/вертикали и через RemotePaddingValues.",
+    ],
+    "padding-offset--offset": ["offset & zIndex", "Сдвиньте B поверх A, затем поменяйте, кто из них сверху."],
+    "background-border-clip--shape": ["Формы", "Одна и та же форма обрезает фон и рисует обводку."],
+    "background-border-clip--corners": ["Радиус каждого угла", "Каждый угол отдельно и RemoteCornerSize в процентах."],
+    "background-border-clip--painter": ["Фон из painter", "background(painterRemoteColor(…))."],
+    "background-border-clip--clip": ["clip", "Один бокс, обрезанный по каждой форме."],
+    "transform-modifiers--simple": ["alpha / rotate / scale", "Три самые частые трансформации отрисовки."],
+    "transform-modifiers--graphics-layer": ["graphicsLayer", "3D-повороты, масштаб и тень на слое."],
+    "transform-modifiers--graphics-layer-block": ["graphicsLayer { }", "Блочная форма graphicsLayer."],
+    "transform-modifiers--compositing": [
+      "Стратегия композитинга",
+      "Полупрозрачный слой из двух перекрывающихся боксов с каждой RemoteCompositingStrategy. При alpha ниже 1 Auto тоже рисует вне экрана, поэтому выглядит как Offscreen.",
+    ],
+    "visibility--states": ["Visible / invisible / gone", "Средний бокс в трёх состояниях видимости."],
+    "scroll--vertical": ["Вертикальная", "Прокручиваемая колонка; при notches > 0 прокрутка доводится до позиций."],
+    "scroll--horizontal": ["Горизонтальная", "Прокручиваемый ряд."],
+    "align-by-baseline--row": ["Разные размеры", "Два текста на одной базовой линии."],
+    "clickable--toggle": ["Переключатель", "Булево значение, которое меняется по тапу и выбирает цвет и текст."],
+    "clickable--counter": ["Счётчик", "Целое число, которое по тапу меняют выражения."],
+    "host-action--named": ["Именованные действия приложения", "Именованное действие со значением и без."],
+    "host-action--by-id": [
+      "Действие по id или никакого",
+      "hostAction с числовым id и текстовыми метаданными; RemoteAction.None, когда отключено.",
+    ],
+    "host-action--combined": ["combinedAction", "Изменить локальное состояние и уведомить приложение одним тапом."],
+    "touch--press": ["Состояние нажатия", "«Нажато», пока палец удерживается, и счётчик касаний."],
+    "semantics--properties": ["Свойства", "contentDescription, stateDescription и role; см. вкладку «Документ»."],
+    "animate-value--tween": ["Tween и easing", "Анимация alpha с каждым RemoteEasing."],
+    "animate-value--spring": ["Пружина", "Размер, анимированный пружиной."],
+    "enter-exit--transitions": ["Появление и исчезновение", "Все RemoteEnterTransition и RemoteExitTransition."],
+    "enter-exit--fade": ["animationSpec + fade", "animationSpec с remoteFadeIn / remoteFadeOut."],
+    "enter-exit--toggle": ["animationSpec(enabled)", "Изменения раскладки с анимацией или мгновенно."],
+    "shared-element--move": ["Между состояниями", "Один и тот же key в обеих ветках."],
+    "remote-state-layout--boolean": ["Boolean", "Две ветки, которые выбирает RemoteBoolean."],
+    "remote-state-layout--int": ["Int", "Три ветки, которые выбирает RemoteInt."],
+    "remote-state-layout--enum": ["Enum", "По ветке на каждое значение enum."],
+    "named-state--card": ["Именованные значения", "Именованные значения типов String, float, цвет, boolean, dp и int."],
+    "named-state--mutable": [
+      "Изменяемые значения",
+      "MutableRemoteFloat, String и Int, которые меняет одно combined-действие.",
+    ],
+    "named-state--mutable-image": [
+      "Изменяемая картинка",
+      "Изменяемая картинка, объявленная документом. Контрол remembered переключает rememberMutableRemoteImageBitmap и remember { MutableRemoteImageBitmap }; документ при этом тот же.",
+    ],
+    "named-state--enum": ["Именованный enum", "Enum, который приложение может задать по имени."],
+    "named-state--domain": [
+      "Домены",
+      "Одно и то же именованное значение в домене user, без префикса или в собственном пространстве имён приложения.",
+    ],
+    "expressions--functions": ["Математические функции", "y = f(x) по 61 выражению, которые вычисляет плеер."],
+    "expressions--width": ["Размер из выражения", "Ширина, вычисленная из времени."],
+    "color-expressions--animated": ["lerp / hsv / copy", "Три цветовых выражения, которые зависят от времени."],
+    "time-config--clock": ["Часы", "Идущие часы без новых документов."],
+    "time-config--configuration": [
+      "RemoteConfiguration",
+      "Окно плеера, плотность и размер шрифта. Поменяйте «Размер».",
+    ],
+    "recipe-product-card--default": [
+      "Карточка товара",
+      "Нажмите кнопку: счётчик обновится на устройстве, а приложение получит add_to_cart (вкладка «События»).",
+    ],
+    "recipe-weather-widget--default": [
+      "Виджет погоды",
+      "Выберите в «Размер» Widget 320×180 или Small 240×240, чтобы раскладка переключилась; поменяйте temperature во вкладке «Значения приложения», чтобы увидеть живые данные без нового документа.", // lint-ok: sizes quoted in prose, as the viewport options show them
+    ],
+    "recipe-onboarding--default": ["Онбординг", "Нажмите «Next»."],
+    "recipe-media-player--default": ["Медиаплеер", "Нажмите play."],
+    "recipe-settings--default": [
+      "Экран настроек",
+      "Нажмите на переключатель; задайте wifi или brightness во вкладке «Значения приложения».",
+    ],
+    "wear-button--variants": [
+      "Варианты кнопки",
+      "Все наборы цветов RemoteButtonDefaults, с иконкой и второй строкой или без. Известное ограничение: нажатие не даёт отклика. В remote-material3 нет состояния pressed, а Compose-плееры (включая этот) рисуют ripple только там, где его просит документ; View-плеер AndroidX рисует временный ripple при любом клике (b/585818680).",
+    ],
+    "wear-compact-button--default": [
+      "Компактная кнопка",
+      "Иконка и подпись в компактном размере, в каждом наборе цветов." + NO_PRESS_FEEDBACK_SHORT,
+    ],
+    "wear-edge-button--sizes": [
+      "Размеры",
+      "Нажмите её: счётчик выше — состояние документа, которое обновляет плеер. Story добавляет RemoteEdgeButtonDefaults.VerticalPadding под кнопкой, как EdgeButton в Wear Material 3; сам RemoteEdgeButton его не добавляет и касается края экрана." +
+        NO_PRESS_FEEDBACK_SHORT,
+    ],
+    "wear-icon-button--variants": [
+      "Варианты кнопки-иконки",
+      "Залитая, тональная и с обводкой кнопки-иконки рядом." + NO_PRESS_FEEDBACK_SHORT,
+    ],
+    "wear-text-button--variants": [
+      "Варианты текстовой кнопки",
+      "Тональная и обычная текстовая кнопка." + NO_PRESS_FEEDBACK_SHORT,
+    ],
+    "wear-toggle-buttons--default": [
+      "Иконка и текст",
+      "Нажмите любую кнопку, чтобы переключить её; варианты форм меняют форму во включённом состоянии." +
+        NO_PRESS_FEEDBACK_SHORT,
+    ],
+    "wear-button-group--default": [
+      "Группа кнопок",
+      "Две или три кнопки-иконки делят ряд по весу (средняя из трёх шире). Нажмите и удерживайте одну: animateWidth пружиной расширяет её и сжимает остальные, а после отпускания возвращает." +
+        NO_PRESS_FEEDBACK_SHORT,
+    ],
+    "wear-checkbox-button--default": [
+      "Чекбокс и разделённая",
+      "Нажмите, чтобы переключить; подпись разделённой кнопки вместо этого отправляет действие приложению." +
+        NO_PRESS_FEEDBACK_SHORT,
+    ],
+    "wear-switch-button--default": [
+      "Переключатель и разделённая",
+      "Нажмите, чтобы включить или выключить; подпись разделённой кнопки вместо этого отправляет действие приложению." +
+        NO_PRESS_FEEDBACK_SHORT,
+    ],
+    "wear-radio-button--default": [
+      "Радиокнопка и разделённая",
+      "Один выбранный индекс в документе: выбор одного варианта снимает выбор с другого." + NO_PRESS_FEEDBACK_SHORT,
+    ],
+    "wear-card--variants": [
+      "Залитая",
+      "RemoteCard с формой, отступами и двумя цветами, которые она рисует (контейнер и содержимое). Выключенный enabled только отключает нажатие: у карточек нет цветов для неактивного состояния." +
+        NO_PRESS_FEEDBACK_SHORT,
+    ],
+    "wear-card--outlined": [
+      "С обводкой",
+      "RemoteOutlinedCard: прозрачный контейнер в обводке, цвет и толщина которой берутся из outlinedCardBorder." +
+        NO_PRESS_FEEDBACK_SHORT,
+    ],
+    "wear-card--image": [
+      "Фон из картинки",
+      "Карточка с заголовком поверх картинки: RemoteCardDefaults.containerPainter рисует картинку под содержимым с затемнением, чтобы текст читался." +
+        NO_PRESS_FEEDBACK_SHORT,
+    ],
+    "wear-app-card--default": [
+      "Карточка приложения",
+      "Картинка и название приложения, время, заголовок и текст в раскладке карточки Wear. Пустое время или текст убирают свой слот. Цвета — пять RemoteCardColors, которые рисует карточка приложения (подзаголовка у неё нет)." +
+        NO_PRESS_FEEDBACK_SHORT,
+    ],
+    "wear-title-card--default": [
+      "Карточка с заголовком",
+      "Заголовок, время, подзаголовок и текст; пустое время, подзаголовок или текст убирают свой слот. Цвета — пять RemoteCardColors, которые рисует карточка с заголовком (названия приложения у неё нет)." +
+        NO_PRESS_FEEDBACK_SHORT,
+    ],
+    "wear-text--default": ["Текст", "Title medium по центру, с «…» после maxLines."],
+    "wear-icon--default": ["Иконка", "Векторная иконка заданного размера и цвета."],
+    "wear-circular-progress--default": [
+      "Круговой прогресс",
+      "Определённый прогресс или бесконечный спиннер. На 100% кольцо замыкается в полный круг.", // lint-ok: percentages and degrees in prose
+    ],
+    "wear-linear-progress--default": ["Линейный прогресс", "Полоса прогресса через весь экран."],
+    "wear-curved-progress--default": [
+      "Изогнутый прогресс",
+      "Индикатор вдоль края: по умолчанию от 135° с охватом 90°. Известное ограничение: на 100% при охвате 360° кольцо не смыкается. Полная дуга начинается на половину толщины линии после startAngle и короче на одну толщину, поэтому её скруглённые концы сходятся в startAngle с перетяжкой. Это баг изогнутых индикаторов (этого и intro/outro), а не задуманный вид. У кругового прогресса был похожий баг — зазор на 100%, — его исправляет remote-material3 1.0.0-alpha16. Изогнутые индикаторы по-прежнему с перетяжкой, и исправления для них в AndroidX пока нет.", // lint-ok: percentages and degrees in prose
+    ],
+    "wear-curved-progress--intro-outro": [
+      "Intro и outro",
+      "Нажимайте на экран, чтобы менять прогресс 0 → 50% → 100% → 0. Индикатор intro/outro сделан для таймеров и целей (шаги, тренировка): когда прогресс уходит от 0, точка в начале вырастает и толкает трек перед собой; когда прогресс доходит до 100%, хвост трека схлопывается, и дуга добегает до конца примерно за 0.85 с. Пружины играют, только когда прогресс меняется внутри документа, поэтому story держит его в MutableRemoteFloat и меняет по тапу. Известное ограничение: на 100% при охвате 360° кольцо сходится с перетяжкой (см. «Изогнутый прогресс»)." + // lint-ok: percentages and degrees in prose
+        NO_PRESS_FEEDBACK_SHORT,
+    ],
+    "wear-page-indicator--default": [
+      "Индикатор страниц",
+      "Горизонтальные или вертикальные точки для числа страниц и выбранной страницы.",
+    ],
+    "wear-theme--colors": [
+      "Цвета, формы и анимация",
+      "Копия цветовой схемы по умолчанию с заменёнными основными ролями, набор форм и схема анимации на тексте, карточке с заголовком, полосе прогресса, предупреждении и кнопке. Схема анимации задаёт пружины анимированных компонентов (например, нажатие в группе кнопок), поэтому на неподвижном экране изменений не видно." +
+        NO_PRESS_FEEDBACK_SHORT,
+    ],
   };
 
   const plainRu = {
@@ -600,6 +893,11 @@
       }
       return component.plain;
     },
+    // The story's name and description in the current language: {name, description}.
+    story(story) {
+      const ru = I18n.lang === "ru" && storiesRu[story.id];
+      return ru ? { name: ru[0], description: ru[1] } : { name: story.name, description: story.description };
+    },
     // The component's "how it works" explanation in the current language, or null.
     how(component) {
       return (I18n.lang === "ru" ? howRu : howEn)[component.id] || null;
@@ -624,7 +922,7 @@
         });
       }
     },
-    keys: { en, ru, plainRu, categoriesRu },
+    keys: { en, ru, plainRu, categoriesRu, storiesRu },
   };
   document.documentElement.lang = I18n.lang;
   window.RcI18n = I18n;

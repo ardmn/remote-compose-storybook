@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.size
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
@@ -14,6 +15,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asSkiaBitmap
+import androidx.compose.ui.graphics.isSpecified
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.ComposeViewport
@@ -39,29 +41,35 @@ import kotlin.io.encoding.Base64
 import kotlin.io.encoding.ExperimentalEncodingApi
 import org.jetbrains.skia.EncodedImageFormat
 import org.jetbrains.skia.Image
+import rcstorybook.catalog.ARGB_HEX_DIGITS
 import rcstorybook.catalog.Args
 import rcstorybook.catalog.Catalog
+import rcstorybook.catalog.RGB_HEX_DIGITS
 import rcstorybook.catalog.Story
+import rcstorybook.catalog.hexOrNull
 
 /** The stage size a page may ask for, in dp. */
 private const val MIN_STAGE_DP = 16
 private const val MAX_STAGE_DP = 4000
 
-private const val HEX_RADIX = 16
+private const val OPAQUE = 0xFF000000L
 
-/** `AARRGGBB`. */
-private const val ARGB_HEX_DIGITS = 8
+/** The page's event for a document report (web/app.js listens for it). */
+private const val DOCUMENT_EVENT = "rcstorybook:document"
 
-private val DarkStageBackground = Color(0xFF121316)
+/** The document report's args (as show() returns them) and its structural diff. */
+private const val REPORT_ARGS = "args"
+private const val REPORT_DIFF = "diff"
+
+/** The document report's bytes, base64. */
+private const val REPORT_BASE64 = "base64"
 
 /**
- * A Wear story's stage is black whatever its shape or the page theme: Wear OS components draw in
- * dark-theme colors only (the same value as web/app.js sizeStage).
+ * What the stage shows: a story and the values of its args. [canonicalArgs] is the args as the page
+ * gets them back (JSON); the document report carries it, so the page and the end-to-end test can
+ * tell a document for these args from one for the story's previous args.
  */
-private val WearStageBackground = Color.Black
-
-/** What the stage shows: a story and the values of its args. */
-private data class Selection(val story: Story, val args: Args)
+private data class Selection(val story: Story, val args: Args, val canonicalArgs: String)
 
 /** The stage as the page sizes it: the player's viewport in dp, and its theme. */
 private data class StageConfig(
@@ -69,17 +77,13 @@ private data class StageConfig(
     val widthDp: Int = 360,
     val heightDp: Int = 360,
     val centered: Boolean = true,
-    /** The story is a Wear OS story: the stage is black (the page decides the round clip). */
-    val wear: Boolean = false,
-) {
-    val background: Color
-        get() =
-            when {
-                wear -> WearStageBackground
-                dark -> DarkStageBackground
-                else -> Color.White
-            }
-}
+    /**
+     * The stage's background, as the page paints the frame around it (web/app.js
+     * `STAGE_BACKGROUNDS` is the one owner of these colours). Unspecified (no or a malformed colour
+     * from the page) paints nothing: the player has no colour of its own to fall back to.
+     */
+    val background: Color = Color.Unspecified,
+)
 
 private var selection by mutableStateOf<Selection?>(null)
 private var stageConfig by mutableStateOf(StageConfig())
@@ -94,7 +98,13 @@ private var typefaces by mutableStateOf<RcTypefaceLoader>(RcTypefaceLoader.Defau
 private val lastDocuments = mutableMapOf<String, List<String>>()
 
 /** The last document report each story sent, to send again when nothing changed. */
-private val lastReports = mutableMapOf<String, String>()
+private val lastReports = mutableMapOf<String, Map<String, Any?>>()
+
+/**
+ * The selection the remote content last composed, set from inside it: the player has rendered it
+ * when [RcEmbeddedPlayer]'s onRendered follows. Not snapshot state: nothing recomposes on it.
+ */
+private var composedSelection: Selection? = null
 
 /**
  * Values the page sets "as the host app" (the Host values tab), by the document's own variable
@@ -133,7 +143,7 @@ fun main() {
                             ?.toInt()
                             ?.coerceIn(MIN_STAGE_DP, MAX_STAGE_DP) ?: 360,
                     centered = jsProperty(config, "layout") != "topstart",
-                    wear = jsProperty(config, "wear") == "true",
+                    background = parseStageBackground(jsProperty(config, "background")),
                 )
         },
         hostValue = { name, type, value -> setHostValue(name.toString(), type, value.toString()) },
@@ -174,19 +184,29 @@ private fun show(id: String, rawArgs: JsAny, fresh: Boolean): String {
             arg.name to (jsProperty(rawArgs, arg.name)?.let { arg.parse(it) } ?: arg.default)
         }
     if (fresh) lastDocuments.remove(id)
-    val next = Selection(story, Args(values))
+    val canonical = toJson(story.args.associate { it.name to it.canonicalOf(values[it.name]) })
+    val next = Selection(story, Args(values), canonical)
     if (next == selection) {
         // Nothing to recompose, so no new document will come: send the page the current one again
         // (it may have been away from this story, on a page with no stage).
-        lastReports[id]?.let { emit("rcstorybook:document", it) }
+        lastReports[id]?.let { emit(DOCUMENT_EVENT, toJson(it)) }
     } else {
         // A new document is coming; host values belonged to the previous one.
         hostValues.clear()
         hostDocument = null
         selection = next
     }
-    return toJson(story.args.associate { it.name to it.canonicalOf(values[it.name]) })
+    return canonical
 }
+
+private fun Modifier.stageBackground(color: Color): Modifier =
+    if (color.isSpecified) background(color) else this
+
+/** `#RRGGBB` from the page, opaque; anything else is [Color.Unspecified]. */
+private fun parseStageBackground(raw: String?): Color =
+    raw?.removePrefix("#")
+        ?.let { hexOrNull(it, RGB_HEX_DIGITS) }
+        ?.let { Color((OPAQUE or it).toInt()) } ?: Color.Unspecified
 
 private fun setHostValue(name: String, type: Int, raw: String) {
     val value: RcNamedValue? =
@@ -196,10 +216,9 @@ private fun setHostValue(name: String, type: Int, raw: String) {
             RcNamedVariable.INT_TYPE -> raw.toIntOrNull()?.let { RcNamedValue.Integer(it) }
             RcNamedVariable.LONG_TYPE -> raw.toLongOrNull()?.let { RcNamedValue.LongValue(it) }
             RcNamedVariable.COLOR_TYPE ->
-                raw.removePrefix("#")
-                    .takeIf { it.length == ARGB_HEX_DIGITS }
-                    ?.toLongOrNull(HEX_RADIX)
-                    ?.let { RcNamedValue.Color(it.toInt()) }
+                hexOrNull(raw.removePrefix("#"), ARGB_HEX_DIGITS)?.let {
+                    RcNamedValue.Color(it.toInt())
+                }
             else -> null
         }
     if (value == null) hostValues.remove(name) else hostValues[name] = value
@@ -224,7 +243,7 @@ private fun Stage() {
                 replay,
                 modifier =
                     Modifier.size(config.widthDp.dp, config.heightDp.dp)
-                        .background(config.background),
+                        .stageBackground(config.background),
                 theme = if (config.dark) RcPlayerTheme.Dark else RcPlayerTheme.Light,
                 namedValues = hostValues,
                 onEvent = { event ->
@@ -237,14 +256,16 @@ private fun Stage() {
         RcEmbeddedPlayer(
             display = display,
             modifier =
-                Modifier.size(config.widthDp.dp, config.heightDp.dp).background(config.background),
+                Modifier.size(config.widthDp.dp, config.heightDp.dp)
+                    .stageBackground(config.background),
             theme = if (config.dark) RcPlayerTheme.Dark else RcPlayerTheme.Light,
             typefaces = typefaces,
             encodePng = ::encodePng,
             onEvent = { event ->
                 emit("rcstorybook:event", toJson(describe(current.story.id, event)))
             },
-            onDocument = { document -> report(current.story, document) },
+            onDocument = { document -> report(current, document) },
+            onRendered = { composedSelection?.let(::reportSameDocument) },
             onFailure = { error ->
                 emit(
                     "rcstorybook:failure",
@@ -258,6 +279,7 @@ private fun Stage() {
             },
             key = current,
         ) {
+            SideEffect { composedSelection = current }
             if (config.centered) {
                 // Storybook's "centered" layout: a full-size box around the story. It is part of
                 // the
@@ -276,37 +298,62 @@ private fun Stage() {
 }
 
 @OptIn(ExperimentalEncodingApi::class)
-private fun report(story: Story, document: RcDocument) {
+private fun report(shown: Selection, document: RcDocument) {
+    val story = shown.story
     val bytes = RcDocumentCodec.encode(document)
     val lines = document.structureLines()
     val previous = lastDocuments[story.id]
-    // A recomposition that changed nothing in the document (fonts arriving, say) is not news: keep
-    // the last report, and with it the Changes tab's diff of the last real change.
-    if (previous == lines) return
-    val diff = previous?.let { unifiedDiff(it, lines) }?.takeIf { it.isNotEmpty() }
+    val unchanged = previous == lines
+    // A recomposition that changed nothing in the document for the same args (fonts arriving, say)
+    // is not news: keep the last report, and with it the Changes tab's diff of the last real
+    // change.
+    // New args that make the same document are reported, with no diff: the page (and the
+    // end-to-end test) waits for a document of the args it asked for.
+    if (unchanged && lastReports[story.id]?.get(REPORT_ARGS) == shown.canonicalArgs) return
+    val diff =
+        if (unchanged) null
+        else previous?.let { unifiedDiff(it, lines) }?.takeIf { it.isNotEmpty() }
     lastDocuments[story.id] = lines
     val report =
-        toJson(
-            mapOf(
-                "story" to story.id,
-                "bytes" to bytes.size,
-                "operations" to document.operations.size,
-                "structure" to lines.joinToString("\n"),
-                "diff" to diff,
-                "base64" to Base64.encode(bytes),
-                // The document's constant texts: the page offers them to screen readers, which
-                // cannot read a canvas.
-                "texts" to screenReaderTexts(document),
-                // The variables a host can set by name, with the wire type the page edits them as.
-                "named" to
-                    document.operations.filterIsInstance<RcNamedVariable>().map {
-                        mapOf("name" to it.name, "type" to it.type)
-                    },
-            ),
+        mapOf(
+            "story" to story.id,
+            // The args this document was made from, as show() returned them.
+            REPORT_ARGS to shown.canonicalArgs,
+            "bytes" to bytes.size,
+            "operations" to document.operations.size,
+            "structure" to lines.joinToString("\n"),
+            REPORT_DIFF to diff,
+            REPORT_BASE64 to Base64.encode(bytes),
+            // The document's constant texts: the page offers them to screen readers, which
+            // cannot read a canvas.
+            "texts" to screenReaderTexts(document),
+            // The variables a host can set by name, with the wire type the page edits them as.
+            "named" to
+                document.operations.filterIsInstance<RcNamedVariable>().map {
+                    mapOf("name" to it.name, "type" to it.type)
+                },
         )
     lastReports[story.id] = report
     if (story == selection?.story) hostDocument = bytes
-    emit("rcstorybook:document", report)
+    emit(DOCUMENT_EVENT, toJson(report))
+}
+
+/**
+ * The player rendered [shown] and made no new document (new args that draw the same thing): the
+ * last report again, labelled with these args and with no diff, as the page waits for them.
+ */
+@OptIn(ExperimentalEncodingApi::class)
+private fun reportSameDocument(shown: Selection) {
+    val id = shown.story.id
+    val last = lastReports[id] ?: return
+    if (last[REPORT_ARGS] == shown.canonicalArgs) return
+    val report = last + mapOf(REPORT_ARGS to shown.canonicalArgs, REPORT_DIFF to null)
+    lastReports[id] = report
+    // show() dropped the replay document for the new args; it is this same document, so host
+    // values set from now on replay it, as they do after a new one.
+    if (shown == selection)
+        (last[REPORT_BASE64] as? String)?.let { hostDocument = Base64.decode(it) }
+    emit(DOCUMENT_EVENT, toJson(report))
 }
 
 /**
