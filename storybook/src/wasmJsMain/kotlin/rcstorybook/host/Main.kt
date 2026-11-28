@@ -54,6 +54,13 @@ private const val MAX_STAGE_DP = 4000
 
 private const val OPAQUE = 0xFF000000L
 
+/** The page's event for a document report (web/app.js listens for it). */
+private const val DOCUMENT_EVENT = "rcstorybook:document"
+
+/** The document report's args (as show() returns them) and its structural diff. */
+private const val REPORT_ARGS = "args"
+private const val REPORT_DIFF = "diff"
+
 /**
  * What the stage shows: a story and the values of its args. [canonicalArgs] is the args as the page
  * gets them back (JSON); the document report carries it, so the page and the end-to-end test can
@@ -179,7 +186,7 @@ private fun show(id: String, rawArgs: JsAny, fresh: Boolean): String {
     if (next == selection) {
         // Nothing to recompose, so no new document will come: send the page the current one again
         // (it may have been away from this story, on a page with no stage).
-        lastReports[id]?.let { emit("rcstorybook:document", toJson(it)) }
+        lastReports[id]?.let { emit(DOCUMENT_EVENT, toJson(it)) }
     } else {
         // A new document is coming; host values belonged to the previous one.
         hostValues.clear()
@@ -299,7 +306,7 @@ private fun report(shown: Selection, document: RcDocument) {
     // change.
     // New args that make the same document are reported, with no diff: the page (and the
     // end-to-end test) waits for a document of the args it asked for.
-    if (unchanged && lastReports[story.id]?.get("args") == shown.canonicalArgs) return
+    if (unchanged && lastReports[story.id]?.get(REPORT_ARGS) == shown.canonicalArgs) return
     val diff =
         if (unchanged) null
         else previous?.let { unifiedDiff(it, lines) }?.takeIf { it.isNotEmpty() }
@@ -308,11 +315,11 @@ private fun report(shown: Selection, document: RcDocument) {
         mapOf(
             "story" to story.id,
             // The args this document was made from, as show() returned them.
-            "args" to shown.canonicalArgs,
+            REPORT_ARGS to shown.canonicalArgs,
             "bytes" to bytes.size,
             "operations" to document.operations.size,
             "structure" to lines.joinToString("\n"),
-            "diff" to diff,
+            REPORT_DIFF to diff,
             "base64" to Base64.encode(bytes),
             // The document's constant texts: the page offers them to screen readers, which
             // cannot read a canvas.
@@ -325,7 +332,7 @@ private fun report(shown: Selection, document: RcDocument) {
         )
     lastReports[story.id] = report
     if (story == selection?.story) hostDocument = bytes
-    emit("rcstorybook:document", toJson(report))
+    emit(DOCUMENT_EVENT, toJson(report))
 }
 
 /**
@@ -335,10 +342,10 @@ private fun report(shown: Selection, document: RcDocument) {
 private fun reportSameDocument(shown: Selection) {
     val id = shown.story.id
     val last = lastReports[id] ?: return
-    if (last["args"] == shown.canonicalArgs) return
-    val report = last + mapOf("args" to shown.canonicalArgs, "diff" to null)
+    if (last[REPORT_ARGS] == shown.canonicalArgs) return
+    val report = last + mapOf(REPORT_ARGS to shown.canonicalArgs, REPORT_DIFF to null)
     lastReports[id] = report
-    emit("rcstorybook:document", toJson(report))
+    emit(DOCUMENT_EVENT, toJson(report))
 }
 
 /**
