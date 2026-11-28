@@ -726,7 +726,7 @@
     const pkgs = [...new Set(component.symbols.map((s) => s.replace(/\.[^.]+$/, "")))];
     const refs = pkgs.map(
       (p) =>
-        html`<a href="https://developer.android.com/reference/kotlin/${p.replace(/\./g, "/")}/package-summary" target="_blank" rel="noopener"><code>${breakable(p)}</code></a>`,
+        html`<a href="https://developer.android.com/reference/kotlin/${p.replace(/\./g, "/")}/package-summary" target="_blank" rel="noopener"><code>${breakable(p)}</code></a>`, // lint-ok: an HTML attribute value, not a domain value
     );
     parts.push(html`<h3>${t("docs.reference")}</h3><p>${joinHtml(refs, html`<br>`)}</p></div>`);
     setHtml($("docs"), html`${parts}`);
@@ -1121,7 +1121,7 @@ dependencies {
       overlay(null);
       $("docStats").textContent = t("stats", { bytes: doc.bytes.toLocaleString(), ops: doc.operations });
       const { component, story } = state.current;
-      $("stage").setAttribute("aria-label", `Stage: ${component.title}, ${storyName(story)}`);
+      $("stage").setAttribute("aria-label", `Stage: ${component.title}, ${storyName(story)}`); // lint-ok: a DOM attribute name, as everywhere in this file
       $("stageText").textContent = (doc.texts || []).length
         ? t("stage.text", { texts: doc.texts.join("; ") })
         : (I18n.plain(component) && I18n.plain(component).what) || I18n.story(story).description;
